@@ -1,0 +1,301 @@
+import { Theme } from '@astryxdesign/core/theme'
+import { neutralTheme } from '@astryxdesign/theme-neutral/built'
+import { Heading } from '@astryxdesign/core/Heading'
+import { Text } from '@astryxdesign/core/Text'
+import { Card } from '@astryxdesign/core/Card'
+import { Badge } from '@astryxdesign/core/Badge'
+import { VStack } from '@astryxdesign/core/VStack'
+import { HStack } from '@astryxdesign/core/HStack'
+import { Button } from '@astryxdesign/core/Button'
+import { IconButton } from '@astryxdesign/core/IconButton'
+import { Icon } from '@astryxdesign/core/Icon'
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@astryxdesign/core/SegmentedControl'
+import { DateRangeInput } from '@astryxdesign/core/DateRangeInput'
+import type { DateRange } from '@astryxdesign/core/DateRangeInput'
+import type { ISODateString } from '@astryxdesign/core/Calendar'
+import { EmptyState } from '@astryxdesign/core/EmptyState'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { UsageCharts } from './components/UsageCharts'
+import { fmtCompact, fmtUsd } from './lib/format'
+import {
+  indexForPreset,
+  loadUsage,
+  summarizeRange,
+  type DailyRow,
+  type UsagePayload,
+} from './lib/usage'
+
+type Preset = '7' | '30' | '90' | 'all'
+
+function ReportApp() {
+  const [payload, setPayload] = useState<UsagePayload | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [preset, setPreset] = useState<Preset>('30')
+  const [range, setRange] = useState<[number, number]>([0, -1])
+
+  useEffect(() => {
+    let cancelled = false
+    loadUsage()
+      .then((data) => {
+        if (cancelled) return
+        setPayload(data)
+        setRange(indexForPreset(data.daily, '30'))
+        setPreset('30')
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message || String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const daily = payload?.daily ?? []
+  const visible = useMemo(() => {
+    if (!daily.length || range[1] < range[0]) return [] as DailyRow[]
+    return daily.slice(range[0], range[1] + 1)
+  }, [daily, range])
+
+  const summary = useMemo(() => summarizeRange(visible), [visible])
+
+  const dateRangeValue: DateRange | null = useMemo(() => {
+    if (!visible.length) return null
+    return {
+      start: visible[0].date as ISODateString,
+      end: visible[visible.length - 1].date as ISODateString,
+    }
+  }, [visible])
+
+  const applyPreset = useCallback(
+    (next: Preset) => {
+      setPreset(next)
+      setRange(indexForPreset(daily, next))
+    },
+    [daily],
+  )
+
+  const onRangeChange = useCallback((next: [number, number]) => {
+    setRange(next)
+    setPreset('all')
+  }, [])
+
+  const nudge = useCallback(
+    (dir: -1 | 1) => {
+      if (!daily.length || range[1] < range[0]) return
+      const width = range[1] - range[0]
+      let i0 = range[0] + dir
+      let i1 = range[1] + dir
+      if (i0 < 0) {
+        i0 = 0
+        i1 = width
+      }
+      if (i1 > daily.length - 1) {
+        i1 = daily.length - 1
+        i0 = Math.max(0, i1 - width)
+      }
+      setRange([i0, i1])
+      setPreset('all')
+    },
+    [daily, range],
+  )
+
+  const onDatesChange = useCallback(
+    (value: DateRange | null) => {
+      if (!value?.start || !value?.end || !daily.length) return
+      let i0 = daily.findIndex((r) => r.date >= value.start)
+      let i1 = -1
+      for (let i = daily.length - 1; i >= 0; i -= 1) {
+        if (daily[i].date <= value.end) {
+          i1 = i
+          break
+        }
+      }
+      if (i0 < 0) i0 = 0
+      if (i1 < 0) i1 = daily.length - 1
+      if (i1 < i0) [i0, i1] = [i1, i0]
+      setRange([i0, i1])
+      setPreset('all')
+    },
+    [daily],
+  )
+
+  if (error) {
+    return (
+      <div className="page">
+        <EmptyState title="Could not load usage data" description={error} />
+      </div>
+    )
+  }
+
+  if (!payload) {
+    return (
+      <div className="page">
+        <Text color="secondary">Loading usage report…</Text>
+      </div>
+    )
+  }
+
+  const spanLabel =
+    visible.length > 0
+      ? `${visible[0].date} — ${visible[visible.length - 1].date} · ${visible.length} day(s)`
+      : '—'
+
+  const fullSpan =
+    payload.timeline_meta?.span ||
+    `${daily[0]?.date || '—'} — ${daily.at(-1)?.date || '—'}`
+
+  return (
+    <div className="page">
+      <VStack gap={6}>
+        <VStack gap={2}>
+          <Badge label="Usage report" variant="neutral" />
+          <Heading level={1} type="display-2">
+            AI coding spend & tokens
+          </Heading>
+          <HStack gap={4} wrap="wrap">
+            <Text size="sm" color="secondary">
+              Generated {payload.generated_at || '—'}
+            </Text>
+            <Text size="sm" color="secondary">
+              Timezone {payload.timezone || '—'}
+            </Text>
+            <Text size="sm" color="secondary">
+              Full span {fullSpan}
+            </Text>
+          </HStack>
+        </VStack>
+
+        <Card variant="muted" padding={4}>
+          <VStack gap={2}>
+            <Text size="sm" color="secondary">
+              All tools combined
+            </Text>
+            <HStack gap={3} wrap="wrap" align="center">
+              <Heading level={2}>{fmtCompact(summary.tokens)}</Heading>
+              <Text color="secondary">tokens total</Text>
+              <Text color="secondary">·</Text>
+              <Heading level={2}>{fmtCompact(summary.cache)}</Heading>
+              <Text color="secondary">cache tokens</Text>
+              <Text color="secondary">·</Text>
+              <Heading level={2}>{fmtUsd(summary.cost)}</Heading>
+              <Text color="secondary">spend total</Text>
+            </HStack>
+            <Text size="sm" color="secondary">
+              Totals for visible range: {spanLabel}
+            </Text>
+          </VStack>
+        </Card>
+
+        <Text size="sm" color="secondary">
+          <Text weight="semibold">Token breakdown: </Text>
+          {payload.notes?.token_breakdown ||
+            'Cards and tooltips show input, cache, and output tokens per tool.'}{' '}
+          <Text weight="semibold">Cost estimate: </Text>
+          {payload.notes?.cost ||
+            'Codex/Claude from ccusage; Cursor from Dashboard API.'}
+        </Text>
+
+        <div className="tool-grid">
+          {summary.byTool.map((tool) => (
+            <Card key={tool.id} variant={tool.color} padding={4}>
+              <VStack gap={2}>
+                <HStack justify="between" align="center">
+                  <Heading level={3}>{tool.label}</Heading>
+                  <Badge label={fmtUsd(tool.cost)} variant="neutral" />
+                </HStack>
+                <Heading level={2}>{fmtCompact(tool.tokens)}</Heading>
+                <Text size="sm" color="secondary">
+                  tokens in visible range
+                </Text>
+                <div className="breakdown-grid">
+                  {tool.parts.map((part) => (
+                    <Fragment key={`${tool.id}-${part.label}`}>
+                      <Text size="sm" color="secondary">
+                        {part.label}
+                      </Text>
+                      <Text size="sm" justify="end">
+                        {fmtCompact(part.value)}
+                      </Text>
+                    </Fragment>
+                  ))}
+                </div>
+              </VStack>
+            </Card>
+          ))}
+        </div>
+
+        <VStack gap={3}>
+          <Heading level={3}>Time range</Heading>
+          <div className="controls-row">
+            <SegmentedControl
+              label="Range preset"
+              value={preset}
+              onChange={(v) => applyPreset(v as Preset)}
+              size="md"
+            >
+              <SegmentedControlItem value="7" label="7 days" />
+              <SegmentedControlItem value="30" label="30 days" />
+              <SegmentedControlItem value="90" label="90 days" />
+              <SegmentedControlItem value="all" label="All" />
+            </SegmentedControl>
+
+            <DateRangeInput
+              label="Dates"
+              value={dateRangeValue}
+              onChange={onDatesChange}
+              min={daily[0]?.date as ISODateString | undefined}
+              max={daily.at(-1)?.date as ISODateString | undefined}
+              size="md"
+              numberOfMonths={1}
+            />
+
+            <HStack gap={2} align="end">
+              <IconButton
+                label="Earlier"
+                icon={<Icon icon="chevronLeft" />}
+                onClick={() => nudge(-1)}
+              />
+              <IconButton
+                label="Later"
+                icon={<Icon icon="chevronRight" />}
+                onClick={() => nudge(1)}
+              />
+              <Button
+                label="Reset 30d"
+                variant="secondary"
+                size="md"
+                onClick={() => applyPreset('30')}
+              />
+            </HStack>
+          </div>
+        </VStack>
+
+        <Card padding={3}>
+          {daily.length ? (
+            <UsageCharts
+              daily={daily}
+              range={range}
+              onRangeChange={onRangeChange}
+            />
+          ) : (
+            <EmptyState
+              title="No daily rows"
+              description="Run npm run collect to refresh public/usage.json"
+            />
+          )}
+        </Card>
+      </VStack>
+    </div>
+  )
+}
+
+export default function App() {
+  return (
+    <Theme theme={neutralTheme} mode="light">
+      <ReportApp />
+    </Theme>
+  )
+}
