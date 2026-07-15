@@ -136,7 +136,11 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
     }
 
     const totalDaySpend = daily.map(
-      (r) => num(r, 'codex_cost') + num(r, 'claude_cost') + num(r, 'cursor_cost'),
+      (r) =>
+        num(r, 'codex_cost') +
+        num(r, 'claude_cost') +
+        num(r, 'cursor_cost') +
+        num(r, 'comate_cost'),
     )
 
     chart.setOption(
@@ -189,6 +193,7 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
             'Codex',
             'Claude',
             'Cursor',
+            'Comate',
             'Codex cache',
             'Claude cache',
             'Cursor cache',
@@ -299,8 +304,17 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
             stack: 'tokens',
             xAxisIndex: 0,
             yAxisIndex: 0,
-            itemStyle: stackSegStyle(TOOLS[2].hex, 'top'),
+            itemStyle: stackSegStyle(TOOLS[2].hex, 'mid'),
             data: daily.map((r) => num(r, 'cursor_tokens')),
+          },
+          {
+            name: 'Comate',
+            ...stackBar,
+            stack: 'tokens',
+            xAxisIndex: 0,
+            yAxisIndex: 0,
+            itemStyle: stackSegStyle(TOOLS[3].hex, 'top'),
+            data: daily.map((r) => num(r, 'comate_tokens')),
           },
           {
             name: 'Codex cache',

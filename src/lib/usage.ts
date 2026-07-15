@@ -3,9 +3,11 @@ export type DailyRow = {
   codex_tokens: number
   claude_tokens: number
   cursor_tokens: number
+  comate_tokens: number
   codex_cost: number
   claude_cost: number
   cursor_cost: number
+  comate_cost: number
   total_tokens: number
   total_cost: number
   codex_input: number
@@ -20,11 +22,17 @@ export type DailyRow = {
   cursor_cache_write: number
   cursor_cache_read: number
   cursor_output: number
+  comate_input: number
+  comate_output: number
+  comate_sessions?: number
+  comate_messages?: number
 }
 
 export type UsagePayload = {
   generated_at?: string | null
   timezone?: string
+  machine_id?: string
+  machines?: string[]
   tools?: Array<{
     tool: string
     history?: string
@@ -36,15 +44,16 @@ export type UsagePayload = {
   notes?: {
     token_breakdown?: string
     cost?: string
+    merge?: string
   }
 }
 
-export type ToolId = 'codex' | 'claude' | 'cursor'
+export type ToolId = 'codex' | 'claude' | 'cursor' | 'comate'
 
 export const TOOLS: Array<{
   id: ToolId
   label: string
-  color: 'blue' | 'orange' | 'teal'
+  color: 'blue' | 'orange' | 'teal' | 'muted'
   hex: string
   tokenKey: keyof DailyRow
   costKey: keyof DailyRow
@@ -95,6 +104,19 @@ export const TOOLS: Array<{
       { key: 'cursor_output', label: 'Output' },
     ],
     cacheKeys: ['cursor_cache_write', 'cursor_cache_read'],
+  },
+  {
+    id: 'comate',
+    label: 'Comate',
+    color: 'muted',
+    hex: '#a16207',
+    tokenKey: 'comate_tokens',
+    costKey: 'comate_cost',
+    breakdown: [
+      { key: 'comate_input', label: 'Context delta' },
+      { key: 'comate_output', label: 'Output' },
+    ],
+    cacheKeys: [],
   },
 ]
 

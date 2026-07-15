@@ -8,8 +8,10 @@ import datetime as dt
 import html
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import tempfile
 from typing import Any
@@ -18,7 +20,9 @@ from zoneinfo import ZoneInfo
 
 # Repo layout: scripts/ai_usage_comparison_image.py → SCRIPTS_DIR is this folder.
 SCRIPTS_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPTS_DIR.parent
 DEFAULT_TZ = "Asia/Shanghai"
+DEFAULT_MACHINES_DIR = REPO_ROOT / "public" / "machines"
 CURSOR_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
 
 
@@ -33,6 +37,8 @@ def load_module(name: str, path: Path):
 
 local_records = load_module("local_ai_usage_records", SCRIPTS_DIR / "local_ai_usage_records.py")
 cursor_api = load_module("cursor_usage_api_probe", SCRIPTS_DIR / "cursor_usage_api_probe.py")
+comate_usage = load_module("comate_usage", SCRIPTS_DIR / "comate_usage.py")
+machine_fragments = load_module("machine_fragments", SCRIPTS_DIR / "machine_fragments.py")
 
 
 def run_json(command: list[str], timeout: int = 240) -> Any:
@@ -191,6 +197,7 @@ TOOL_TOKEN_FIELDS: dict[str, list[str]] = {
     "codex": ["input", "cache_read", "output", "reasoning"],
     "claude": ["input", "cache_create", "cache_read", "output"],
     "cursor": ["input", "cache_write", "cache_read", "output"],
+    "comate": ["input", "output"],
 }
 
 
@@ -201,6 +208,8 @@ def empty_daily_row(date_key: str) -> dict[str, Any]:
         row[f"{prefix}_cost"] = 0.0
         for field in TOOL_TOKEN_FIELDS[prefix]:
             row[f"{prefix}_{field}"] = 0
+    row["comate_sessions"] = 0
+    row["comate_messages"] = 0
     row["total_tokens"] = 0
     row["total_cost"] = 0.0
     return row
@@ -211,6 +220,9 @@ def apply_tool_point(row: dict[str, Any], prefix: str, point: dict[str, Any]) ->
     row[f"{prefix}_cost"] = safe_float(point.get("cost"))
     for field in TOOL_TOKEN_FIELDS[prefix]:
         row[f"{prefix}_{field}"] = safe_int(point.get(field))
+    if prefix == "comate":
+        row["comate_sessions"] = safe_int(point.get("sessions"))
+        row["comate_messages"] = safe_int(point.get("messages"))
 
 
 def usage_daily_rows(payload: Any) -> list[dict[str, Any]]:
@@ -233,9 +245,15 @@ def merge_daily_timeline(
     codex_pts: list[dict[str, Any]],
     claude_pts: list[dict[str, Any]],
     cursor_pts: list[dict[str, Any]],
+    comate_pts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     by_date: dict[str, dict[str, Any]] = {}
-    for prefix, points in (("codex", codex_pts), ("claude", claude_pts), ("cursor", cursor_pts)):
+    for prefix, points in (
+        ("codex", codex_pts),
+        ("claude", claude_pts),
+        ("cursor", cursor_pts),
+        ("comate", comate_pts or []),
+    ):
         for point in points:
             date_key = str(point.get("date") or "")
             if not date_key:
@@ -249,12 +267,14 @@ def merge_daily_timeline(
         ct = safe_int(row.get("codex_tokens"))
         lt = safe_int(row.get("claude_tokens"))
         ut = safe_int(row.get("cursor_tokens"))
+        mt = safe_int(row.get("comate_tokens"))
         cc = safe_float(row.get("codex_cost"))
         lc = safe_float(row.get("claude_cost"))
         uc = safe_float(row.get("cursor_cost"))
-        if ct or lt or ut or cc or lc or uc:
-            row["total_tokens"] = ct + lt + ut
-            row["total_cost"] = cc + lc + uc
+        mc = safe_float(row.get("comate_cost"))
+        if ct or lt or ut or mt or cc or lc or uc or mc:
+            row["total_tokens"] = ct + lt + ut + mt
+            row["total_cost"] = cc + lc + uc + mc
             rows.append(row)
     return rows
 
@@ -445,9 +465,15 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
         ["npx", "ccusage@latest", "claude", "daily", "-z", timezone, "--json", "--offline", "--since", day_arg, "--until", day_arg]
     )
     cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone, start_ms, end_ms)
+    comate = comate_usage.parse_comate(home, timezone)
 
     codex_pts = codex_daily_points(usage_daily_rows(codex_usage))
     claude_pts = claude_daily_points(usage_daily_rows(claude_usage))
+    comate_pts = [
+        point
+        for point in (comate.get("daily_timeline") or [])
+        if isinstance(point, dict) and point.get("date") == today_key
+    ]
     cursor_pts: list[dict[str, Any]] = []
     if cursor_usage.get("available"):
         cursor_pts = cursor_usage.get("daily_timeline") or []
@@ -458,7 +484,7 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
             if tokens or cost:
                 cursor_pts = [*cursor_pts, {"date": today_key, "tokens": tokens, "cost": cost}]
 
-    rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts)
+    rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts, comate_pts)
     row = daily_row_for_date(today_key, rows)
     return {
         "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -466,6 +492,7 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
         "date": today_key,
         "row": row,
         "cursor": cursor_usage,
+        "comate": comate,
     }
 
 
@@ -498,11 +525,20 @@ def render_today_text(data: dict[str, Any]) -> str:
             f"{fmt_int(row.get('cursor_output')):>12} "
             f"{fmt_usd(row.get('cursor_cost')):>12}"
         ),
+        (
+            f"{'Comate':<12} {fmt_int(row.get('comate_tokens')):>12} "
+            f"{fmt_int(row.get('comate_input')):>12} "
+            f"{fmt_int(0):>12} "
+            f"{fmt_int(row.get('comate_output')):>12} "
+            f"{fmt_usd(row.get('comate_cost')):>12}"
+        ),
         f"{'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12}",
         f"{'Total':<12} {fmt_int(row.get('total_tokens')):>12} {'':>12} {'':>12} {'':>12} {fmt_usd(row.get('total_cost')):>12}",
         "",
         "Cache column = cache read for Codex; cache create + read for Claude; cache write + read for Cursor.",
+        "Comate tokens are local contextUsed positive deltas (not billable); cost is always $0.",
         "Codex reasoning tokens are included in total but omitted from this table.",
+        "Ducc (Claude wrapper) is counted under Claude Code.",
     ]
     cursor = data.get("cursor") if isinstance(data.get("cursor"), dict) else {}
     if cursor.get("error"):
@@ -512,54 +548,254 @@ def render_today_text(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def collect_usage(home: Path, timezone: str, tmp_dir: Path, cursor_page_size: int) -> dict[str, Any]:
-    codex_usage = run_json(["npx", "ccusage@latest", "codex", "daily", "-z", timezone, "--json", "--offline"])
-    claude_usage = run_json(["npx", "ccusage@latest", "claude", "daily", "-z", timezone, "--json", "--offline"])
-    local_summary = local_record_summary(home, tmp_dir)
-    cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
+def load_previous_cursor_points(usage_json: Path) -> list[dict[str, Any]]:
+    if not usage_json.is_file():
+        return []
+    try:
+        payload = json.loads(usage_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    points: list[dict[str, Any]] = []
+    for row in payload.get("daily") or []:
+        if not isinstance(row, dict):
+            continue
+        date_key = str(row.get("date") or "")
+        tokens = safe_int(row.get("cursor_tokens"))
+        cost = safe_float(row.get("cursor_cost"))
+        if not date_key or not (tokens or cost):
+            continue
+        points.append(
+            {
+                "date": date_key,
+                "tokens": tokens,
+                "cost": cost,
+                "input": safe_int(row.get("cursor_input")),
+                "cache_write": safe_int(row.get("cursor_cache_write")),
+                "cache_read": safe_int(row.get("cursor_cache_read")),
+                "output": safe_int(row.get("cursor_output")),
+            }
+        )
+    return points
 
-    codex_rows = usage_daily_rows(codex_usage)
-    claude_rows = usage_daily_rows(claude_usage)
-    codex_first, codex_last = daily_range(codex_rows, codex=True)
-    claude_first, claude_last = daily_range(claude_rows)
-    codex_totals = usage_totals(codex_usage)
-    claude_totals = usage_totals(claude_usage)
 
-    codex_summary = {
-        "tool": "Codex",
-        "history": fmt_range(codex_first, codex_last),
-        "cost": safe_float(codex_totals.get("costUSD")),
-        "total_tokens": safe_int(codex_totals.get("totalTokens")),
-    }
-    claude_summary = {
-        "tool": "Claude Code",
-        "history": fmt_range(claude_first, claude_last),
-        "cost": safe_float(claude_totals.get("totalCost")),
-        "total_tokens": safe_int(claude_totals.get("totalTokens")),
-    }
+def resolve_cursor_points(
+    cursor_usage: dict[str, Any],
+    usage_json: Path | None = None,
+) -> list[dict[str, Any]]:
+    api_points: list[dict[str, Any]] = []
     if cursor_usage.get("available"):
-        cursor_history = cursor_usage["history"]
+        api_points = [p for p in (cursor_usage.get("daily_timeline") or []) if isinstance(p, dict) and p.get("date")]
+
+    prev_points = load_previous_cursor_points(usage_json) if usage_json is not None else []
+    if not api_points:
+        return prev_points
+    if not prev_points:
+        return api_points
+
+    # API wins on overlapping dates; keep prior days the API did not return
+    # (partial Dashboard responses must not wipe months of Cursor history).
+    by_date = {str(p["date"]): p for p in prev_points}
+    for point in api_points:
+        by_date[str(point["date"])] = point
+    return [by_date[key] for key in sorted(by_date)]
+
+
+def build_local_machine_daily(
+    codex_pts: list[dict[str, Any]],
+    claude_pts: list[dict[str, Any]],
+    comate_pts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Local-only daily rows for this machine fragment (no Cursor)."""
+    return merge_daily_timeline(codex_pts, claude_pts, [], comate_pts)
+
+
+def collect_usage(
+    home: Path,
+    timezone: str,
+    tmp_dir: Path,
+    cursor_page_size: int,
+    *,
+    machine_id: str | None = None,
+    machines_dir: Path | None = None,
+    merge: bool = True,
+    merge_only: bool = False,
+    usage_json_path: Path | None = None,
+) -> dict[str, Any]:
+    mid = machine_fragments.resolve_machine_id(machine_id)
+    machines_path = Path(machines_dir) if machines_dir else DEFAULT_MACHINES_DIR
+    prior_usage = usage_json_path or (REPO_ROOT / "public" / "usage.json")
+    cursor_fallback_note = ""
+
+    if merge_only:
+        cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
+        cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
+        if not cursor_usage.get("available") and cursor_pts:
+            cursor_fallback_note = "Cursor API unavailable; kept prior usage.json Cursor series."
+            cursor_usage = {
+                **cursor_usage,
+                "available": True,
+                "history": {
+                    "first": cursor_pts[0]["date"],
+                    "last": cursor_pts[-1]["date"],
+                    "cost": sum(safe_float(p.get("cost")) for p in cursor_pts),
+                    "total_tokens": sum(safe_int(p.get("tokens")) for p in cursor_pts),
+                },
+                "daily_timeline": cursor_pts,
+                "error": cursor_fallback_note,
+            }
+        fragments = machine_fragments.load_machine_fragments(machines_path)
+        local_merged, machine_ids = machine_fragments.merge_local_fragments(
+            fragments,
+            empty_daily_row,
+            TOOL_TOKEN_FIELDS,
+            safe_int,
+            safe_float,
+        )
+        daily_rows = machine_fragments.apply_cursor_points(
+            local_merged,
+            cursor_pts,
+            empty_daily_row,
+            apply_tool_point,
+            safe_int,
+            safe_float,
+        )
+        comate = {"available": False, "note": "merge-only; Comate not re-parsed"}
+        local_summary = {"merge_only": True}
+        codex_summary = {"tool": "Codex", "history": "from fragments", "cost": 0, "total_tokens": 0}
+        claude_summary = {"tool": "Claude Code", "history": "from fragments", "cost": 0, "total_tokens": 0}
+        comate_summary = {"tool": "Comate", "history": "from fragments", "cost": 0, "total_tokens": 0}
+    else:
+        codex_usage = run_json(["npx", "ccusage@latest", "codex", "daily", "-z", timezone, "--json", "--offline"])
+        claude_usage = run_json(["npx", "ccusage@latest", "claude", "daily", "-z", timezone, "--json", "--offline"])
+        local_summary = local_record_summary(home, tmp_dir)
+        cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
+        comate = comate_usage.parse_comate(home, timezone)
+
+        codex_rows = usage_daily_rows(codex_usage)
+        claude_rows = usage_daily_rows(claude_usage)
+        codex_first, codex_last = daily_range(codex_rows, codex=True)
+        claude_first, claude_last = daily_range(claude_rows)
+        codex_totals = usage_totals(codex_usage)
+        claude_totals = usage_totals(claude_usage)
+
+        codex_summary = {
+            "tool": "Codex",
+            "history": fmt_range(codex_first, codex_last),
+            "cost": safe_float(codex_totals.get("costUSD")),
+            "total_tokens": safe_int(codex_totals.get("totalTokens")),
+        }
+        claude_summary = {
+            "tool": "Claude Code",
+            "history": fmt_range(claude_first, claude_last),
+            "cost": safe_float(claude_totals.get("totalCost")),
+            "total_tokens": safe_int(claude_totals.get("totalTokens")),
+        }
+        comate_hist = comate.get("history") if isinstance(comate.get("history"), dict) else {}
+        comate_summary = {
+            "tool": "Comate",
+            "history": fmt_range(str(comate_hist.get("first") or ""), str(comate_hist.get("last") or "")),
+            "cost": 0.0,
+            "total_tokens": safe_int(comate.get("total_tokens")),
+        }
+
+        codex_pts = codex_daily_points(codex_rows)
+        claude_pts = claude_daily_points(claude_rows)
+        comate_pts = [p for p in (comate.get("daily_timeline") or []) if isinstance(p, dict)]
+        local_daily = build_local_machine_daily(codex_pts, claude_pts, comate_pts)
+
+        fragment_file = machine_fragments.write_machine_fragment(
+            machines_path,
+            mid,
+            timezone,
+            local_daily,
+            TOOL_TOKEN_FIELDS,
+            safe_int,
+            safe_float,
+            hostname=socket.gethostname(),
+        )
+        local_summary["machine_fragment"] = str(fragment_file)
+
+        cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
+        if not cursor_usage.get("available") and cursor_pts:
+            cursor_fallback_note = "Cursor API unavailable; kept prior usage.json Cursor series."
+            cursor_usage = {
+                **cursor_usage,
+                "available": True,
+                "history": {
+                    "first": cursor_pts[0]["date"],
+                    "last": cursor_pts[-1]["date"],
+                    "cost": sum(safe_float(p.get("cost")) for p in cursor_pts),
+                    "total_tokens": sum(safe_int(p.get("tokens")) for p in cursor_pts),
+                },
+                "daily_timeline": cursor_pts,
+                "error": cursor_fallback_note,
+            }
+
+        if merge:
+            fragments = machine_fragments.load_machine_fragments(machines_path)
+            local_merged, machine_ids = machine_fragments.merge_local_fragments(
+                fragments,
+                empty_daily_row,
+                TOOL_TOKEN_FIELDS,
+                safe_int,
+                safe_float,
+            )
+            daily_rows = machine_fragments.apply_cursor_points(
+                local_merged,
+                cursor_pts,
+                empty_daily_row,
+                apply_tool_point,
+                safe_int,
+                safe_float,
+            )
+        else:
+            machine_ids = [mid]
+            daily_rows = machine_fragments.apply_cursor_points(
+                local_daily,
+                cursor_pts,
+                empty_daily_row,
+                apply_tool_point,
+                safe_int,
+                safe_float,
+            )
+
+    # Recompute per-tool summary totals from merged daily for UI cards
+    def sum_prefix(prefix: str) -> tuple[int, float, str]:
+        tokens = sum(safe_int(r.get(f"{prefix}_tokens")) for r in daily_rows)
+        cost = sum(safe_float(r.get(f"{prefix}_cost")) for r in daily_rows)
+        dates = [str(r.get("date")) for r in daily_rows if safe_int(r.get(f"{prefix}_tokens")) or safe_float(r.get(f"{prefix}_cost"))]
+        hist = fmt_range(dates[0], dates[-1]) if dates else "unknown"
+        return tokens, cost, hist
+
+    for summary, prefix in (
+        (codex_summary, "codex"),
+        (claude_summary, "claude"),
+        (comate_summary, "comate"),
+    ):
+        tokens, cost, hist = sum_prefix(prefix)
+        summary["total_tokens"] = tokens
+        summary["cost"] = cost
+        if summary.get("history") in ("from fragments", "unknown", "") or merge:
+            summary["history"] = hist
+
+    tokens_c, cost_c, hist_c = sum_prefix("cursor")
+    if cursor_usage.get("available") and tokens_c:
+        cursor_history = cursor_usage["history"] if isinstance(cursor_usage.get("history"), dict) else {}
+        api_hist = fmt_range(str(cursor_history.get("first", ""))[:10], str(cursor_history.get("last", ""))[:10])
         cursor_summary = {
             "tool": "Cursor",
-            "history": fmt_range(cursor_history.get("first", "")[:10], cursor_history.get("last", "")[:10]),
-            "cost": safe_float(cursor_history.get("cost")),
-            "total_tokens": safe_int(cursor_history.get("total_tokens")),
+            "history": hist_c or api_hist,
+            "cost": cost_c,
+            "total_tokens": tokens_c,
         }
     else:
         cursor_summary = {
             "tool": "Cursor",
-            "history": "unknown",
-            "cost": 0,
-            "total_tokens": 0,
+            "history": hist_c,
+            "cost": cost_c,
+            "total_tokens": tokens_c,
         }
 
-    codex_pts = codex_daily_points(codex_rows)
-    claude_pts = claude_daily_points(claude_rows)
-    cursor_pts: list[dict[str, Any]] = []
-    if cursor_usage.get("available"):
-        cursor_pts = cursor_usage.get("daily_timeline") or []
-
-    daily_rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts)
     span_first, span_last = "", ""
     if daily_rows:
         span_first, span_last = daily_rows[0]["date"], daily_rows[-1]["date"]
@@ -567,13 +803,18 @@ def collect_usage(home: Path, timezone: str, tmp_dir: Path, cursor_page_size: in
     return {
         "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
         "timezone": timezone,
-        "tools": [codex_summary, claude_summary, cursor_summary],
+        "machine_id": mid,
+        "machines": machine_ids,
+        "machines_dir": str(machines_path),
+        "tools": [codex_summary, claude_summary, cursor_summary, comate_summary],
         "local_summary": local_summary,
         "cursor": cursor_usage,
+        "comate": comate,
         "daily_timeline_rows": daily_rows,
         "timeline_meta": {
             "span": fmt_range(span_first, span_last),
         },
+        "cursor_fallback_note": cursor_fallback_note,
     }
 
 
@@ -596,12 +837,21 @@ CARD_BREAKDOWNS: dict[str, list[tuple[str, str]]] = {
         ("cache_read", "Cache read"),
         ("output", "Output"),
     ],
+    "Comate": [
+        ("input", "Context delta"),
+        ("output", "Output"),
+    ],
 }
 
 
 def render_html(data: dict[str, Any]) -> str:
     tools = data["tools"]
-    colors = {"Codex": "#2563eb", "Claude Code": "#c2410c", "Cursor": "#0d9488"}
+    colors = {
+        "Codex": "#2563eb",
+        "Claude Code": "#c2410c",
+        "Cursor": "#0d9488",
+        "Comate": "#a16207",
+    }
     daily_rows = data.get("daily_timeline_rows") if isinstance(data.get("daily_timeline_rows"), list) else []
     meta = data.get("timeline_meta") if isinstance(data.get("timeline_meta"), dict) else {}
     span = str(meta.get("span") or "unknown")
@@ -1591,7 +1841,10 @@ def render_png(html_path: Path, output_path: Path, width: int, height: int) -> N
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Interactive HTML report: grouped daily bar charts for Codex, Claude Code, Cursor (ECharts + time window)."
+        description=(
+            "Collect Codex / Claude Code / Cursor / Comate usage, write per-machine "
+            "fragments under public/machines/, and merge into public/usage.json."
+        )
     )
     parser.add_argument(
         "--out",
@@ -1614,7 +1867,30 @@ def main() -> int:
         help="Print only today's token usage and cost by tool; does not create an HTML file.",
     )
     parser.add_argument("--home", default=str(Path.home()))
-    parser.add_argument("--timezone", default=DEFAULT_TZ)
+    parser.add_argument(
+        "--timezone",
+        default=os.environ.get("AI_USAGE_TIMEZONE", DEFAULT_TZ),
+    )
+    parser.add_argument(
+        "--machine-id",
+        default=os.environ.get("AI_USAGE_MACHINE_ID", ""),
+        help="Stable id for this Mac (also AI_USAGE_MACHINE_ID). Default: hostname.",
+    )
+    parser.add_argument(
+        "--machines-dir",
+        default=str(DEFAULT_MACHINES_DIR),
+        help="Directory for per-machine fragment JSON files.",
+    )
+    parser.add_argument(
+        "--no-merge",
+        action="store_true",
+        help="Write this machine fragment only; do not SUM other machines/*.json.",
+    )
+    parser.add_argument(
+        "--merge-only",
+        action="store_true",
+        help="Re-merge existing machines/*.json + Cursor API into usage.json (no local re-collect).",
+    )
     parser.add_argument("--cursor-page-size", type=int, default=500)
     parser.add_argument("--width", type=int, default=1400)
     parser.add_argument("--height", type=int, default=1000)
@@ -1633,12 +1909,24 @@ def main() -> int:
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="ai-usage-image-"))
     try:
-        data = collect_usage(home, args.timezone, tmp_dir, max(1, args.cursor_page_size))
+        data = collect_usage(
+            home,
+            args.timezone,
+            tmp_dir,
+            max(1, args.cursor_page_size),
+            machine_id=args.machine_id or None,
+            machines_dir=Path(args.machines_dir).expanduser(),
+            merge=not args.no_merge,
+            merge_only=bool(args.merge_only),
+        )
         if args.json_out:
             json_path = Path(args.json_out).expanduser()
+            machines = data.get("machines") if isinstance(data.get("machines"), list) else []
             payload = {
                 "generated_at": data.get("generated_at"),
                 "timezone": data.get("timezone"),
+                "machine_id": data.get("machine_id"),
+                "machines": machines,
                 "tools": data.get("tools"),
                 "timeline_meta": data.get("timeline_meta"),
                 "daily": data.get("daily_timeline_rows") or [],
@@ -1646,12 +1934,27 @@ def main() -> int:
                     "token_breakdown": (
                         "Cards and tooltips show input, cache, and output tokens per tool. "
                         "Codex cache = cache read; Claude cache = create + read; "
-                        "Cursor cache = write + read."
+                        "Cursor cache = write + read. "
+                        "Comate tokens are positive contextUsed deltas from local sessions "
+                        "(not billable API tokens). Ducc is counted under Claude Code."
                     ),
                     "cost": (
                         "Codex/Claude costs come from ccusage using LiteLLM official model pricing "
                         "(Codex reads service_tier from ~/.codex/config.toml); "
-                        "Cursor costs come from the authenticated Dashboard API."
+                        "Cursor costs come from the authenticated Dashboard API; "
+                        "Comate cost is always 0. "
+                        "Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; "
+                        "Cursor is account-level and replaced from the API on each publish "
+                        "(if API unavailable, prior usage.json Cursor series is kept)."
+                    ),
+                    "merge": (
+                        f"Merged machine fragments: {', '.join(machines) if machines else '(none)'}. "
+                        "Each Mac overwrites only its own machines/<id>.json; usage.json is recomputed."
+                        + (
+                            f" {data.get('cursor_fallback_note')}"
+                            if data.get("cursor_fallback_note")
+                            else ""
+                        )
                     ),
                 },
             }
@@ -1661,6 +1964,7 @@ def main() -> int:
                 encoding="utf-8",
             )
             print(json_path)
+            print(f"machine_id={data.get('machine_id')} machines={machines}")
 
         if args.out or args.png:
             output_html = (

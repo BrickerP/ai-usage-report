@@ -1,19 +1,23 @@
 # AI usage report
 
-Local collector + Astryx web UI for Codex / Claude Code / Cursor token spend.
+Local collector + Astryx web UI for **Codex / Claude Code / Cursor / Comate** token spend.
 Live site: https://brickerp.github.io/ai-usage-report/
 
-## Quick start
+Supports **multiple Macs**: each machine writes `public/machines/<id>.json`; publish merges them (SUM for local tools; Cursor from account API).
+
+## Quick start (one Mac)
 
 ```bash
 git clone https://github.com/BrickerP/ai-usage-report.git
 cd ai-usage-report
 npm install
 
-# Dev UI against the checked-in public/usage.json
+# Dev UI against public/usage.json
 npm run dev
 
 # Refresh data from this machine (needs ccusage + Cursor session)
+export AI_USAGE_MACHINE_ID=mac-home          # unique per Mac
+export AI_USAGE_TIMEZONE=Asia/Shanghai
 npm run collect
 
 # Build static site into docs/ (GitHub Pages)
@@ -21,7 +25,16 @@ npm run build
 npm run preview
 ```
 
-## One-shot publish (data + build + push)
+## Two Macs (recommended)
+
+On **each** Mac, set a different machine id (launchd / shell profile):
+
+```bash
+export AI_USAGE_MACHINE_ID=mac-home     # other Mac: mac-office
+export AI_USAGE_TIMEZONE=Asia/Shanghai
+```
+
+Then either:
 
 ```bash
 bash scripts/publish.sh
@@ -29,27 +42,60 @@ bash scripts/publish.sh
 npm run publish:pages
 ```
 
-Flags:
+What happens:
+
+1. `git pull --rebase` — pick up the other Mac’s `public/machines/*.json`
+2. Collect this Mac → overwrite **only** `public/machines/<your-id>.json` (Codex / Claude / Comate)
+3. Fetch Cursor Dashboard API (account-level, not summed)
+4. SUM local tools across all fragments → write `public/usage.json`
+5. Build + commit + push
+6. If push races the other Mac: pull → **re-merge** → rebuild → push again
+
+Same launchd schedule on both Macs is fine; a push collision just triggers re-merge.
+
+### Merge rules
+
+| Tool | Rule |
+|------|------|
+| Codex / Claude Code / Comate | SUM by date across `machines/*.json` |
+| Cursor | Replace from Dashboard API (do not SUM — same account). If API unavailable on this Mac, keep prior `usage.json` Cursor series. |
+| Ducc | Claude wrapper → counted under Claude Code |
+
+One-time migration: `public/machines/legacy-other-mac.json` holds pre-multi-mac Codex/Claude history from the old single-Mac `usage.json`. After the other Mac publishes its own `machines/<id>.json`, delete the legacy file and re-publish to avoid double-counting once both fragments cover the same dates.
+
+## Flags
+
+`publish.sh`:
 
 - `--skip-collect` — rebuild UI only
 - `--skip-push` — local build only
+
+Collector (`npm run collect` / Python):
+
+- `--machine-id` / `AI_USAGE_MACHINE_ID`
+- `--machines-dir` (default `public/machines`)
+- `--no-merge` — write this Mac’s fragment only
+- `--merge-only` — re-merge existing fragments + Cursor API (used after push conflict)
+- `--today` — print today’s table
 
 ## Layout
 
 | Path | Role |
 |------|------|
 | `src/` | Astryx + React report UI |
-| `public/usage.json` | Daily series consumed by the UI |
-| `scripts/ai_usage_comparison_image.py` | Collects Codex/Claude/Cursor usage |
-| `scripts/local_ai_usage_records.py` | Local file helpers |
-| `scripts/cursor_usage_api_probe.py` | Cursor Dashboard API client |
-| `scripts/publish.sh` | Collect → build → commit `docs/` + `usage.json` |
+| `public/usage.json` | Merged daily series for the UI |
+| `public/machines/<id>.json` | Per-Mac Codex/Claude/Comate fragment |
+| `scripts/ai_usage_comparison_image.py` | Collect + merge |
+| `scripts/comate_usage.py` | Local Comate session parser |
+| `scripts/machine_fragments.py` | Fragment I/O + SUM merge |
+| `scripts/publish.sh` | Pull → collect → build → push (+ re-merge on conflict) |
 | `docs/` | Built GitHub Pages output |
 
 ## Data sources
 
 - Codex / Claude Code: `npx ccusage@latest … --json --offline`
 - Cursor: authenticated Dashboard API via local Cursor session
+- Comate: `~/.comate-engine/store/chat_session_*` (positive `contextUsed` deltas; cost always 0)
 - Costs: ccusage LiteLLM pricing for Codex/Claude; Cursor API for Cursor
 
 ## launchd
@@ -57,10 +103,14 @@ Flags:
 Point your LaunchAgent at this repo:
 
 ```bash
+export AI_USAGE_MACHINE_ID=mac-home
+export AI_USAGE_TIMEZONE=Asia/Shanghai
 bash /path/to/ai-usage-report/scripts/publish.sh
 ```
 
 Optional env:
 
+- `AI_USAGE_MACHINE_ID` (required for multi-Mac; default = hostname)
 - `AI_USAGE_TIMEZONE` (default `Asia/Shanghai`)
 - `GH_PUBLISH_ACCOUNT` (default `BrickerP`)
+- `AI_USAGE_RETRY_ATTEMPTS` / `AI_USAGE_RETRY_DELAY_SECONDS`

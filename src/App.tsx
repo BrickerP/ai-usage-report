@@ -165,6 +165,11 @@ function ReportApp() {
             <Text size="sm" color="secondary">
               Full span {fullSpan}
             </Text>
+            {payload.machines?.length ? (
+              <Text size="sm" color="secondary">
+                Machines {payload.machines.join(', ')}
+              </Text>
+            ) : null}
           </HStack>
         </VStack>
 
