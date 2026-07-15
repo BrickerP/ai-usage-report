@@ -45,8 +45,10 @@ npm run publish:pages
 What happens:
 
 1. `git pull --rebase` — pick up the other Mac’s `public/machines/*.json`
-2. Collect this Mac → overwrite **only** `public/machines/<your-id>.json` (Codex / Claude / Comate)
-3. Fetch Cursor Dashboard API (account-level, not summed)
+2. Collect this Mac into **append-only** `public/machines/<your-id>.json`
+   - **First run** on a machine: seed full local history once
+   - **Later runs**: append missing days + refresh **today** only; **never rewrite past days** (survives local session cleanup)
+3. Fetch Cursor Dashboard API (account-level; historical Cursor days already in `usage.json` stay frozen)
 4. SUM local tools across all fragments → write `public/usage.json`
 5. Build + commit + push
 6. If push races the other Mac: pull → **re-merge** → rebuild → push again
@@ -57,11 +59,13 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 
 | Tool | Rule |
 |------|------|
-| Codex / Claude Code / Comate | SUM by date across `machines/*.json` |
-| Cursor | Replace from Dashboard API (do not SUM — same account). If API unavailable on this Mac, keep prior `usage.json` Cursor series. |
+| Codex / Claude Code / Comate | Per-machine **append-only** fragment; report = SUM by date across `machines/*.json` |
+| Cursor | Account-level; refresh today / fill missing days; do not rewrite frozen historical Cursor days; do not SUM across Macs |
 | Ducc | Claude wrapper → counted under Claude Code |
 
-One-time migration: `public/machines/legacy-other-mac.json` holds pre-multi-mac Codex/Claude history from the old single-Mac `usage.json`. After the other Mac publishes its own `machines/<id>.json`, delete the legacy file and re-publish to avoid double-counting once both fragments cover the same dates.
+One-time migration: `public/machines/legacy-other-mac.json` holds pre-multi-mac Codex/Claude history from the old single-Mac `usage.json`. After the other Mac publishes its own `machines/<id>.json`, delete the legacy file and re-publish once.
+
+`--force-reseed` rebuilds a machine fragment from scratch (breaks freeze — only use if you intentionally want to replace that Mac’s ledger).
 
 ## Flags
 

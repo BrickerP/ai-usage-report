@@ -609,6 +609,25 @@ def build_local_machine_daily(
     return merge_daily_timeline(codex_pts, claude_pts, [], comate_pts)
 
 
+def local_today(timezone: str) -> str:
+    return dt.datetime.now(tz=resolve_tz(timezone)).strftime("%Y-%m-%d")
+
+
+def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") -> Any:
+    command = ["npx", "ccusage@latest", tool, "daily", "-z", timezone, "--json", "--offline"]
+    if since:
+        command.extend(["--since", since.replace("-", "")])
+    if until:
+        command.extend(["--until", until.replace("-", "")])
+    return run_json(command)
+
+
+def filter_points_since(points: list[dict[str, Any]], since: str) -> list[dict[str, Any]]:
+    if not since:
+        return points
+    return [p for p in points if isinstance(p, dict) and str(p.get("date") or "") >= since]
+
+
 def collect_usage(
     home: Path,
     timezone: str,
@@ -620,11 +639,14 @@ def collect_usage(
     merge: bool = True,
     merge_only: bool = False,
     usage_json_path: Path | None = None,
+    force_reseed: bool = False,
 ) -> dict[str, Any]:
     mid = machine_fragments.resolve_machine_id(machine_id)
     machines_path = Path(machines_dir) if machines_dir else DEFAULT_MACHINES_DIR
     prior_usage = usage_json_path or (REPO_ROOT / "public" / "usage.json")
     cursor_fallback_note = ""
+    today = local_today(timezone)
+    fragment_meta: dict[str, Any] = {}
 
     if merge_only:
         cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
@@ -651,6 +673,50 @@ def collect_usage(
             safe_int,
             safe_float,
         )
+        # Load prior usage rows so cursor history freeze can see existing cursor_* values
+        prior_rows: list[dict[str, Any]] = []
+        if prior_usage.is_file():
+            try:
+                prior_payload = json.loads(prior_usage.read_text(encoding="utf-8"))
+                prior_rows = [r for r in (prior_payload.get("daily") or []) if isinstance(r, dict)]
+            except (OSError, json.JSONDecodeError):
+                prior_rows = []
+        # Overlay prior cursor onto local_merged dates before applying API points
+        prior_by = {str(r["date"]): r for r in prior_rows if r.get("date")}
+        for row in local_merged:
+            prev = prior_by.get(str(row.get("date")))
+            if not prev:
+                continue
+            for key in (
+                "cursor_tokens",
+                "cursor_cost",
+                "cursor_input",
+                "cursor_cache_write",
+                "cursor_cache_read",
+                "cursor_output",
+            ):
+                if key not in row or not (safe_int(row.get(key)) or safe_float(row.get(key))):
+                    if key.endswith("cost"):
+                        row[key] = safe_float(prev.get(key))
+                    else:
+                        row[key] = safe_int(prev.get(key))
+        for date_key, prev in prior_by.items():
+            if date_key in {str(r.get("date")) for r in local_merged}:
+                continue
+            if safe_int(prev.get("cursor_tokens")) or safe_float(prev.get("cursor_cost")):
+                row = empty_daily_row(date_key)
+                for key in (
+                    "cursor_tokens",
+                    "cursor_cost",
+                    "cursor_input",
+                    "cursor_cache_write",
+                    "cursor_cache_read",
+                    "cursor_output",
+                ):
+                    row[key] = safe_float(prev.get(key)) if key.endswith("cost") else safe_int(prev.get(key))
+                local_merged.append(row)
+        local_merged.sort(key=lambda r: str(r.get("date") or ""))
+
         daily_rows = machine_fragments.apply_cursor_points(
             local_merged,
             cursor_pts,
@@ -658,6 +724,8 @@ def collect_usage(
             apply_tool_point,
             safe_int,
             safe_float,
+            today=today,
+            freeze_cursor_history=True,
         )
         comate = {"available": False, "note": "merge-only; Comate not re-parsed"}
         local_summary = {"merge_only": True}
@@ -665,8 +733,18 @@ def collect_usage(
         claude_summary = {"tool": "Claude Code", "history": "from fragments", "cost": 0, "total_tokens": 0}
         comate_summary = {"tool": "Comate", "history": "from fragments", "cost": 0, "total_tokens": 0}
     else:
-        codex_usage = run_json(["npx", "ccusage@latest", "codex", "daily", "-z", timezone, "--json", "--offline"])
-        claude_usage = run_json(["npx", "ccusage@latest", "claude", "daily", "-z", timezone, "--json", "--offline"])
+        existing_frag = None if force_reseed else machine_fragments.load_machine_fragment(machines_path, mid)
+        first_seed = force_reseed or machine_fragments.is_first_seed(existing_frag)
+        since = "" if first_seed else machine_fragments.append_range_start(existing_frag, today)
+        until = today
+
+        if first_seed:
+            codex_usage = ccusage_daily("codex", timezone)
+            claude_usage = ccusage_daily("claude", timezone)
+        else:
+            codex_usage = ccusage_daily("codex", timezone, since=since or today, until=until)
+            claude_usage = ccusage_daily("claude", timezone, since=since or today, until=until)
+
         local_summary = local_record_summary(home, tmp_dir)
         cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
         comate = comate_usage.parse_comate(home, timezone)
@@ -701,9 +779,14 @@ def collect_usage(
         codex_pts = codex_daily_points(codex_rows)
         claude_pts = claude_daily_points(claude_rows)
         comate_pts = [p for p in (comate.get("daily_timeline") or []) if isinstance(p, dict)]
+        if since:
+            codex_pts = filter_points_since(codex_pts, since)
+            claude_pts = filter_points_since(claude_pts, since)
+            comate_pts = filter_points_since(comate_pts, since)
+
         local_daily = build_local_machine_daily(codex_pts, claude_pts, comate_pts)
 
-        fragment_file = machine_fragments.write_machine_fragment(
+        fragment_file, fragment_meta = machine_fragments.write_machine_fragment_append(
             machines_path,
             mid,
             timezone,
@@ -711,9 +794,16 @@ def collect_usage(
             TOOL_TOKEN_FIELDS,
             safe_int,
             safe_float,
+            today=today,
             hostname=socket.gethostname(),
+            force_reseed=force_reseed,
         )
         local_summary["machine_fragment"] = str(fragment_file)
+        local_summary["fragment_mode"] = fragment_meta.get("mode")
+        local_summary["fragment_stats"] = fragment_meta.get("stats")
+        local_summary["fragment_first_seed"] = fragment_meta.get("first_seed")
+        local_summary["collect_since"] = since or "(full seed)"
+        local_summary["collect_until"] = until
 
         cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
         if not cursor_usage.get("available") and cursor_pts:
@@ -731,6 +821,7 @@ def collect_usage(
                 "error": cursor_fallback_note,
             }
 
+        # Base rows for cursor freeze: merged fragments + prior cursor columns
         if merge:
             fragments = machine_fragments.load_machine_fragments(machines_path)
             local_merged, machine_ids = machine_fragments.merge_local_fragments(
@@ -740,24 +831,62 @@ def collect_usage(
                 safe_int,
                 safe_float,
             )
-            daily_rows = machine_fragments.apply_cursor_points(
-                local_merged,
-                cursor_pts,
-                empty_daily_row,
-                apply_tool_point,
-                safe_int,
-                safe_float,
-            )
         else:
             machine_ids = [mid]
-            daily_rows = machine_fragments.apply_cursor_points(
-                local_daily,
-                cursor_pts,
-                empty_daily_row,
-                apply_tool_point,
-                safe_int,
-                safe_float,
-            )
+            seeded = machine_fragments.load_machine_fragment(machines_path, mid) or {}
+            local_merged = [r for r in (seeded.get("daily") or []) if isinstance(r, dict)]
+
+        prior_by: dict[str, dict[str, Any]] = {}
+        if prior_usage.is_file():
+            try:
+                prior_payload = json.loads(prior_usage.read_text(encoding="utf-8"))
+                for r in prior_payload.get("daily") or []:
+                    if isinstance(r, dict) and r.get("date"):
+                        prior_by[str(r["date"])] = r
+            except (OSError, json.JSONDecodeError):
+                prior_by = {}
+        merged_dates = {str(r.get("date")) for r in local_merged}
+        for row in local_merged:
+            prev = prior_by.get(str(row.get("date")))
+            if not prev:
+                continue
+            for key in (
+                "cursor_tokens",
+                "cursor_cost",
+                "cursor_input",
+                "cursor_cache_write",
+                "cursor_cache_read",
+                "cursor_output",
+            ):
+                if not (safe_int(row.get(key)) or safe_float(row.get(key))):
+                    row[key] = safe_float(prev.get(key)) if key.endswith("cost") else safe_int(prev.get(key))
+        for date_key, prev in prior_by.items():
+            if date_key in merged_dates:
+                continue
+            if safe_int(prev.get("cursor_tokens")) or safe_float(prev.get("cursor_cost")):
+                row = empty_daily_row(date_key)
+                for key in (
+                    "cursor_tokens",
+                    "cursor_cost",
+                    "cursor_input",
+                    "cursor_cache_write",
+                    "cursor_cache_read",
+                    "cursor_output",
+                ):
+                    row[key] = safe_float(prev.get(key)) if key.endswith("cost") else safe_int(prev.get(key))
+                local_merged.append(row)
+        local_merged.sort(key=lambda r: str(r.get("date") or ""))
+
+        daily_rows = machine_fragments.apply_cursor_points(
+            local_merged,
+            cursor_pts,
+            empty_daily_row,
+            apply_tool_point,
+            safe_int,
+            safe_float,
+            today=today,
+            freeze_cursor_history=True,
+        )
 
     # Recompute per-tool summary totals from merged daily for UI cards
     def sum_prefix(prefix: str) -> tuple[int, float, str]:
@@ -808,6 +937,7 @@ def collect_usage(
         "machines_dir": str(machines_path),
         "tools": [codex_summary, claude_summary, cursor_summary, comate_summary],
         "local_summary": local_summary,
+        "fragment_meta": fragment_meta,
         "cursor": cursor_usage,
         "comate": comate,
         "daily_timeline_rows": daily_rows,
@@ -1891,6 +2021,11 @@ def main() -> int:
         action="store_true",
         help="Re-merge existing machines/*.json + Cursor API into usage.json (no local re-collect).",
     )
+    parser.add_argument(
+        "--force-reseed",
+        action="store_true",
+        help="Ignore existing machine fragment and re-seed full local history (dangerous; breaks append freeze).",
+    )
     parser.add_argument("--cursor-page-size", type=int, default=500)
     parser.add_argument("--width", type=int, default=1400)
     parser.add_argument("--height", type=int, default=1000)
@@ -1918,6 +2053,7 @@ def main() -> int:
             machines_dir=Path(args.machines_dir).expanduser(),
             merge=not args.no_merge,
             merge_only=bool(args.merge_only),
+            force_reseed=bool(args.force_reseed),
         )
         if args.json_out:
             json_path = Path(args.json_out).expanduser()
@@ -1949,7 +2085,14 @@ def main() -> int:
                     ),
                     "merge": (
                         f"Merged machine fragments: {', '.join(machines) if machines else '(none)'}. "
-                        "Each Mac overwrites only its own machines/<id>.json; usage.json is recomputed."
+                        "Each Mac append-only updates machines/<id>.json "
+                        "(first run seeds history; later runs append missing days + refresh today; "
+                        "past days are frozen against local cleanup drift)."
+                        + (
+                            f" Fragment mode={((data.get('fragment_meta') or {}).get('mode'))}."
+                            if data.get("fragment_meta")
+                            else ""
+                        )
                         + (
                             f" {data.get('cursor_fallback_note')}"
                             if data.get("cursor_fallback_note")
@@ -1965,6 +2108,9 @@ def main() -> int:
             )
             print(json_path)
             print(f"machine_id={data.get('machine_id')} machines={machines}")
+            meta = data.get("fragment_meta") if isinstance(data.get("fragment_meta"), dict) else {}
+            if meta:
+                print(f"fragment_mode={meta.get('mode')} stats={meta.get('stats')}")
 
         if args.out or args.png:
             output_html = (

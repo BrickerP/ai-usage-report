@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Per-machine usage fragments and multi-machine merge."""
+"""Per-machine usage fragments and multi-machine merge.
+
+Machine fragments are append-only ledgers:
+- First run (missing/empty fragment): seed full local history once.
+- Later runs: append missing dates; refresh *today* only; never rewrite past days.
+"""
 from __future__ import annotations
 
 import datetime as dt
@@ -43,10 +48,20 @@ def tool_field_names(tool_token_fields: dict[str, list[str]], prefixes: tuple[st
         names.append(f"{prefix}_cost")
         for field in tool_token_fields.get(prefix, []):
             names.append(f"{prefix}_{field}")
-        # Optional Comate extras
         if prefix == "comate":
             names.extend(["comate_sessions", "comate_messages"])
     return names
+
+
+def row_has_local_activity(row: dict[str, Any], safe_int: SafeInt, safe_float: SafeFloat) -> bool:
+    for prefix in LOCAL_TOOL_PREFIXES:
+        if safe_int(row.get(f"{prefix}_tokens")) or safe_float(row.get(f"{prefix}_cost")):
+            return True
+        if prefix == "comate" and (
+            safe_int(row.get("comate_sessions")) or safe_int(row.get("comate_messages"))
+        ):
+            return True
+    return False
 
 
 def strip_row_to_local(
@@ -64,6 +79,192 @@ def strip_row_to_local(
     return out
 
 
+def load_machine_fragment(machines_dir: Path, machine_id: str) -> dict[str, Any] | None:
+    path = fragment_path(machines_dir, machine_id)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    if not isinstance(data.get("daily"), list):
+        data["daily"] = []
+    return data
+
+
+def fragment_dates(fragment: dict[str, Any] | None) -> set[str]:
+    if not fragment:
+        return set()
+    dates: set[str] = set()
+    for row in fragment.get("daily") or []:
+        if isinstance(row, dict) and row.get("date"):
+            dates.add(str(row["date"]))
+    return dates
+
+
+def is_first_seed(fragment: dict[str, Any] | None) -> bool:
+    """True when this machine has never been seeded with local history."""
+    if fragment is None:
+        return True
+    daily = fragment.get("daily") or []
+    if not daily:
+        return True
+    return False
+
+
+def next_day(date_key: str) -> str:
+    day = dt.date.fromisoformat(date_key)
+    return (day + dt.timedelta(days=1)).isoformat()
+
+
+def append_range_start(fragment: dict[str, Any] | None, today: str) -> str:
+    """Earliest local calendar day we still need from collectors.
+
+    - First seed: empty string → caller collects full history.
+    - Later: day after latest frozen date, but never after today.
+      Today is always re-collected even if present.
+    """
+    dates = fragment_dates(fragment)
+    if not dates:
+        return ""
+    frozen = {d for d in dates if d < today}
+    if not frozen:
+        return today
+    latest_frozen = max(frozen)
+    start = next_day(latest_frozen)
+    return start if start <= today else today
+
+
+def merge_append_daily(
+    existing_daily: list[dict[str, Any]],
+    incoming_daily: list[dict[str, Any]],
+    today: str,
+    tool_token_fields: dict[str, list[str]],
+    safe_int: SafeInt,
+    safe_float: SafeFloat,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Append-only merge.
+
+    - date < today and already present: keep existing (frozen)
+    - date < today and missing: append incoming
+    - date == today: replace with incoming (current day may still grow)
+    - date > today: ignore
+    """
+    by_date: dict[str, dict[str, Any]] = {}
+    for row in existing_daily:
+        if not isinstance(row, dict) or not row.get("date"):
+            continue
+        date_key = str(row["date"])
+        by_date[date_key] = strip_row_to_local(row, tool_token_fields, safe_int, safe_float)
+
+    stats = {"frozen_kept": 0, "appended": 0, "today_updated": 0, "skipped": 0}
+    for row in incoming_daily:
+        if not isinstance(row, dict) or not row.get("date"):
+            continue
+        date_key = str(row["date"])
+        if date_key > today:
+            stats["skipped"] += 1
+            continue
+        local_row = strip_row_to_local(row, tool_token_fields, safe_int, safe_float)
+        if not row_has_local_activity(local_row, safe_int, safe_float):
+            if date_key != today:
+                stats["skipped"] += 1
+                continue
+
+        if date_key < today and date_key in by_date:
+            stats["frozen_kept"] += 1
+            continue
+        if date_key == today:
+            by_date[date_key] = local_row
+            stats["today_updated"] += 1
+            continue
+        by_date[date_key] = local_row
+        stats["appended"] += 1
+
+    rows = [
+        by_date[key]
+        for key in sorted(by_date)
+        if row_has_local_activity(by_date[key], safe_int, safe_float)
+    ]
+    return rows, stats
+
+
+def write_machine_fragment_append(
+    machines_dir: Path,
+    machine_id: str,
+    timezone: str,
+    incoming_daily: list[dict[str, Any]],
+    tool_token_fields: dict[str, list[str]],
+    safe_int: SafeInt,
+    safe_float: SafeFloat,
+    *,
+    today: str,
+    hostname: str | None = None,
+    force_reseed: bool = False,
+) -> tuple[Path, dict[str, Any]]:
+    """Seed once or append into machines/<id>.json. Past days are immutable."""
+    machines_dir.mkdir(parents=True, exist_ok=True)
+    mid = sanitize_machine_id(machine_id)
+    path = fragment_path(machines_dir, mid)
+    existing = None if force_reseed else load_machine_fragment(machines_dir, mid)
+    first = force_reseed or is_first_seed(existing)
+
+    now = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    if first:
+        merged, stats = merge_append_daily(
+            [],
+            incoming_daily,
+            today,
+            tool_token_fields,
+            safe_int,
+            safe_float,
+        )
+        mode = "seed"
+        seeded_at = now
+    else:
+        merged, stats = merge_append_daily(
+            list(existing.get("daily") or []) if existing else [],
+            incoming_daily,
+            today,
+            tool_token_fields,
+            safe_int,
+            safe_float,
+        )
+        mode = "append"
+        seeded_at = str((existing or {}).get("seeded_at") or now)
+
+    payload = {
+        "machine_id": mid,
+        "hostname": hostname or socket.gethostname(),
+        "collected_at": now,
+        "seeded_at": seeded_at,
+        "seeded": True,
+        "append_mode": True,
+        "last_mode": mode,
+        "last_append_stats": stats,
+        "timezone": timezone,
+        "scope": "machine-local",
+        "tools": list(LOCAL_TOOL_PREFIXES),
+        "policy": (
+            "Append-only ledger: first run seeds full local history; later runs append "
+            "missing dates and refresh today only; past dates are never rewritten "
+            "(survives local session cleanup / data drift)."
+        ),
+        "daily": merged,
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    meta = {
+        "path": str(path),
+        "mode": mode,
+        "stats": stats,
+        "days": len(merged),
+        "first_seed": first,
+    }
+    return path, meta
+
+
 def write_machine_fragment(
     machines_dir: Path,
     machine_id: str,
@@ -74,40 +275,18 @@ def write_machine_fragment(
     safe_float: SafeFloat,
     hostname: str | None = None,
 ) -> Path:
-    machines_dir.mkdir(parents=True, exist_ok=True)
-    mid = sanitize_machine_id(machine_id)
-    local_daily = [
-        strip_row_to_local(row, tool_token_fields, safe_int, safe_float)
-        for row in daily_rows
-        if isinstance(row, dict) and row.get("date")
-    ]
-    # Keep days that have any local activity
-    filtered: list[dict[str, Any]] = []
-    for row in local_daily:
-        has = False
-        for prefix in LOCAL_TOOL_PREFIXES:
-            if safe_int(row.get(f"{prefix}_tokens")) or safe_float(row.get(f"{prefix}_cost")):
-                has = True
-                break
-            if prefix == "comate" and (
-                safe_int(row.get("comate_sessions")) or safe_int(row.get("comate_messages"))
-            ):
-                has = True
-                break
-        if has:
-            filtered.append(row)
-
-    payload = {
-        "machine_id": mid,
-        "hostname": hostname or socket.gethostname(),
-        "collected_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
-        "timezone": timezone,
-        "scope": "machine-local",
-        "tools": list(LOCAL_TOOL_PREFIXES),
-        "daily": filtered,
-    }
-    path = fragment_path(machines_dir, mid)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    today = dt.datetime.now().astimezone().strftime("%Y-%m-%d")
+    path, _meta = write_machine_fragment_append(
+        machines_dir,
+        machine_id,
+        timezone,
+        daily_rows,
+        tool_token_fields,
+        safe_int,
+        safe_float,
+        today=today,
+        hostname=hostname,
+    )
     return path
 
 
@@ -156,7 +335,6 @@ def merge_local_fragments(
     rows: list[dict[str, Any]] = []
     for date_key in sorted(by_date):
         rows.append(by_date[date_key])
-    # stable unique machine ids
     seen: set[str] = set()
     ordered: list[str] = []
     for mid in machine_ids:
@@ -173,8 +351,19 @@ def apply_cursor_points(
     apply_tool_point: Callable[[dict[str, Any], str, dict[str, Any]], None],
     safe_int: SafeInt,
     safe_float: SafeFloat,
+    *,
+    today: str | None = None,
+    freeze_cursor_history: bool = True,
 ) -> list[dict[str, Any]]:
+    """Apply Cursor points onto local rows.
+
+    When freeze_cursor_history is True (default), dates before today that already
+    have cursor_* values are left unchanged; only missing historical days and
+    today are updated.
+    """
     by_date = {str(r["date"]): dict(r) for r in daily_rows if isinstance(r, dict) and r.get("date")}
+    today_key = today or ""
+
     for point in cursor_pts:
         if not isinstance(point, dict):
             continue
@@ -182,6 +371,13 @@ def apply_cursor_points(
         if not date_key:
             continue
         row = by_date.setdefault(date_key, empty_daily_row(date_key))
+        if (
+            freeze_cursor_history
+            and today_key
+            and date_key < today_key
+            and (safe_int(row.get("cursor_tokens")) or safe_float(row.get("cursor_cost")))
+        ):
+            continue
         apply_tool_point(row, "cursor", point)
 
     rows: list[dict[str, Any]] = []
