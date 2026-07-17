@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-07-18T04:05:53+08:00",
+  "generated_at": "2026-07-18T04:07:30+08:00",
   "timezone": "Asia/Shanghai",
-  "machine_id": "mac-wpd",
+  "machine_id": "mac-m4-local",
   "machines": [
     "legacy-other-mac",
     "mac-m4-local",
@@ -11,20 +11,20 @@
     {
       "tool": "Codex",
       "history": "2026-01-08 to 2026-07-16",
-      "cost": 152768.0580029,
+      "cost": 152768.05800289998,
       "total_tokens": 105318769555
     },
     {
       "tool": "Claude Code",
       "history": "2026-04-08 to 2026-07-17",
-      "cost": 8966.775866000002,
+      "cost": 8966.775866000004,
       "total_tokens": 11754287540
     },
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-07-18",
-      "cost": 2125.5930139,
-      "total_tokens": 2111755149
+      "cost": 2111.6640164,
+      "total_tokens": 2102514321
     },
     {
       "tool": "Comate",
@@ -4894,25 +4894,25 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "cursor_tokens": 33335689,
-      "cursor_cost": 43.8587395,
-      "cursor_input": 2459658,
+      "cursor_tokens": 24094861,
+      "cursor_cost": 29.929742,
+      "cursor_input": 1228478,
       "cursor_cache_write": 0,
-      "cursor_cache_read": 30618176,
-      "cursor_output": 257855,
+      "cursor_cache_read": 22734272,
+      "cursor_output": 132111,
       "comate_tokens": 0,
       "comate_cost": 0.0,
       "comate_input": 0,
       "comate_output": 0,
       "comate_sessions": 0,
       "comate_messages": 0,
-      "total_tokens": 33335689,
-      "total_cost": 43.8587395
+      "total_tokens": 24094861,
+      "total_cost": 29.929742
     }
   ],
   "notes": {
     "token_breakdown": "Cards and tooltips show input, cache, and output tokens per tool. Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read. Comate tokens are positive contextUsed deltas from local sessions (not billable API tokens). Ducc is counted under Claude Code.",
     "cost": "Codex/Claude costs come from ccusage using LiteLLM official model pricing (Codex reads service_tier from ~/.codex/config.toml); Cursor costs come from the authenticated Dashboard API; Comate cost is always 0. Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; Cursor is account-level and replaced from the API on each publish (if API unavailable, prior usage.json Cursor series is kept).",
-    "merge": "Merged machine fragments: legacy-other-mac, mac-m4-local, mac-wpd. Each Mac append-only updates machines/<id>.json (first run seeds history; later runs append missing days + refresh today; past days are frozen against local cleanup drift). Fragment mode=seed."
+    "merge": "Merged machine fragments: legacy-other-mac, mac-m4-local, mac-wpd. Each Mac append-only updates machines/<id>.json (first run seeds history; later runs append missing days + refresh today; past days are frozen against local cleanup drift). Fragment mode=append."
   }
 }
