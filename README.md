@@ -112,9 +112,12 @@ export AI_USAGE_TIMEZONE=Asia/Shanghai
 bash /path/to/ai-usage-report/scripts/publish.sh
 ```
 
+`publish.sh` always checks out `main` (override with `PUBLISH_BRANCH`), aborts leftover rebase/merge, then `git pull --rebase origin main` and `git push origin HEAD:refs/heads/main`. It never pushes bare `HEAD` (that previously left the clone in detached HEAD and blocked later publishes).
+
 Optional env:
 
 - `AI_USAGE_MACHINE_ID` (required for multi-Mac; default = hostname)
 - `AI_USAGE_TIMEZONE` (default `Asia/Shanghai`)
 - `GH_PUBLISH_ACCOUNT` (default `BrickerP`)
+- `PUBLISH_BRANCH` (default `main`)
 - `AI_USAGE_RETRY_ATTEMPTS` / `AI_USAGE_RETRY_DELAY_SECONDS`
