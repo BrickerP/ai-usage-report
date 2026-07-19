@@ -45,10 +45,12 @@ npm run publish:pages
 What happens:
 
 1. `git pull --rebase` — pick up the other Mac’s `public/machines/*.json`
-2. Collect this Mac into **append-only** `public/machines/<your-id>.json`
+2. Collect this Mac into the durable ledger `public/machines/<your-id>.json`
    - **First run** on a machine: seed full local history once
-   - **Later runs**: append missing days + refresh **today** only; **never rewrite past days** (survives local session cleanup)
-3. Fetch Cursor Dashboard API (account-level; historical Cursor days already in `usage.json` stay frozen)
+   - **Later runs**: re-read `mutable_from` through today, then keep yesterday + today open
+   - If the Mac was off for days, the old boundary remains and every missed day is recovered
+   - A lower source snapshot is never allowed to overwrite the stored high-water value
+3. Fetch Cursor Dashboard API (account-level; it has its own `cursor_mutable_from` boundary)
 4. SUM local tools across all fragments → write `public/usage.json`
 5. Build + commit + push
 6. If push races the other Mac: pull → **re-merge** → rebuild → push again
@@ -59,8 +61,8 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 
 | Tool | Rule |
 |------|------|
-| Codex / Claude Code / Comate | Per-machine **append-only** fragment; report = SUM by date across `machines/*.json` |
-| Cursor | Account-level; refresh today / fill missing days; do not rewrite frozen historical Cursor days; do not SUM across Macs |
+| Codex / Claude Code / Comate | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected; report = SUM across `machines/*.json` |
+| Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
 | Ducc | Claude wrapper → counted under Claude Code |
 
 One-time migration: `public/machines/legacy-other-mac.json` holds pre-multi-mac Codex/Claude history from the old single-Mac `usage.json`. After the other Mac publishes its own `machines/<id>.json`, delete the legacy file and re-publish once.
@@ -81,6 +83,7 @@ Collector (`npm run collect` / Python):
 - `--machines-dir` (default `public/machines`)
 - `--no-merge` — write this Mac’s fragment only
 - `--merge-only` — re-merge existing fragments + Cursor API (used after push conflict)
+- `--collect-local-only` — atomically capture this Mac before any GitHub/build work
 - `--today` — print today’s table
 - `--backfill-codex-cache` — derive frozen cache read as `total - input - output`
 - `--dry-run` — validate that migration without writing files
@@ -140,15 +143,30 @@ Do not use `--force-reseed` for this migration.
 
 ## launchd
 
-Point your LaunchAgent at this repo:
+Point your LaunchAgent at the bounded retry wrapper, not directly at
+`publish.sh`:
 
 ```bash
 export AI_USAGE_MACHINE_ID=mac-home
 export AI_USAGE_TIMEZONE=Asia/Shanghai
-bash /path/to/ai-usage-report/scripts/publish.sh
+bash /path/to/ai-usage-report/scripts/launchd-run.sh
 ```
 
-`publish.sh` always checks out `main` (override with `PUBLISH_BRANCH`), aborts leftover rebase/merge, then `git pull --rebase origin main` and `git push origin HEAD:refs/heads/main`. It never pushes bare `HEAD` (that previously left the clone in detached HEAD and blocked later publishes).
+Recommended LaunchAgent settings:
+
+- `RunAtLoad = true` for login/reboot catch-up.
+- `KeepAlive` absent/false; this is a finite batch job.
+- Two `StartCalendarInterval` entries: shortly after midnight to close yesterday,
+  and one daytime snapshot (for example `00:05` and `15:03`). Stagger the
+  second Mac by several minutes to reduce avoidable push races.
+
+`publish.sh` captures the machine-local fragment **before** Git fetch/pull, then
+pulls, refreshes Cursor, merges, builds, and pushes. If GitHub or the build is
+down, `launchd-run.sh` retries the complete pipeline without losing the local
+snapshot. Every run refreshes at least today + yesterday, while an older persisted
+boundary expands the recovery window across any missed days. Local source logs
+must still be retained until at least one later successful reconciliation; no
+collector can reconstruct records that were deleted before they were ever read.
 
 Optional env:
 
@@ -157,3 +175,4 @@ Optional env:
 - `GH_PUBLISH_ACCOUNT` (default `BrickerP`)
 - `PUBLISH_BRANCH` (default `main`)
 - `AI_USAGE_RETRY_ATTEMPTS` / `AI_USAGE_RETRY_DELAY_SECONDS`
+- `AI_USAGE_JOB_RETRY_ATTEMPTS` / `AI_USAGE_JOB_RETRY_DELAY_SECONDS`

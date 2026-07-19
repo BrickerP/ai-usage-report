@@ -108,10 +108,62 @@ ensure_on_publish_branch() {
   fi
 }
 
+resolve_generated_rebase_conflicts() {
+  local remote_tip="$1"
+  local rounds=0 conflicts path unexpected
+
+  while [ -d "$ROOT/.git/rebase-merge" ] || [ -d "$ROOT/.git/rebase-apply" ]; do
+    ((rounds += 1))
+    if (( rounds > 20 )); then
+      log "ERROR: exceeded generated-file rebase resolution limit"
+      return 1
+    fi
+
+    conflicts="$(git diff --name-only --diff-filter=U)"
+    if [[ -n "$conflicts" ]]; then
+      unexpected=0
+      while IFS= read -r path; do
+        case "$path" in
+          public/usage.json|docs/*) ;;
+          *)
+            log "ERROR: refusing to auto-resolve unexpected conflict: $path"
+            unexpected=1
+            ;;
+        esac
+      done <<< "$conflicts"
+      if (( unexpected == 1 )); then
+        return 1
+      fi
+
+      while IFS= read -r path; do
+        if git cat-file -e "${remote_tip}:${path}" 2>/dev/null; then
+          git checkout "$remote_tip" -- "$path" || return 1
+        else
+          git rm -f -- "$path" || return 1
+        fi
+      done <<< "$conflicts"
+    fi
+
+    if git diff --staged --quiet; then
+      git rebase --skip || return 1
+    elif ! GIT_EDITOR=true git rebase --continue; then
+      # A later replayed commit may expose another generated-only conflict.
+      if [[ -z "$(git diff --name-only --diff-filter=U)" ]]; then
+        return 1
+      fi
+    fi
+  done
+  return 0
+}
+
 pull_latest() {
   ensure_on_publish_branch
   log "git fetch ${REMOTE_NAME} ${PUBLISH_BRANCH}"
   git fetch "$REMOTE_NAME" "$PUBLISH_BRANCH" || die "git fetch failed"
+
+  local remote_tip
+  remote_tip="$(git rev-parse "${REMOTE_NAME}/${PUBLISH_BRANCH}")" || \
+    die "could not resolve ${REMOTE_NAME}/${PUBLISH_BRANCH}"
 
   local stashed=0
   if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
@@ -122,12 +174,23 @@ pull_latest() {
 
   log "git pull --rebase ${REMOTE_NAME} ${PUBLISH_BRANCH}"
   if ! git pull --rebase "$REMOTE_NAME" "$PUBLISH_BRANCH"; then
-    log "ERROR: pull --rebase failed; cleaning up"
-    abort_in_progress_git_ops
-    if (( stashed )); then
-      git stash pop || log "WARN: stash pop failed after pull error"
+    if [ -d "$ROOT/.git/rebase-merge" ] || [ -d "$ROOT/.git/rebase-apply" ]; then
+      log "rebase stopped; resolving generated usage/docs conflicts"
+      if ! resolve_generated_rebase_conflicts "$remote_tip"; then
+        log "ERROR: pull --rebase has a non-generated or unresolvable conflict"
+        abort_in_progress_git_ops
+        if (( stashed )); then
+          git stash pop || log "WARN: stash pop failed after pull error"
+        fi
+        die "git pull --rebase ${REMOTE_NAME}/${PUBLISH_BRANCH} failed"
+      fi
+    else
+      log "ERROR: pull --rebase failed before a resolvable rebase began"
+      if (( stashed )); then
+        git stash pop || log "WARN: stash pop failed after pull error"
+      fi
+      die "git pull --rebase ${REMOTE_NAME}/${PUBLISH_BRANCH} failed"
     fi
-    die "git pull --rebase ${REMOTE_NAME}/${PUBLISH_BRANCH} failed"
   fi
 
   if (( stashed )); then
@@ -138,15 +201,15 @@ pull_latest() {
   ensure_on_publish_branch
 }
 
-collect_usage() {
+collect_local_usage() {
   local extra_args=()
   if [[ -n "$AI_USAGE_MACHINE_ID" ]]; then
     extra_args+=(--machine-id "$AI_USAGE_MACHINE_ID")
   fi
   python3 "$ROOT/scripts/ai_usage_comparison_image.py" \
-    --json-out "$ROOT/public/usage.json" \
     --machines-dir "$ROOT/public/machines" \
     --timezone "$AI_USAGE_TIMEZONE" \
+    --collect-local-only \
     "${extra_args[@]}"
 }
 
@@ -299,6 +362,10 @@ push_with_remmerge() {
       log "pushed"
       return 0
     fi
+    if (( attempt < RETRY_ATTEMPTS )); then
+      log "waiting ${RETRY_DELAY_SECONDS}s before push reconciliation retry"
+      sleep "$RETRY_DELAY_SECONDS"
+    fi
     if (( BACKFILL_CODEX_CACHE == 1 )); then
       log "WARN: cache migration push failed; preserving this Mac's fragment and regenerating shared artifacts"
       reconcile_backfill_push
@@ -324,12 +391,20 @@ push_with_remmerge() {
 command -v python3 >/dev/null || die "python3 not found"
 command -v npm >/dev/null || die "npm not found"
 
-# Always land on main and pull first so other machines' fragments are present.
+# Capture local sources before touching the network.  A GitHub outage must not
+# prevent this Mac from advancing its durable local high-water snapshot.
 if (( BACKFILL_CODEX_CACHE == 1 )); then
   recover_codex_cache_transaction
 fi
 require_clean_backfill_worktree
 ensure_on_publish_branch
+
+if (( SKIP_COLLECT == 0 && BACKFILL_CODEX_CACHE == 0 )); then
+  log "capturing local usage → public/machines/ (network-independent)"
+  collect_local_usage
+fi
+
+# Pull after local capture; pull_latest safely stashes and restores the fragment.
 pull_latest
 require_backfill_at_remote_tip
 
@@ -337,8 +412,7 @@ if (( SKIP_COLLECT == 0 )); then
   if (( BACKFILL_CODEX_CACHE == 1 )); then
     backfill_codex_cache
   else
-    log "collecting usage → public/machines/ + public/usage.json"
-    collect_usage
+    remerge_usage
   fi
 else
   log "skip collect (--skip-collect)"

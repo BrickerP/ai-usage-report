@@ -128,8 +128,8 @@ def daily_range(daily: list[dict[str, Any]], codex: bool = False) -> tuple[str, 
 def resolve_tz(name: str) -> dt.tzinfo:
     try:
         return ZoneInfo(name)
-    except Exception:
-        return dt.timezone.utc
+    except Exception as exc:
+        raise ValueError(f"invalid timezone: {name}") from exc
 
 
 def local_day_window(timezone: str, target: dt.date | None = None) -> tuple[str, int, int]:
@@ -348,7 +348,7 @@ def fetch_cursor_usage(
         cursor_errors.append(f"GetAggregatedUsageEvents failed: {full_usage.get('_error') or full_usage.get('_status')}")
         full_usage = {}
 
-    event_count = 0
+    expected_event_count: int | None = None
     first_event = ""
     last_event = ""
     cursor_day_tokens: dict[str, int] = defaultdict(int)
@@ -358,6 +358,8 @@ def fetch_cursor_usage(
     cursor_day_cache_read: dict[str, int] = defaultdict(int)
     cursor_day_cost = defaultdict(float)
     page = 1
+    filtered_complete = True
+    processed_events = 0
     while True:
         response = call_cursor(
             client,
@@ -374,11 +376,30 @@ def fetch_cursor_usage(
         if not response or response.get("_status"):
             if response and response.get("_status"):
                 cursor_errors.append(f"GetFilteredUsageEvents failed: {response.get('_error') or response.get('_status')}")
+            filtered_complete = False
             break
-        event_count = safe_int(response.get("totalUsageEventsCount"))
+        raw_event_count = response.get("totalUsageEventsCount")
+        page_event_count: int | None = None
+        if isinstance(raw_event_count, int) and not isinstance(raw_event_count, bool):
+            if raw_event_count >= 0:
+                page_event_count = raw_event_count
+        elif isinstance(raw_event_count, str) and raw_event_count.isdigit():
+            page_event_count = int(raw_event_count)
+        if page_event_count is None:
+            filtered_complete = False
+        elif expected_event_count is None:
+            expected_event_count = page_event_count
+        elif page_event_count != expected_event_count:
+            filtered_complete = False
         events = cursor_api.normalize_event_rows(response)
         if not events:
+            if (
+                expected_event_count is None
+                or expected_event_count > processed_events
+            ):
+                filtered_complete = False
             break
+        processed_events += len(events)
         for event in events:
             timestamp = str(event.get("timestamp") or "")
             if timestamp:
@@ -401,7 +422,10 @@ def fetch_cursor_usage(
                 if cents <= 0:
                     cents = safe_float(event.get("charged_cents"))
                 cursor_day_cost[day_key] += cents / 100
-        if len(events) < page_size or page * page_size >= event_count:
+        if len(events) < page_size or (
+            expected_event_count is not None
+            and page * page_size >= expected_event_count
+        ):
             break
         page += 1
 
@@ -425,6 +449,9 @@ def fetch_cursor_usage(
     ]
     return {
         "available": True,
+        "complete": filtered_complete
+        and expected_event_count is not None
+        and processed_events == expected_event_count,
         "account": {
             "membership": state.get("membership", ""),
             "subscription_status": state.get("subscription_status", ""),
@@ -438,7 +465,7 @@ def fetch_cursor_usage(
         "history": {
             "first": first_event or cursor_api.ms_to_iso(start_ms),
             "last": last_event or cursor_api.ms_to_iso(end_ms),
-            "events": event_count,
+            "events": expected_event_count or 0,
             "input": safe_int(full_usage.get("totalInputTokens")),
             "output": safe_int(full_usage.get("totalOutputTokens")),
             "cache_write": safe_int(full_usage.get("totalCacheWriteTokens")),
@@ -462,10 +489,34 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
     today_key, start_ms, end_ms = local_day_window(timezone)
     day_arg = today_key.replace("-", "")
     codex_usage = run_json(
-        ["npx", "ccusage@latest", "codex", "daily", "-z", timezone, "--json", "--offline", "--since", day_arg, "--until", day_arg]
+        [
+            *ccusage_command(),
+            "codex",
+            "daily",
+            "-z",
+            timezone,
+            "--json",
+            "--offline",
+            "--since",
+            day_arg,
+            "--until",
+            day_arg,
+        ]
     )
     claude_usage = run_json(
-        ["npx", "ccusage@latest", "claude", "daily", "-z", timezone, "--json", "--offline", "--since", day_arg, "--until", day_arg]
+        [
+            *ccusage_command(),
+            "claude",
+            "daily",
+            "-z",
+            timezone,
+            "--json",
+            "--offline",
+            "--since",
+            day_arg,
+            "--until",
+            day_arg,
+        ]
     )
     cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone, start_ms, end_ms)
     comate = comate_usage.parse_comate(home, timezone)
@@ -616,8 +667,47 @@ def local_today(timezone: str) -> str:
     return dt.datetime.now(tz=resolve_tz(timezone)).strftime("%Y-%m-%d")
 
 
+def ccusage_command() -> list[str]:
+    """Prefer an already installed/cached ccusage executable.
+
+    ``npx ccusage@latest`` performs registry resolution even though ccusage's own
+    ``--offline`` flag is present.  Reusing the cache keeps scheduled local
+    capture working during registry or DNS outages after the first successful
+    install.
+    """
+    explicit = os.environ.get("AI_USAGE_CCUSAGE_BIN", "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.is_file() or not os.access(path, os.X_OK):
+            raise RuntimeError(f"AI_USAGE_CCUSAGE_BIN is not executable: {path}")
+        return [str(path)]
+
+    installed = shutil.which("ccusage")
+    if installed:
+        return [installed]
+
+    npx_root = Path.home() / ".npm" / "_npx"
+    candidates = [
+        path
+        for path in npx_root.glob("*/node_modules/.bin/ccusage")
+        if path.is_file() and os.access(path, os.X_OK)
+    ]
+    if candidates:
+        latest = max(candidates, key=lambda path: path.stat().st_mtime)
+        return [str(latest)]
+    return ["npx", "ccusage@latest"]
+
+
 def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") -> Any:
-    command = ["npx", "ccusage@latest", tool, "daily", "-z", timezone, "--json", "--offline"]
+    command = [
+        *ccusage_command(),
+        tool,
+        "daily",
+        "-z",
+        timezone,
+        "--json",
+        "--offline",
+    ]
     if since:
         command.extend(["--since", since.replace("-", "")])
     if until:
@@ -629,6 +719,168 @@ def filter_points_since(points: list[dict[str, Any]], since: str) -> list[dict[s
     if not since:
         return points
     return [p for p in points if isinstance(p, dict) and str(p.get("date") or "") >= since]
+
+
+def load_usage_payload(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def cursor_mutable_from(payload: dict[str, Any], today: str) -> str:
+    raw = str(payload.get("cursor_mutable_from") or "").strip()
+    if not raw:
+        # Legacy reports froze each previous snapshot too early.  Reopen the
+        # complete API history once; the next successful write persists today.
+        return ""
+    try:
+        value = dt.date.fromisoformat(raw).isoformat()
+    except ValueError:
+        raise ValueError(f"invalid cursor_mutable_from: {raw}")
+    return value if value <= today else today
+
+
+def advance_cursor_mutable_from(
+    prior: str,
+    today: str,
+    api_complete: bool,
+    reconciliation_stats: dict[str, Any],
+) -> str:
+    if not api_complete:
+        return prior
+    regressions = sorted(
+        str(value)
+        for value in reconciliation_stats.get("regression_dates") or []
+        if str(value) <= today
+    )
+    safety_window_start = machine_fragments.previous_day(today)
+    return min([safety_window_start, *regressions])
+
+
+def validate_fragment_timezones(
+    fragments: list[dict[str, Any]], expected_timezone: str
+) -> None:
+    for fragment in fragments:
+        machine_id = str(fragment.get("machine_id") or "unknown")
+        timezone = str(fragment.get("timezone") or "").strip()
+        if timezone and timezone != expected_timezone:
+            raise ValueError(
+                f"machine fragment timezone mismatch for {machine_id}: "
+                f"{timezone} != {expected_timezone}"
+            )
+
+
+def collect_local_machine(
+    home: Path,
+    timezone: str,
+    tmp_dir: Path,
+    *,
+    machine_id: str,
+    machines_path: Path,
+    force_reseed: bool = False,
+) -> dict[str, Any]:
+    """Collect and atomically persist only machine-local sources.
+
+    This path intentionally has no GitHub, Cursor, npm, or build dependency, so
+    a network outage cannot prevent the local high-water snapshot from landing.
+    """
+    today = local_today(timezone)
+    existing_frag = (
+        None
+        if force_reseed
+        else machine_fragments.load_machine_fragment(machines_path, machine_id)
+    )
+    first_seed = force_reseed or machine_fragments.is_first_seed(existing_frag)
+    since = "" if first_seed else machine_fragments.append_range_start(existing_frag, today)
+    until = today
+
+    if first_seed:
+        codex_usage = ccusage_daily("codex", timezone)
+        claude_usage = ccusage_daily("claude", timezone)
+    else:
+        codex_usage = ccusage_daily(
+            "codex", timezone, since=since or today, until=until
+        )
+        claude_usage = ccusage_daily(
+            "claude", timezone, since=since or today, until=until
+        )
+
+    local_summary = local_record_summary(home, tmp_dir)
+    comate = comate_usage.parse_comate(home, timezone)
+    codex_rows = usage_daily_rows(codex_usage)
+    claude_rows = usage_daily_rows(claude_usage)
+    codex_first, codex_last = daily_range(codex_rows, codex=True)
+    claude_first, claude_last = daily_range(claude_rows)
+    codex_totals = usage_totals(codex_usage)
+    claude_totals = usage_totals(claude_usage)
+
+    codex_summary = {
+        "tool": "Codex",
+        "history": fmt_range(codex_first, codex_last),
+        "cost": safe_float(codex_totals.get("costUSD")),
+        "total_tokens": safe_int(codex_totals.get("totalTokens")),
+    }
+    claude_summary = {
+        "tool": "Claude Code",
+        "history": fmt_range(claude_first, claude_last),
+        "cost": safe_float(claude_totals.get("totalCost")),
+        "total_tokens": safe_int(claude_totals.get("totalTokens")),
+    }
+    comate_hist = comate.get("history") if isinstance(comate.get("history"), dict) else {}
+    comate_summary = {
+        "tool": "Comate",
+        "history": fmt_range(
+            str(comate_hist.get("first") or ""),
+            str(comate_hist.get("last") or ""),
+        ),
+        "cost": 0.0,
+        "total_tokens": safe_int(comate.get("total_tokens")),
+    }
+
+    codex_pts = codex_daily_points(codex_rows)
+    claude_pts = claude_daily_points(claude_rows)
+    comate_pts = [
+        point
+        for point in (comate.get("daily_timeline") or [])
+        if isinstance(point, dict)
+    ]
+    if since:
+        codex_pts = filter_points_since(codex_pts, since)
+        claude_pts = filter_points_since(claude_pts, since)
+        comate_pts = filter_points_since(comate_pts, since)
+
+    local_daily = build_local_machine_daily(codex_pts, claude_pts, comate_pts)
+    fragment_file, fragment_meta = machine_fragments.write_machine_fragment_append(
+        machines_path,
+        machine_id,
+        timezone,
+        local_daily,
+        TOOL_TOKEN_FIELDS,
+        safe_int,
+        safe_float,
+        today=today,
+        hostname=socket.gethostname(),
+        force_reseed=force_reseed,
+    )
+    local_summary["machine_fragment"] = str(fragment_file)
+    local_summary["fragment_mode"] = fragment_meta.get("mode")
+    local_summary["fragment_stats"] = fragment_meta.get("stats")
+    local_summary["fragment_first_seed"] = fragment_meta.get("first_seed")
+    local_summary["collect_since"] = since or "(full seed)"
+    local_summary["collect_until"] = until
+    return {
+        "today": today,
+        "comate": comate,
+        "local_summary": local_summary,
+        "fragment_meta": fragment_meta,
+        "codex_summary": codex_summary,
+        "claude_summary": claude_summary,
+        "comate_summary": comate_summary,
+    }
 
 
 def recover_codex_cache_transaction(
@@ -754,12 +1006,19 @@ def collect_usage(
     mid = machine_fragments.resolve_machine_id(machine_id)
     machines_path = Path(machines_dir) if machines_dir else DEFAULT_MACHINES_DIR
     prior_usage = usage_json_path or (REPO_ROOT / "public" / "usage.json")
+    prior_payload = load_usage_payload(prior_usage)
     cursor_fallback_note = ""
     today = local_today(timezone)
+    prior_cursor_mutable_from = cursor_mutable_from(prior_payload, today)
+    next_cursor_mutable_from = prior_cursor_mutable_from
+    cursor_reconciliation_stats: dict[str, Any] = {}
     fragment_meta: dict[str, Any] = {}
 
     if merge_only:
         cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
+        cursor_api_complete = bool(
+            cursor_usage.get("available") and cursor_usage.get("complete")
+        )
         cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
         if not cursor_usage.get("available") and cursor_pts:
             cursor_fallback_note = "Cursor API unavailable; kept prior usage.json Cursor series."
@@ -775,7 +1034,8 @@ def collect_usage(
                 "daily_timeline": cursor_pts,
                 "error": cursor_fallback_note,
             }
-        fragments = machine_fragments.load_machine_fragments(machines_path)
+        fragments = machine_fragments.load_machine_fragments_strict(machines_path)
+        validate_fragment_timezones(fragments, timezone)
         local_merged, machine_ids = machine_fragments.merge_local_fragments(
             fragments,
             empty_daily_row,
@@ -784,13 +1044,9 @@ def collect_usage(
             safe_float,
         )
         # Load prior usage rows so cursor history freeze can see existing cursor_* values
-        prior_rows: list[dict[str, Any]] = []
-        if prior_usage.is_file():
-            try:
-                prior_payload = json.loads(prior_usage.read_text(encoding="utf-8"))
-                prior_rows = [r for r in (prior_payload.get("daily") or []) if isinstance(r, dict)]
-            except (OSError, json.JSONDecodeError):
-                prior_rows = []
+        prior_rows = [
+            row for row in (prior_payload.get("daily") or []) if isinstance(row, dict)
+        ]
         # Overlay prior cursor onto local_merged dates before applying API points
         prior_by = {str(r["date"]): r for r in prior_rows if r.get("date")}
         for row in local_merged:
@@ -835,7 +1091,15 @@ def collect_usage(
             safe_int,
             safe_float,
             today=today,
+            cursor_mutable_from=prior_cursor_mutable_from,
             freeze_cursor_history=True,
+            reconciliation_stats=cursor_reconciliation_stats,
+        )
+        next_cursor_mutable_from = advance_cursor_mutable_from(
+            prior_cursor_mutable_from,
+            today,
+            cursor_api_complete,
+            cursor_reconciliation_stats,
         )
         comate = {"available": False, "note": "merge-only; Comate not re-parsed"}
         local_summary = {"merge_only": True}
@@ -843,78 +1107,25 @@ def collect_usage(
         claude_summary = {"tool": "Claude Code", "history": "from fragments", "cost": 0, "total_tokens": 0}
         comate_summary = {"tool": "Comate", "history": "from fragments", "cost": 0, "total_tokens": 0}
     else:
-        existing_frag = None if force_reseed else machine_fragments.load_machine_fragment(machines_path, mid)
-        first_seed = force_reseed or machine_fragments.is_first_seed(existing_frag)
-        since = "" if first_seed else machine_fragments.append_range_start(existing_frag, today)
-        until = today
-
-        if first_seed:
-            codex_usage = ccusage_daily("codex", timezone)
-            claude_usage = ccusage_daily("claude", timezone)
-        else:
-            codex_usage = ccusage_daily("codex", timezone, since=since or today, until=until)
-            claude_usage = ccusage_daily("claude", timezone, since=since or today, until=until)
-
-        local_summary = local_record_summary(home, tmp_dir)
-        cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
-        comate = comate_usage.parse_comate(home, timezone)
-
-        codex_rows = usage_daily_rows(codex_usage)
-        claude_rows = usage_daily_rows(claude_usage)
-        codex_first, codex_last = daily_range(codex_rows, codex=True)
-        claude_first, claude_last = daily_range(claude_rows)
-        codex_totals = usage_totals(codex_usage)
-        claude_totals = usage_totals(claude_usage)
-
-        codex_summary = {
-            "tool": "Codex",
-            "history": fmt_range(codex_first, codex_last),
-            "cost": safe_float(codex_totals.get("costUSD")),
-            "total_tokens": safe_int(codex_totals.get("totalTokens")),
-        }
-        claude_summary = {
-            "tool": "Claude Code",
-            "history": fmt_range(claude_first, claude_last),
-            "cost": safe_float(claude_totals.get("totalCost")),
-            "total_tokens": safe_int(claude_totals.get("totalTokens")),
-        }
-        comate_hist = comate.get("history") if isinstance(comate.get("history"), dict) else {}
-        comate_summary = {
-            "tool": "Comate",
-            "history": fmt_range(str(comate_hist.get("first") or ""), str(comate_hist.get("last") or "")),
-            "cost": 0.0,
-            "total_tokens": safe_int(comate.get("total_tokens")),
-        }
-
-        codex_pts = codex_daily_points(codex_rows)
-        claude_pts = claude_daily_points(claude_rows)
-        comate_pts = [p for p in (comate.get("daily_timeline") or []) if isinstance(p, dict)]
-        if since:
-            codex_pts = filter_points_since(codex_pts, since)
-            claude_pts = filter_points_since(claude_pts, since)
-            comate_pts = filter_points_since(comate_pts, since)
-
-        local_daily = build_local_machine_daily(codex_pts, claude_pts, comate_pts)
-
-        fragment_file, fragment_meta = machine_fragments.write_machine_fragment_append(
-            machines_path,
-            mid,
+        local = collect_local_machine(
+            home,
             timezone,
-            local_daily,
-            TOOL_TOKEN_FIELDS,
-            safe_int,
-            safe_float,
-            today=today,
-            hostname=socket.gethostname(),
+            tmp_dir,
+            machine_id=mid,
+            machines_path=machines_path,
             force_reseed=force_reseed,
         )
-        local_summary["machine_fragment"] = str(fragment_file)
-        local_summary["fragment_mode"] = fragment_meta.get("mode")
-        local_summary["fragment_stats"] = fragment_meta.get("stats")
-        local_summary["fragment_first_seed"] = fragment_meta.get("first_seed")
-        local_summary["collect_since"] = since or "(full seed)"
-        local_summary["collect_until"] = until
-
+        today = str(local["today"])
+        local_summary = local["local_summary"]
+        fragment_meta = local["fragment_meta"]
+        codex_summary = local["codex_summary"]
+        claude_summary = local["claude_summary"]
+        comate_summary = local["comate_summary"]
+        comate = local["comate"]
+        cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
+        cursor_api_complete = bool(
+            cursor_usage.get("available") and cursor_usage.get("complete")
+        )
         cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
         if not cursor_usage.get("available") and cursor_pts:
             cursor_fallback_note = "Cursor API unavailable; kept prior usage.json Cursor series."
@@ -933,7 +1144,8 @@ def collect_usage(
 
         # Base rows for cursor freeze: merged fragments + prior cursor columns
         if merge:
-            fragments = machine_fragments.load_machine_fragments(machines_path)
+            fragments = machine_fragments.load_machine_fragments_strict(machines_path)
+            validate_fragment_timezones(fragments, timezone)
             local_merged, machine_ids = machine_fragments.merge_local_fragments(
                 fragments,
                 empty_daily_row,
@@ -946,15 +1158,11 @@ def collect_usage(
             seeded = machine_fragments.load_machine_fragment(machines_path, mid) or {}
             local_merged = [r for r in (seeded.get("daily") or []) if isinstance(r, dict)]
 
-        prior_by: dict[str, dict[str, Any]] = {}
-        if prior_usage.is_file():
-            try:
-                prior_payload = json.loads(prior_usage.read_text(encoding="utf-8"))
-                for r in prior_payload.get("daily") or []:
-                    if isinstance(r, dict) and r.get("date"):
-                        prior_by[str(r["date"])] = r
-            except (OSError, json.JSONDecodeError):
-                prior_by = {}
+        prior_by: dict[str, dict[str, Any]] = {
+            str(row["date"]): row
+            for row in (prior_payload.get("daily") or [])
+            if isinstance(row, dict) and row.get("date")
+        }
         merged_dates = {str(r.get("date")) for r in local_merged}
         for row in local_merged:
             prev = prior_by.get(str(row.get("date")))
@@ -995,7 +1203,15 @@ def collect_usage(
             safe_int,
             safe_float,
             today=today,
+            cursor_mutable_from=prior_cursor_mutable_from,
             freeze_cursor_history=True,
+            reconciliation_stats=cursor_reconciliation_stats,
+        )
+        next_cursor_mutable_from = advance_cursor_mutable_from(
+            prior_cursor_mutable_from,
+            today,
+            cursor_api_complete,
+            cursor_reconciliation_stats,
         )
 
     # Recompute per-tool summary totals from merged daily for UI cards
@@ -1055,6 +1271,8 @@ def collect_usage(
             "span": fmt_range(span_first, span_last),
         },
         "cursor_fallback_note": cursor_fallback_note,
+        "cursor_mutable_from": next_cursor_mutable_from,
+        "cursor_reconciliation": cursor_reconciliation_stats,
     }
 
 
@@ -2132,6 +2350,14 @@ def main() -> int:
         help="Re-merge existing machines/*.json + Cursor API into usage.json (no local re-collect).",
     )
     parser.add_argument(
+        "--collect-local-only",
+        action="store_true",
+        help=(
+            "Atomically update only this Mac's fragment; do not call Cursor, GitHub, "
+            "npm, or write the shared usage.json."
+        ),
+    )
+    parser.add_argument(
         "--force-reseed",
         action="store_true",
         help="Ignore existing machine fragment and re-seed full local history (dangerous; breaks append freeze).",
@@ -2169,6 +2395,7 @@ def main() -> int:
     if (args.backfill_codex_cache or args.recover_codex_cache_transaction) and (
         args.today
         or args.merge_only
+        or args.collect_local_only
         or args.force_reseed
         or args.no_merge
         or bool(args.out)
@@ -2176,13 +2403,48 @@ def main() -> int:
     ):
         parser.error(
             "Codex cache migration modes cannot be combined with --today, --merge-only, "
-            "--force-reseed, --no-merge, --out, or --png"
+            "--collect-local-only, --force-reseed, --no-merge, --out, or --png"
+        )
+    if args.collect_local_only and (
+        args.today
+        or args.merge_only
+        or args.no_merge
+        or bool(args.out)
+        or bool(args.png)
+        or bool(args.json_out)
+    ):
+        parser.error(
+            "--collect-local-only cannot be combined with --today, --merge-only, "
+            "--no-merge, --json-out, --out, or --png"
         )
 
     home = Path(args.home).expanduser()
     if args.today:
         data = collect_today_usage(home, args.timezone, max(1, args.cursor_page_size))
         print(render_today_text(data))
+        return 0
+
+    if args.collect_local_only:
+        tmp_dir = Path(tempfile.mkdtemp(prefix="ai-usage-local-"))
+        try:
+            result = collect_local_machine(
+                home,
+                args.timezone,
+                tmp_dir,
+                machine_id=machine_fragments.resolve_machine_id(
+                    args.machine_id or None
+                ),
+                machines_path=Path(args.machines_dir).expanduser(),
+                force_reseed=bool(args.force_reseed),
+            )
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        meta = result.get("fragment_meta") or {}
+        print(meta.get("path"))
+        print(
+            f"fragment_mode={meta.get('mode')} mutable_from={meta.get('mutable_from')} "
+            f"stats={meta.get('stats')}"
+        )
         return 0
 
     if not args.json_out and not args.out:
@@ -2226,6 +2488,9 @@ def main() -> int:
             machines_dir=Path(args.machines_dir).expanduser(),
             merge=not args.no_merge,
             merge_only=bool(args.merge_only),
+            usage_json_path=(
+                Path(args.json_out).expanduser() if args.json_out else None
+            ),
             force_reseed=bool(args.force_reseed),
         )
         if args.json_out:
@@ -2234,6 +2499,8 @@ def main() -> int:
             payload = {
                 "generated_at": data.get("generated_at"),
                 "timezone": data.get("timezone"),
+                "cursor_mutable_from": data.get("cursor_mutable_from"),
+                "cursor_reconciliation": data.get("cursor_reconciliation"),
                 "machine_id": data.get("machine_id"),
                 "machines": machines,
                 "tools": data.get("tools"),
@@ -2258,9 +2525,9 @@ def main() -> int:
                     ),
                     "merge": (
                         f"Merged machine fragments: {', '.join(machines) if machines else '(none)'}. "
-                        "Each Mac append-only updates machines/<id>.json "
-                        "(first run seeds history; later runs append missing days + refresh today; "
-                        "past days are frozen against local cleanup drift)."
+                        "Each Mac atomically updates machines/<id>.json. The first run "
+                        "seeds history; later runs re-collect mutable_from through today, "
+                        "while older dates and higher prior snapshots remain protected."
                         + (
                             f" Fragment mode={((data.get('fragment_meta') or {}).get('mode'))}."
                             if data.get("fragment_meta")
@@ -2274,11 +2541,7 @@ def main() -> int:
                     ),
                 },
             }
-            json_path.parent.mkdir(parents=True, exist_ok=True)
-            json_path.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            machine_fragments.write_json_atomic(json_path, payload)
             print(json_path)
             print(f"machine_id={data.get('machine_id')} machines={machines}")
             meta = data.get("fragment_meta") if isinstance(data.get("fragment_meta"), dict) else {}

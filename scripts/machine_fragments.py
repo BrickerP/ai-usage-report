@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Per-machine usage fragments and multi-machine merge.
 
-Machine fragments are append-only ledgers:
-- First run (missing/empty fragment): seed full local history once.
-- Later runs: append missing dates; refresh *today* only; never rewrite past days.
+Machine fragments are durable local ledgers.  ``mutable_from`` is the first
+calendar day that is still provisional.  Every later collection re-reads that
+day through today, so a machine can be offline for any number of days without
+freezing the last partial snapshot forever.
 """
 from __future__ import annotations
 
@@ -515,22 +516,93 @@ def next_day(date_key: str) -> str:
     return (day + dt.timedelta(days=1)).isoformat()
 
 
+def previous_day(date_key: str) -> str:
+    day = dt.date.fromisoformat(date_key)
+    return (day - dt.timedelta(days=1)).isoformat()
+
+
+def _valid_day(value: Any) -> str:
+    raw = str(value or "").strip()
+    try:
+        return dt.date.fromisoformat(raw).isoformat()
+    except ValueError:
+        return ""
+
+
+def fragment_mutable_from(fragment: dict[str, Any] | None, today: str) -> str:
+    """Return the earliest day that must be re-collected.
+
+    New fragments persist this value explicitly.  Legacy fragments did not, so
+    their first seeded day is reopened once: the initial seed was a point-in-time
+    snapshot and that day may contain usage after the snapshot.  Older days were
+    already complete at seed time.
+    """
+    if not fragment or is_first_seed(fragment):
+        return ""
+
+    explicit = _valid_day(fragment.get("mutable_from"))
+    if explicit:
+        return explicit if explicit <= today else today
+
+    seeded_at = str(fragment.get("seeded_at") or "").strip()
+    if seeded_at:
+        try:
+            parsed = dt.datetime.fromisoformat(seeded_at.replace("Z", "+00:00"))
+            seeded_day = parsed.date().isoformat()
+            return seeded_day if seeded_day <= today else today
+        except ValueError:
+            pass
+
+    dates = sorted(fragment_dates(fragment))
+    if dates:
+        return dates[0] if dates[0] <= today else today
+    return ""
+
+
 def append_range_start(fragment: dict[str, Any] | None, today: str) -> str:
     """Earliest local calendar day we still need from collectors.
 
     - First seed: empty string → caller collects full history.
-    - Later: day after latest frozen date, but never after today.
-      Today is always re-collected even if present.
+    - Later: the persisted provisional boundary through today.
+    - Legacy fragments reopen their original seed day once to repair snapshots
+      that the previous today-only policy froze too early.
     """
-    dates = fragment_dates(fragment)
-    if not dates:
-        return ""
-    frozen = {d for d in dates if d < today}
-    if not frozen:
-        return today
-    latest_frozen = max(frozen)
-    start = next_day(latest_frozen)
-    return start if start <= today else today
+    return fragment_mutable_from(fragment, today)
+
+
+def _copy_tool_group(
+    target: dict[str, Any],
+    source: dict[str, Any],
+    prefix: str,
+    tool_token_fields: dict[str, list[str]],
+) -> None:
+    target[f"{prefix}_tokens"] = source[f"{prefix}_tokens"]
+    target[f"{prefix}_cost"] = source[f"{prefix}_cost"]
+    for field in tool_token_fields.get(prefix, []):
+        target[f"{prefix}_{field}"] = source[f"{prefix}_{field}"]
+    if prefix == "comate":
+        target["comate_sessions"] = source["comate_sessions"]
+        target["comate_messages"] = source["comate_messages"]
+
+
+def _tool_regressed(
+    existing: dict[str, Any],
+    incoming: dict[str, Any],
+    prefix: str,
+    safe_int: SafeInt,
+) -> bool:
+    if safe_int(incoming.get(f"{prefix}_tokens")) < safe_int(
+        existing.get(f"{prefix}_tokens")
+    ):
+        return True
+    if prefix == "comate":
+        return (
+            safe_int(incoming.get("comate_sessions"))
+            < safe_int(existing.get("comate_sessions"))
+            or safe_int(incoming.get("comate_messages"))
+            < safe_int(existing.get("comate_messages"))
+        )
+    return False
 
 
 def merge_append_daily(
@@ -540,13 +612,15 @@ def merge_append_daily(
     tool_token_fields: dict[str, list[str]],
     safe_int: SafeInt,
     safe_float: SafeFloat,
-) -> tuple[list[dict[str, Any]], dict[str, int]]:
-    """Append-only merge.
+    *,
+    mutable_from: str = "",
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Merge a complete collector snapshot into the provisional window.
 
-    - date < today and already present: keep existing (frozen)
-    - date < today and missing: append incoming
-    - date == today: replace with incoming (current day may still grow)
-    - date > today: ignore
+    Existing dates before ``mutable_from`` are immutable.  Dates at or after it
+    are refreshed tool-by-tool.  A lower replacement is treated as source
+    regression (usually cleaned local logs): the older high-water snapshot is
+    kept and that date remains provisional.
     """
     by_date: dict[str, dict[str, Any]] = {}
     for row in existing_daily:
@@ -555,29 +629,68 @@ def merge_append_daily(
         date_key = str(row["date"])
         by_date[date_key] = strip_row_to_local(row, tool_token_fields, safe_int, safe_float)
 
-    stats = {"frozen_kept": 0, "appended": 0, "today_updated": 0, "skipped": 0}
+    incoming_by_date: dict[str, dict[str, Any]] = {}
     for row in incoming_daily:
         if not isinstance(row, dict) or not row.get("date"):
             continue
         date_key = str(row["date"])
         if date_key > today:
-            stats["skipped"] += 1
             continue
-        local_row = strip_row_to_local(row, tool_token_fields, safe_int, safe_float)
-        if not row_has_local_activity(local_row, safe_int, safe_float):
-            if date_key != today:
-                stats["skipped"] += 1
-                continue
+        incoming_by_date[date_key] = strip_row_to_local(
+            row, tool_token_fields, safe_int, safe_float
+        )
 
-        if date_key < today and date_key in by_date:
+    stats: dict[str, Any] = {
+        "frozen_kept": 0,
+        "appended": 0,
+        "refreshed": 0,
+        "today_updated": 0,
+        "skipped": 0,
+        "regression_kept": 0,
+        "regression_dates": [],
+    }
+    regression_dates: set[str] = set()
+
+    for date_key in sorted(set(by_date) | set(incoming_by_date)):
+        existing = by_date.get(date_key)
+        incoming = incoming_by_date.get(date_key)
+        frozen = bool(mutable_from) and date_key < mutable_from
+
+        if frozen and existing is not None:
             stats["frozen_kept"] += 1
             continue
-        if date_key == today:
-            by_date[date_key] = local_row
-            stats["today_updated"] += 1
+        if incoming is None:
+            if (
+                existing is not None
+                and date_key < today
+                and (not mutable_from or date_key >= mutable_from)
+                and row_has_local_activity(existing, safe_int, safe_float)
+            ):
+                regression_dates.add(date_key)
+                stats["regression_kept"] += 1
             continue
-        by_date[date_key] = local_row
-        stats["appended"] += 1
+        if not row_has_local_activity(incoming, safe_int, safe_float) and existing is None:
+            stats["skipped"] += 1
+            continue
+        if existing is None:
+            by_date[date_key] = incoming
+            stats["appended"] += 1
+            continue
+
+        merged = dict(existing)
+        for prefix in LOCAL_TOOL_PREFIXES:
+            if _tool_regressed(existing, incoming, prefix, safe_int):
+                regression_dates.add(date_key)
+                stats["regression_kept"] += 1
+                continue
+            _copy_tool_group(merged, incoming, prefix, tool_token_fields)
+        by_date[date_key] = merged
+        if date_key == today:
+            stats["today_updated"] += 1
+        else:
+            stats["refreshed"] += 1
+
+    stats["regression_dates"] = sorted(regression_dates)
 
     rows = [
         by_date[key]
@@ -600,14 +713,22 @@ def write_machine_fragment_append(
     hostname: str | None = None,
     force_reseed: bool = False,
 ) -> tuple[Path, dict[str, Any]]:
-    """Seed once or append into machines/<id>.json. Past days are immutable."""
+    """Atomically update machines/<id>.json and advance its open boundary."""
     machines_dir.mkdir(parents=True, exist_ok=True)
     mid = sanitize_machine_id(machine_id)
     path = fragment_path(machines_dir, mid)
     existing = None if force_reseed else load_machine_fragment(machines_dir, mid)
     first = force_reseed or is_first_seed(existing)
 
+    existing_timezone = str((existing or {}).get("timezone") or "").strip()
+    if existing_timezone and existing_timezone != timezone:
+        raise ValueError(
+            f"machine fragment timezone changed for {mid}: "
+            f"{existing_timezone} != {timezone}"
+        )
+
     now = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    mutable_from = "" if first else fragment_mutable_from(existing, today)
     if first:
         merged, stats = merge_append_daily(
             [],
@@ -616,6 +737,7 @@ def write_machine_fragment_append(
             tool_token_fields,
             safe_int,
             safe_float,
+            mutable_from="",
         )
         mode = "seed"
         seeded_at = now
@@ -627,9 +749,18 @@ def write_machine_fragment_append(
             tool_token_fields,
             safe_int,
             safe_float,
+            mutable_from=mutable_from,
         )
         mode = "append"
         seeded_at = str((existing or {}).get("seeded_at") or now)
+
+    regression_dates = [
+        str(value)
+        for value in stats.get("regression_dates") or []
+        if str(value) < today
+    ]
+    safety_window_start = previous_day(today)
+    next_mutable_from = min([safety_window_start, *regression_dates])
 
     payload = {
         "machine_id": mid,
@@ -638,25 +769,28 @@ def write_machine_fragment_append(
         "seeded_at": seeded_at,
         "seeded": True,
         "append_mode": True,
+        "mutable_from": next_mutable_from,
         "last_mode": mode,
         "last_append_stats": stats,
         "timezone": timezone,
         "scope": "machine-local",
         "tools": list(LOCAL_TOOL_PREFIXES),
         "policy": (
-            "Append-only ledger: first run seeds full local history; later runs append "
-            "missing dates and refresh today only; past dates are never rewritten "
-            "(survives local session cleanup / data drift)."
+            "Durable ledger: dates before mutable_from are finalized; every run "
+            "re-collects mutable_from through today and always keeps yesterday + "
+            "today open. Lower source snapshots remain at their previous high-water."
         ),
         "daily": merged,
     }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_json_atomic(path, payload)
     meta = {
         "path": str(path),
         "mode": mode,
         "stats": stats,
         "days": len(merged),
         "first_seed": first,
+        "collect_from": mutable_from or "(full seed)",
+        "mutable_from": next_mutable_from,
     }
     return path, meta
 
@@ -749,16 +883,20 @@ def apply_cursor_points(
     safe_float: SafeFloat,
     *,
     today: str | None = None,
+    cursor_mutable_from: str = "",
     freeze_cursor_history: bool = True,
+    reconciliation_stats: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Apply Cursor points onto local rows.
 
-    When freeze_cursor_history is True (default), dates before today that already
-    have cursor_* values are left unchanged; only missing historical days and
-    today are updated.
+    When freeze_cursor_history is True (default), dates before
+    ``cursor_mutable_from`` that already have cursor_* values are left unchanged.
+    The open window is refreshed through today.  An empty boundary intentionally
+    reopens all Cursor history once when migrating a legacy usage.json.
     """
     by_date = {str(r["date"]): dict(r) for r in daily_rows if isinstance(r, dict) and r.get("date")}
     today_key = today or ""
+    regression_dates: set[str] = set()
 
     for point in cursor_pts:
         if not isinstance(point, dict):
@@ -769,12 +907,23 @@ def apply_cursor_points(
         row = by_date.setdefault(date_key, empty_daily_row(date_key))
         if (
             freeze_cursor_history
-            and today_key
-            and date_key < today_key
+            and cursor_mutable_from
+            and date_key < cursor_mutable_from
             and (safe_int(row.get("cursor_tokens")) or safe_float(row.get("cursor_cost")))
         ):
             continue
+        if today_key and date_key > today_key:
+            continue
+        if safe_int(point.get("tokens")) < safe_int(row.get("cursor_tokens")):
+            # A partial Dashboard page must not replace a higher snapshot.  The
+            # cursor boundary will remain open when the API reports incomplete.
+            regression_dates.add(date_key)
+            continue
         apply_tool_point(row, "cursor", point)
+
+    if reconciliation_stats is not None:
+        reconciliation_stats["regression_dates"] = sorted(regression_dates)
+        reconciliation_stats["regression_kept"] = len(regression_dates)
 
     rows: list[dict[str, Any]] = []
     for date_key in sorted(by_date):
