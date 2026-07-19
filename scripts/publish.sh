@@ -8,6 +8,7 @@
 #   bash scripts/publish.sh
 #   bash scripts/publish.sh --skip-collect   # rebuild UI only
 #   bash scripts/publish.sh --skip-push      # local build only
+#   bash scripts/publish.sh --backfill-codex-cache  # one-time safe migration
 #
 set -euo pipefail
 
@@ -16,13 +17,19 @@ cd "$ROOT"
 
 SKIP_COLLECT=0
 SKIP_PUSH=0
+BACKFILL_CODEX_CACHE=0
 for arg in "$@"; do
   case "$arg" in
     --skip-collect) SKIP_COLLECT=1 ;;
     --skip-push) SKIP_PUSH=1 ;;
+    --backfill-codex-cache) BACKFILL_CODEX_CACHE=1 ;;
     -h|--help)
-      sed -n '2,14p' "$0"
+      sed -n '2,15p' "$0"
       exit 0
+      ;;
+    *)
+      printf 'ERROR: unknown option: %s\n' "$arg" >&2
+      exit 2
       ;;
   esac
 done
@@ -38,6 +45,32 @@ AI_USAGE_MACHINE_ID="${AI_USAGE_MACHINE_ID:-}"
 
 log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
+
+if (( BACKFILL_CODEX_CACHE == 1 && SKIP_COLLECT == 1 )); then
+  die "--backfill-codex-cache cannot be combined with --skip-collect"
+fi
+if (( BACKFILL_CODEX_CACHE == 1 )) && [[ -z "$AI_USAGE_MACHINE_ID" ]]; then
+  die "AI_USAGE_MACHINE_ID is required for --backfill-codex-cache"
+fi
+
+require_clean_backfill_worktree() {
+  if (( BACKFILL_CODEX_CACHE == 1 )) && [[ -n "$(git status --porcelain)" ]]; then
+    die "--backfill-codex-cache requires a clean worktree; preserve or commit existing changes first"
+  fi
+}
+
+require_backfill_at_remote_tip() {
+  if (( BACKFILL_CODEX_CACHE != 1 )); then
+    return 0
+  fi
+  local local_head remote_head
+  local_head="$(git rev-parse HEAD)" || die "could not resolve local HEAD"
+  remote_head="$(git rev-parse "${REMOTE_NAME}/${PUBLISH_BRANCH}")" || \
+    die "could not resolve ${REMOTE_NAME}/${PUBLISH_BRANCH}"
+  if [[ "$local_head" != "$remote_head" ]]; then
+    die "--backfill-codex-cache requires HEAD to exactly match ${REMOTE_NAME}/${PUBLISH_BRANCH}; push or preserve unrelated local commits first"
+  fi
+}
 
 abort_in_progress_git_ops() {
   if [ -d "$ROOT/.git/rebase-merge" ] || [ -d "$ROOT/.git/rebase-apply" ]; then
@@ -117,6 +150,25 @@ collect_usage() {
     "${extra_args[@]}"
 }
 
+backfill_codex_cache() {
+  log "backfilling frozen Codex cache fields for ${AI_USAGE_MACHINE_ID}"
+  python3 "$ROOT/scripts/ai_usage_comparison_image.py" \
+    --json-out "$ROOT/public/usage.json" \
+    --machines-dir "$ROOT/public/machines" \
+    --timezone "$AI_USAGE_TIMEZONE" \
+    --machine-id "$AI_USAGE_MACHINE_ID" \
+    --backfill-codex-cache
+}
+
+recover_codex_cache_transaction() {
+  log "checking for an interrupted Codex cache transaction before Git synchronization"
+  python3 "$ROOT/scripts/machine_fragments.py" \
+    --json-out "$ROOT/public/usage.json" \
+    --machines-dir "$ROOT/public/machines" \
+    --machine-id "$AI_USAGE_MACHINE_ID" \
+    --recover-codex-cache-transaction
+}
+
 remerge_usage() {
   local extra_args=()
   if [[ -n "$AI_USAGE_MACHINE_ID" ]]; then
@@ -164,6 +216,72 @@ push_branch() {
     push "$REMOTE_NAME" "HEAD:refs/heads/${PUBLISH_BRANCH}"
 }
 
+reconcile_backfill_push() {
+  log "fetching remote tip for safe cache-migration reconciliation"
+  git fetch "$REMOTE_NAME" "$PUBLISH_BRANCH" || \
+    die "push failed and remote fetch failed; leave the local migration commit untouched"
+
+  local remote_tip
+  remote_tip="$(git rev-parse "${REMOTE_NAME}/${PUBLISH_BRANCH}")" || \
+    die "could not resolve ${REMOTE_NAME}/${PUBLISH_BRANCH}"
+
+  if ! git rebase "$remote_tip"; then
+    local conflicts path unexpected=0
+    conflicts="$(git diff --name-only --diff-filter=U)"
+    if [[ -z "$conflicts" ]]; then
+      abort_in_progress_git_ops
+      die "cache migration rebase failed without resolvable generated-file conflicts"
+    fi
+
+    while IFS= read -r path; do
+      case "$path" in
+        public/usage.json|docs/*) ;;
+        *)
+          log "ERROR: refusing to auto-resolve unexpected conflict: $path"
+          unexpected=1
+          ;;
+      esac
+    done <<< "$conflicts"
+    if (( unexpected == 1 )); then
+      abort_in_progress_git_ops
+      die "cache migration touched a non-generated conflict; local commit remains recoverable via reflog"
+    fi
+
+    while IFS= read -r path; do
+      if git cat-file -e "${remote_tip}:${path}" 2>/dev/null; then
+        git checkout "$remote_tip" -- "$path" || {
+          abort_in_progress_git_ops
+          die "could not restore remote generated file during reconciliation: $path"
+        }
+      else
+        git rm -f -- "$path" || {
+          abort_in_progress_git_ops
+          die "could not remove remote-absent generated file during reconciliation: $path"
+        }
+      fi
+    done <<< "$conflicts"
+
+    GIT_EDITOR=true git rebase --continue || {
+      abort_in_progress_git_ops
+      die "could not finish cache migration rebase after generated-file resolution"
+    }
+  fi
+
+  # Discard every stale aggregate/build artifact from the local migration commit.
+  # The machine-specific fragment remains, then the aggregate and site are regenerated
+  # from the newly fetched set of fragments.
+  git restore --source="$remote_tip" --staged --worktree -- public/usage.json docs || \
+    die "could not restore remote aggregate/build artifacts"
+  backfill_codex_cache
+  build_site
+  git add public/usage.json public/machines docs
+  if ! git diff --staged --quiet; then
+    git -c user.email="${GH_PUBLISH_ACCOUNT}@users.noreply.github.com" \
+      -c user.name="$GH_PUBLISH_ACCOUNT" \
+      commit --amend --no-edit
+  fi
+}
+
 push_with_remmerge() {
   command -v gh >/dev/null || die "gh not found (needed to push)"
   if ! gh auth status 2>&1 | grep -q "account $GH_PUBLISH_ACCOUNT"; then
@@ -181,10 +299,20 @@ push_with_remmerge() {
       log "pushed"
       return 0
     fi
-    log "WARN: push rejected or failed; pull + re-merge + rebuild"
+    if (( BACKFILL_CODEX_CACHE == 1 )); then
+      log "WARN: cache migration push failed; preserving this Mac's fragment and regenerating shared artifacts"
+      reconcile_backfill_push
+      ((attempt += 1))
+      continue
+    fi
+    log "WARN: push rejected or failed; pull + reconcile + rebuild"
     pull_latest
     if (( SKIP_COLLECT == 0 )); then
-      remerge_usage
+      if (( BACKFILL_CODEX_CACHE == 1 )); then
+        backfill_codex_cache
+      else
+        remerge_usage
+      fi
     fi
     build_site
     stage_and_commit "Refresh usage report merge-retry $(date -u '+%Y-%m-%dT%H:%MZ')" || true
@@ -197,12 +325,21 @@ command -v python3 >/dev/null || die "python3 not found"
 command -v npm >/dev/null || die "npm not found"
 
 # Always land on main and pull first so other machines' fragments are present.
+if (( BACKFILL_CODEX_CACHE == 1 )); then
+  recover_codex_cache_transaction
+fi
+require_clean_backfill_worktree
 ensure_on_publish_branch
 pull_latest
+require_backfill_at_remote_tip
 
 if (( SKIP_COLLECT == 0 )); then
-  log "collecting usage → public/machines/ + public/usage.json"
-  collect_usage
+  if (( BACKFILL_CODEX_CACHE == 1 )); then
+    backfill_codex_cache
+  else
+    log "collecting usage → public/machines/ + public/usage.json"
+    collect_usage
+  fi
 else
   log "skip collect (--skip-collect)"
   [ -f "$ROOT/public/usage.json" ] || die "public/usage.json missing; run without --skip-collect"
@@ -216,7 +353,11 @@ if (( SKIP_PUSH == 1 )); then
   exit 0
 fi
 
-if stage_and_commit "Refresh usage report $(date -u '+%Y-%m-%dT%H:%MZ')"; then
+commit_message="Refresh usage report $(date -u '+%Y-%m-%dT%H:%MZ')"
+if (( BACKFILL_CODEX_CACHE == 1 )); then
+  commit_message="Backfill Codex cache history $(date -u '+%Y-%m-%dT%H:%MZ')"
+fi
+if stage_and_commit "$commit_message"; then
   push_with_remmerge
 else
   log "no local changes to push"

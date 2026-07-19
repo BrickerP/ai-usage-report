@@ -73,6 +73,7 @@ One-time migration: `public/machines/legacy-other-mac.json` holds pre-multi-mac 
 
 - `--skip-collect` — rebuild UI only
 - `--skip-push` — local build only
+- `--backfill-codex-cache` — one-time migration for this Mac's frozen Codex cache-read breakdown
 
 Collector (`npm run collect` / Python):
 
@@ -81,6 +82,41 @@ Collector (`npm run collect` / Python):
 - `--no-merge` — write this Mac’s fragment only
 - `--merge-only` — re-merge existing fragments + Cursor API (used after push conflict)
 - `--today` — print today’s table
+- `--backfill-codex-cache` — derive frozen cache read as `total - input - output`
+- `--dry-run` — validate that migration without writing files
+
+### One-time Codex cache backfill
+
+Older fragments stored Codex totals correctly but wrote `codex_cache_read=0` because
+the collector used the legacy `cachedInputTokens` field instead of ccusage's current
+`cacheReadTokens`. The migration reconstructs the cache value from the same frozen
+snapshot (`codex_tokens - codex_input - codex_output`). It changes no totals, costs,
+dates, or Claude/Cursor/Comate fields and does not read mutable historical session logs.
+
+Run it once on each Mac with that Mac's existing unique machine id. Publish Macs
+strictly one at a time: do not start Mac B until Mac A reports a successful push.
+The publish command also has a generated-file-only reconciliation path if two Macs
+race accidentally; it preserves each machine fragment and rebuilds the shared aggregate.
+
+```bash
+export AI_USAGE_MACHINE_ID=mac-home
+export AI_USAGE_TIMEZONE=Asia/Shanghai
+
+# Validate first; does not write or publish.
+python3 scripts/ai_usage_comparison_image.py \
+  --json-out public/usage.json \
+  --machines-dir public/machines \
+  --machine-id "$AI_USAGE_MACHINE_ID" \
+  --backfill-codex-cache \
+  --dry-run
+
+# Pull, migrate this machine fragment, rebuild, commit, and push.
+bash scripts/publish.sh --backfill-codex-cache
+```
+
+The migration fails closed on missing components, duplicate dates, negative derived
+cache, or an existing nonzero cache value that conflicts with the frozen snapshot.
+Do not use `--force-reseed` for this migration.
 
 ## Layout
 

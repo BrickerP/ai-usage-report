@@ -155,13 +155,16 @@ def codex_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
         parsed = parse_codex_date(raw)
         if not parsed:
             continue
+        cache_read = row.get("cacheReadTokens")
+        if cache_read is None:
+            cache_read = row.get("cachedInputTokens")
         rows.append(
             {
                 "date": parsed.strftime("%Y-%m-%d"),
                 "tokens": safe_int(row.get("totalTokens")),
                 "cost": safe_float(row.get("costUSD")),
                 "input": safe_int(row.get("inputTokens")),
-                "cache_read": safe_int(row.get("cachedInputTokens")),
+                "cache_read": safe_int(cache_read),
                 "output": safe_int(row.get("outputTokens")),
                 "reasoning": safe_int(row.get("reasoningOutputTokens")),
             }
@@ -626,6 +629,113 @@ def filter_points_since(points: list[dict[str, Any]], since: str) -> list[dict[s
     if not since:
         return points
     return [p for p in points if isinstance(p, dict) and str(p.get("date") or "") >= since]
+
+
+def recover_codex_cache_transaction(
+    *,
+    machines_dir: Path,
+    machine_id: str,
+    usage_json_path: Path,
+) -> dict[str, Any]:
+    """Recover an interrupted cache migration before any Git synchronization."""
+    return machine_fragments.recover_codex_cache_transaction(
+        machines_dir, machine_id, usage_json_path
+    )
+
+
+def backfill_codex_cache_report(
+    *,
+    machines_dir: Path,
+    machine_id: str,
+    usage_json_path: Path,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Backfill one machine's frozen Codex cache field and the merged report.
+
+    This intentionally avoids all live collectors. Historical cache is derived
+    from each frozen row's persisted total/input/output snapshot, so totals,
+    costs, other tools, dates, and account-level Cursor data remain untouched.
+    """
+    if not machine_id.strip():
+        raise ValueError("--machine-id is required for Codex cache backfill")
+
+    mid = machine_fragments.sanitize_machine_id(machine_id)
+    expected_fragment_path = machine_fragments.fragment_path(machines_dir, mid)
+    transaction_paths = [expected_fragment_path.resolve(), usage_json_path.resolve()]
+    journal_path = machine_fragments.json_transaction_journal_path(transaction_paths)
+    if dry_run and journal_path.is_file():
+        raise ValueError(
+            "pending Codex cache transaction must be recovered before --dry-run: "
+            f"{journal_path}"
+        )
+    if not dry_run:
+        machine_fragments.recover_json_transaction(journal_path, transaction_paths)
+    fragments = machine_fragments.load_machine_fragments_strict(machines_dir)
+    matches = [
+        candidate
+        for candidate in fragments
+        if machine_fragments.sanitize_machine_id(str(candidate.get("machine_id") or "")) == mid
+    ]
+    if not matches:
+        raise FileNotFoundError(f"machine fragment not found: {expected_fragment_path}")
+    if len(matches) != 1:
+        raise ValueError(f"expected one fragment for {mid}, found {len(matches)}")
+
+    fragment = dict(matches[0])
+    fragment_path = Path(str(fragment.pop("_path")))
+    if fragment_path != expected_fragment_path:
+        raise ValueError(
+            f"machine fragment path mismatch: expected={expected_fragment_path}, found={fragment_path}"
+        )
+
+    updated_fragment_daily, fragment_stats = machine_fragments.backfill_codex_cache_daily(
+        list(fragment.get("daily") or [])
+    )
+
+    matched = 0
+    for candidate in fragments:
+        candidate_mid = machine_fragments.sanitize_machine_id(
+            str(candidate.get("machine_id") or Path(str(candidate.get("_path") or "")).stem)
+        )
+        if candidate_mid == mid:
+            candidate["daily"] = updated_fragment_daily
+            matched += 1
+    if matched != 1:
+        raise ValueError(f"expected one fragment for {mid}, found {matched}")
+
+    if not usage_json_path.is_file():
+        raise FileNotFoundError(f"merged usage JSON not found: {usage_json_path}")
+    try:
+        usage_payload = json.loads(usage_json_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"could not read merged usage JSON: {usage_json_path}: {exc}") from exc
+    if not isinstance(usage_payload, dict) or not isinstance(usage_payload.get("daily"), list):
+        raise ValueError(f"merged usage JSON has no daily list: {usage_json_path}")
+
+    updated_usage_daily, usage_stats = machine_fragments.backfill_merged_usage_codex_cache_daily(
+        list(usage_payload.get("daily") or []), fragments
+    )
+
+    if not dry_run:
+        fragment_payload = dict(fragment)
+        fragment_payload["daily"] = updated_fragment_daily
+        updated_usage_payload = dict(usage_payload)
+        updated_usage_payload["daily"] = updated_usage_daily
+        machine_fragments.write_json_transaction(
+            [
+                (fragment_path, fragment_payload),
+                (usage_json_path, updated_usage_payload),
+            ]
+        )
+
+    return {
+        "machine_id": mid,
+        "dry_run": dry_run,
+        "fragment_path": str(fragment_path),
+        "usage_json_path": str(usage_json_path),
+        "fragment": fragment_stats,
+        "usage": usage_stats,
+    }
 
 
 def collect_usage(
@@ -2026,10 +2136,48 @@ def main() -> int:
         action="store_true",
         help="Ignore existing machine fragment and re-seed full local history (dangerous; breaks append freeze).",
     )
+    parser.add_argument(
+        "--backfill-codex-cache",
+        action="store_true",
+        help=(
+            "One-time migration: derive historical Codex cache-read tokens from each "
+            "frozen total/input/output row for this machine, then update only cache fields."
+        ),
+    )
+    parser.add_argument(
+        "--recover-codex-cache-transaction",
+        action="store_true",
+        help="Recover an interrupted Codex cache migration before Git pull or validation.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate and print Codex cache backfill stats without writing files.",
+    )
     parser.add_argument("--cursor-page-size", type=int, default=500)
     parser.add_argument("--width", type=int, default=1400)
     parser.add_argument("--height", type=int, default=1000)
     args = parser.parse_args()
+
+    if args.dry_run and not args.backfill_codex_cache:
+        parser.error("--dry-run is only supported with --backfill-codex-cache")
+    if args.backfill_codex_cache and args.recover_codex_cache_transaction:
+        parser.error(
+            "--backfill-codex-cache cannot be combined with "
+            "--recover-codex-cache-transaction"
+        )
+    if (args.backfill_codex_cache or args.recover_codex_cache_transaction) and (
+        args.today
+        or args.merge_only
+        or args.force_reseed
+        or args.no_merge
+        or bool(args.out)
+        or bool(args.png)
+    ):
+        parser.error(
+            "Codex cache migration modes cannot be combined with --today, --merge-only, "
+            "--force-reseed, --no-merge, --out, or --png"
+        )
 
     home = Path(args.home).expanduser()
     if args.today:
@@ -2041,6 +2189,31 @@ def main() -> int:
         args.json_out = str(
             Path(__file__).resolve().parents[1] / "public" / "usage.json"
         )
+
+    if args.recover_codex_cache_transaction:
+        try:
+            result = recover_codex_cache_transaction(
+                machines_dir=Path(args.machines_dir).expanduser(),
+                machine_id=args.machine_id,
+                usage_json_path=Path(args.json_out).expanduser(),
+            )
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.backfill_codex_cache:
+        try:
+            result = backfill_codex_cache_report(
+                machines_dir=Path(args.machines_dir).expanduser(),
+                machine_id=args.machine_id,
+                usage_json_path=Path(args.json_out).expanduser(),
+                dry_run=bool(args.dry_run),
+            )
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="ai-usage-image-"))
     try:
