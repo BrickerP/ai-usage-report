@@ -13,6 +13,7 @@ from pathlib import Path
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -487,37 +488,8 @@ def daily_row_for_date(date_key: str, rows: list[dict[str, Any]]) -> dict[str, A
 
 def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dict[str, Any]:
     today_key, start_ms, end_ms = local_day_window(timezone)
-    day_arg = today_key.replace("-", "")
-    codex_usage = run_json(
-        [
-            *ccusage_command(),
-            "codex",
-            "daily",
-            "-z",
-            timezone,
-            "--json",
-            "--offline",
-            "--since",
-            day_arg,
-            "--until",
-            day_arg,
-        ]
-    )
-    claude_usage = run_json(
-        [
-            *ccusage_command(),
-            "claude",
-            "daily",
-            "-z",
-            timezone,
-            "--json",
-            "--offline",
-            "--since",
-            day_arg,
-            "--until",
-            day_arg,
-        ]
-    )
+    codex_usage = ccusage_daily("codex", timezone, since=today_key, until=today_key)
+    claude_usage = ccusage_daily("claude", timezone, since=today_key, until=today_key)
     cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone, start_ms, end_ms)
     comate = comate_usage.parse_comate(home, timezone)
 
@@ -698,7 +670,60 @@ def ccusage_command() -> list[str]:
     return ["npx", "ccusage@latest"]
 
 
-def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") -> Any:
+def model_breakdown_tokens(breakdown: dict[str, Any]) -> int:
+    return (
+        safe_int(breakdown.get("inputTokens"))
+        + safe_int(breakdown.get("outputTokens"))
+        + safe_int(breakdown.get("cacheCreationTokens"))
+        + safe_int(breakdown.get("cacheReadTokens"))
+    )
+
+
+def unpriced_models(usage: Any) -> list[str]:
+    """Model names with positive tokens but $0 cost (usually missing LiteLLM offline prices)."""
+    if not isinstance(usage, dict):
+        return []
+    found: list[str] = []
+    seen: set[str] = set()
+    for day in usage.get("daily") or []:
+        if not isinstance(day, dict):
+            continue
+        for breakdown in day.get("modelBreakdowns") or []:
+            if not isinstance(breakdown, dict):
+                continue
+            name = str(breakdown.get("modelName") or "unknown").strip() or "unknown"
+            if name in seen:
+                continue
+            if model_breakdown_tokens(breakdown) > 0 and safe_float(breakdown.get("cost")) == 0.0:
+                seen.add(name)
+                found.append(name)
+    return found
+
+
+def online_recovers_unpriced_models(unpriced: list[str], online_usage: Any) -> bool:
+    """True when online pricing assigns a positive cost to at least one previously unpriced model."""
+    if not unpriced or not isinstance(online_usage, dict):
+        return False
+    costs: dict[str, float] = defaultdict(float)
+    for day in online_usage.get("daily") or []:
+        if not isinstance(day, dict):
+            continue
+        for breakdown in day.get("modelBreakdowns") or []:
+            if not isinstance(breakdown, dict):
+                continue
+            name = str(breakdown.get("modelName") or "unknown").strip() or "unknown"
+            costs[name] += safe_float(breakdown.get("cost"))
+    return any(costs.get(name, 0.0) > 0.0 for name in unpriced)
+
+
+def ccusage_daily_command(
+    tool: str,
+    timezone: str,
+    since: str = "",
+    until: str = "",
+    *,
+    offline: bool,
+) -> list[str]:
     command = [
         *ccusage_command(),
         tool,
@@ -706,13 +731,74 @@ def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") ->
         "-z",
         timezone,
         "--json",
-        "--offline",
     ]
+    if offline:
+        command.append("--offline")
     if since:
         command.extend(["--since", since.replace("-", "")])
     if until:
         command.extend(["--until", until.replace("-", "")])
-    return run_json(command)
+    return command
+
+
+def run_ccusage_daily(
+    tool: str,
+    timezone: str,
+    since: str = "",
+    until: str = "",
+    *,
+    offline: bool,
+) -> Any:
+    return run_json(
+        ccusage_daily_command(tool, timezone, since=since, until=until, offline=offline)
+    )
+
+
+def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") -> Any:
+    """Collect daily usage with offline LiteLLM prices, retrying online if models are unpriced.
+
+    Scheduled collection stays resilient with ``--offline``. When a new model is
+    missing from the cached price table (tokens > 0, cost == 0), retry once
+    without ``--offline`` so live LiteLLM pricing can fill the gap. Network or
+    still-unpriced failures keep the offline result and warn on stderr.
+    """
+    offline_usage = run_ccusage_daily(
+        tool, timezone, since=since, until=until, offline=True
+    )
+    missing = unpriced_models(offline_usage)
+    if not missing:
+        return offline_usage
+
+    missing_label = ", ".join(missing)
+    range_label = f"{since or '...'}..{until or '...'}"
+    try:
+        online_usage = run_ccusage_daily(
+            tool, timezone, since=since, until=until, offline=False
+        )
+    except Exception as exc:
+        print(
+            f"warning: ccusage online pricing retry failed for {tool} "
+            f"({missing_label}; {range_label}): {exc}",
+            file=sys.stderr,
+        )
+        return offline_usage
+
+    if online_recovers_unpriced_models(missing, online_usage):
+        still = unpriced_models(online_usage)
+        if still:
+            print(
+                f"warning: ccusage online pricing still missing costs for {tool} "
+                f"({', '.join(still)}; {range_label}); using partial online costs",
+                file=sys.stderr,
+            )
+        return online_usage
+
+    print(
+        f"warning: ccusage offline pricing missing costs for {tool} "
+        f"({missing_label}; {range_label}); online retry did not recover prices",
+        file=sys.stderr,
+    )
+    return offline_usage
 
 
 def filter_points_since(points: list[dict[str, Any]], since: str) -> list[dict[str, Any]]:
@@ -2516,7 +2602,9 @@ def main() -> int:
                     ),
                     "cost": (
                         "Codex/Claude costs come from ccusage using LiteLLM official model pricing "
-                        "(Codex reads service_tier from ~/.codex/config.toml); "
+                        "(Codex reads service_tier from ~/.codex/config.toml): "
+                        "collect offline first for launchd reliability, then auto-retry online "
+                        "when any model has tokens but $0 cost (missing cached price); "
                         "Cursor costs come from the authenticated Dashboard API; "
                         "Comate cost is always 0. "
                         "Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; "
