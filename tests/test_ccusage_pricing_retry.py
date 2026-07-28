@@ -58,7 +58,7 @@ def daily_payload(*models: dict, date: str = "2026-07-28") -> dict:
                 ),
             }
         ],
-        "totals": {},
+        "totals": {"totalCost": sum(float(m.get("cost") or 0) for m in models)},
     }
 
 
@@ -93,6 +93,35 @@ class UnpricedModelDetectionTests(unittest.TestCase):
         )
 
 
+class LiteLLMRepriceTests(unittest.TestCase):
+    def test_reprices_unpriced_model_from_litellm_table(self):
+        usage = daily_payload(
+            breakdown("claude-opus-4-8", input_tokens=80, cost=0.4),
+            breakdown(
+                "claude-opus-5",
+                input_tokens=1_000_000,
+                output_tokens=2_000,
+                cost=0.0,
+            ),
+        )
+        prices = {
+            "claude-opus-5": {
+                "input_cost_per_token": 5e-6,
+                "output_cost_per_token": 2.5e-5,
+                "cache_read_input_token_cost": 5e-7,
+                "cache_creation_input_token_cost": 6.25e-6,
+            }
+        }
+        patched, recovered = usage_report.reprice_unpriced_models_with_litellm(
+            usage, prices=prices
+        )
+        self.assertEqual(recovered, ["claude-opus-5"])
+        opus5 = patched["daily"][0]["modelBreakdowns"][1]
+        self.assertAlmostEqual(opus5["cost"], 5.05, places=6)
+        self.assertAlmostEqual(patched["daily"][0]["totalCost"], 5.45, places=6)
+        self.assertEqual(usage_report.unpriced_models(patched), [])
+
+
 class CcusagePricingRetryTests(unittest.TestCase):
     def test_prefers_online_when_it_recovers_prices(self):
         offline_payload = daily_payload(
@@ -124,7 +153,7 @@ class CcusagePricingRetryTests(unittest.TestCase):
         self.assertIs(result, online_payload)
         self.assertEqual(result["daily"][0]["totalCost"], 2.1)
 
-    def test_keeps_offline_when_online_fails(self):
+    def test_keeps_offline_when_online_fails_and_litellm_unavailable(self):
         offline_payload = daily_payload(
             breakdown("claude-opus-5", input_tokens=500, cost=0.0),
         )
@@ -139,6 +168,10 @@ class CcusagePricingRetryTests(unittest.TestCase):
 
         with mock.patch.object(
             usage_report, "run_ccusage_daily", side_effect=side_effect
+        ), mock.patch.object(
+            usage_report,
+            "reprice_unpriced_models_with_litellm",
+            side_effect=RuntimeError("no prices"),
         ):
             result = usage_report.ccusage_daily(
                 "claude", "Asia/Shanghai", since="2026-07-28", until="2026-07-28"
@@ -147,29 +180,35 @@ class CcusagePricingRetryTests(unittest.TestCase):
         self.assertEqual(calls, [True, False])
         self.assertIs(result, offline_payload)
 
-    def test_keeps_offline_when_online_still_unpriced(self):
+    def test_litellm_fallback_when_online_still_unpriced(self):
         offline_payload = daily_payload(
-            breakdown("claude-opus-5", input_tokens=500, cost=0.0),
+            breakdown("claude-opus-5", input_tokens=1_000_000, output_tokens=0, cost=0.0),
         )
         online_payload = daily_payload(
-            breakdown("claude-opus-5", input_tokens=500, cost=0.0),
+            breakdown("claude-opus-5", input_tokens=1_000_000, output_tokens=0, cost=0.0),
         )
-        calls: list[bool] = []
+        prices = {
+            "claude-opus-5": {
+                "input_cost_per_token": 5e-6,
+                "output_cost_per_token": 2.5e-5,
+            }
+        }
 
         def side_effect(tool, timezone, since="", until="", *, offline):
             del tool, timezone, since, until
-            calls.append(offline)
             return offline_payload if offline else online_payload
 
         with mock.patch.object(
             usage_report, "run_ccusage_daily", side_effect=side_effect
+        ), mock.patch.object(
+            usage_report, "fetch_litellm_prices", return_value=prices
         ):
             result = usage_report.ccusage_daily(
                 "claude", "Asia/Shanghai", since="2026-07-28", until="2026-07-28"
             )
 
-        self.assertEqual(calls, [True, False])
-        self.assertIs(result, offline_payload)
+        self.assertAlmostEqual(result["daily"][0]["modelBreakdowns"][0]["cost"], 5.0)
+        self.assertEqual(usage_report.unpriced_models(result), [])
 
     def test_skips_online_when_all_models_priced(self):
         offline_payload = daily_payload(

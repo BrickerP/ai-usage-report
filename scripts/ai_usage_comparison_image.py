@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import base64
 from collections import defaultdict
+import copy
 import datetime as dt
 import html
 import importlib.util
@@ -16,6 +17,8 @@ import subprocess
 import sys
 import tempfile
 from typing import Any
+import urllib.error
+import urllib.request
 from zoneinfo import ZoneInfo
 
 
@@ -25,6 +28,13 @@ REPO_ROOT = SCRIPTS_DIR.parent
 DEFAULT_TZ = "Asia/Shanghai"
 DEFAULT_MACHINES_DIR = REPO_ROOT / "public" / "machines"
 CURSOR_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
+LITELLM_PRICES_URL = (
+    "https://raw.githubusercontent.com/BerriAI/litellm/main/"
+    "model_prices_and_context_window.json"
+)
+LITELLM_PRICES_CACHE = (
+    Path.home() / ".cache" / "ai-usage-report" / "litellm_model_prices.json"
+)
 
 
 def load_module(name: str, path: Path):
@@ -716,6 +726,138 @@ def online_recovers_unpriced_models(unpriced: list[str], online_usage: Any) -> b
     return any(costs.get(name, 0.0) > 0.0 for name in unpriced)
 
 
+def litellm_price_cache_path() -> Path:
+    override = os.environ.get("AI_USAGE_LITELLM_PRICES_CACHE", "").strip()
+    return Path(override).expanduser() if override else LITELLM_PRICES_CACHE
+
+
+def load_cached_litellm_prices(cache_path: Path | None = None) -> dict[str, Any]:
+    path = cache_path or litellm_price_cache_path()
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def save_litellm_prices_cache(prices: dict[str, Any], cache_path: Path | None = None) -> None:
+    path = cache_path or litellm_price_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    machine_fragments.write_bytes_atomic(
+        path, json.dumps(prices, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    )
+
+
+def fetch_litellm_prices(
+    *,
+    timeout: float = 45.0,
+    cache_path: Path | None = None,
+) -> dict[str, Any]:
+    """Load LiteLLM official model prices; fall back to local cache on network failure."""
+    path = cache_path or litellm_price_cache_path()
+    try:
+        with urllib.request.urlopen(LITELLM_PRICES_URL, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if not isinstance(payload, dict) or not payload:
+            raise RuntimeError("LiteLLM price table was empty")
+        try:
+            save_litellm_prices_cache(payload, path)
+        except OSError as exc:
+            print(
+                f"warning: could not cache LiteLLM prices at {path}: {exc}",
+                file=sys.stderr,
+            )
+        return payload
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, RuntimeError) as exc:
+        cached = load_cached_litellm_prices(path)
+        if cached:
+            print(
+                f"warning: LiteLLM price fetch failed ({exc}); using cache {path}",
+                file=sys.stderr,
+            )
+            return cached
+        raise RuntimeError(f"LiteLLM price fetch failed: {exc}") from exc
+
+
+def resolve_litellm_model_price(
+    prices: dict[str, Any], model_name: str
+) -> dict[str, Any] | None:
+    name = model_name.strip()
+    if not name:
+        return None
+    candidates = [name, f"anthropic/{name}", f"anthropic.{name}"]
+    for key in candidates:
+        entry = prices.get(key)
+        if isinstance(entry, dict) and entry.get("input_cost_per_token") is not None:
+            return entry
+    return None
+
+
+def breakdown_cost_from_litellm(
+    breakdown: dict[str, Any], price: dict[str, Any]
+) -> float:
+    return (
+        safe_int(breakdown.get("inputTokens")) * safe_float(price.get("input_cost_per_token"))
+        + safe_int(breakdown.get("outputTokens"))
+        * safe_float(price.get("output_cost_per_token"))
+        + safe_int(breakdown.get("cacheReadTokens"))
+        * safe_float(price.get("cache_read_input_token_cost"))
+        + safe_int(breakdown.get("cacheCreationTokens"))
+        * safe_float(price.get("cache_creation_input_token_cost"))
+    )
+
+
+def reprice_unpriced_models_with_litellm(
+    usage: Any,
+    *,
+    prices: dict[str, Any] | None = None,
+) -> tuple[Any, list[str]]:
+    """Fill $0 model breakdown costs from LiteLLM rates. Returns (payload, recovered models)."""
+    if not isinstance(usage, dict):
+        return usage, []
+    missing = unpriced_models(usage)
+    if not missing:
+        return usage, []
+    table = prices if prices is not None else fetch_litellm_prices()
+    patched = copy.deepcopy(usage)
+    recovered: list[str] = []
+    seen_recovered: set[str] = set()
+    for day in patched.get("daily") or []:
+        if not isinstance(day, dict):
+            continue
+        day_cost = 0.0
+        for breakdown in day.get("modelBreakdowns") or []:
+            if not isinstance(breakdown, dict):
+                continue
+            name = str(breakdown.get("modelName") or "unknown").strip() or "unknown"
+            if (
+                name in missing
+                and model_breakdown_tokens(breakdown) > 0
+                and safe_float(breakdown.get("cost")) == 0.0
+            ):
+                price = resolve_litellm_model_price(table, name)
+                if price is not None:
+                    cost = breakdown_cost_from_litellm(breakdown, price)
+                    if cost > 0.0:
+                        breakdown["cost"] = cost
+                        if name not in seen_recovered:
+                            seen_recovered.add(name)
+                            recovered.append(name)
+            day_cost += safe_float(breakdown.get("cost"))
+        if day.get("modelBreakdowns"):
+            day["totalCost"] = day_cost
+    totals = patched.get("totals")
+    if isinstance(totals, dict) and isinstance(patched.get("daily"), list):
+        totals["totalCost"] = sum(
+            safe_float(day.get("totalCost"))
+            for day in patched["daily"]
+            if isinstance(day, dict)
+        )
+    return patched, recovered
+
+
 def ccusage_daily_command(
     tool: str,
     timezone: str,
@@ -755,12 +897,12 @@ def run_ccusage_daily(
 
 
 def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") -> Any:
-    """Collect daily usage with offline LiteLLM prices, retrying online if models are unpriced.
+    """Collect daily usage with resilient LiteLLM pricing.
 
-    Scheduled collection stays resilient with ``--offline``. When a new model is
-    missing from the cached price table (tokens > 0, cost == 0), retry once
-    without ``--offline`` so live LiteLLM pricing can fill the gap. Network or
-    still-unpriced failures keep the offline result and warn on stderr.
+    1. ``--offline`` first (launchd-safe cached prices)
+    2. If any model has tokens but $0 cost, retry once without ``--offline``
+    3. If still unpriced (stale ccusage cache / flaky price API), reprice those
+       models from the LiteLLM JSON table (cached under ``~/.cache``)
     """
     offline_usage = run_ccusage_daily(
         tool, timezone, since=since, until=until, offline=True
@@ -771,6 +913,7 @@ def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") ->
 
     missing_label = ", ".join(missing)
     range_label = f"{since or '...'}..{until or '...'}"
+    candidate: Any = offline_usage
     try:
         online_usage = run_ccusage_daily(
             tool, timezone, since=since, until=until, offline=False
@@ -781,24 +924,68 @@ def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") ->
             f"({missing_label}; {range_label}): {exc}",
             file=sys.stderr,
         )
-        return offline_usage
+        online_usage = None
 
-    if online_recovers_unpriced_models(missing, online_usage):
+    if online_usage is not None and online_recovers_unpriced_models(missing, online_usage):
         still = unpriced_models(online_usage)
+        if not still:
+            return online_usage
+        print(
+            f"warning: ccusage online pricing still missing costs for {tool} "
+            f"({', '.join(still)}; {range_label}); trying LiteLLM reprice",
+            file=sys.stderr,
+        )
+        candidate = online_usage
+        missing = still
+    elif online_usage is not None:
+        # Prefer fresher online token totals even when costs are still zero.
+        candidate = online_usage
+        missing = unpriced_models(online_usage) or missing
+        missing_label = ", ".join(missing)
+        print(
+            f"warning: ccusage offline pricing missing costs for {tool} "
+            f"({missing_label}; {range_label}); online retry did not recover prices",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"warning: ccusage offline pricing missing costs for {tool} "
+            f"({missing_label}; {range_label}); trying LiteLLM reprice",
+            file=sys.stderr,
+        )
+
+    try:
+        patched, recovered = reprice_unpriced_models_with_litellm(candidate)
+    except Exception as exc:
+        print(
+            f"warning: LiteLLM reprice failed for {tool} "
+            f"({missing_label}; {range_label}): {exc}",
+            file=sys.stderr,
+        )
+        return candidate
+
+    if recovered:
+        still = unpriced_models(patched)
         if still:
             print(
-                f"warning: ccusage online pricing still missing costs for {tool} "
-                f"({', '.join(still)}; {range_label}); using partial online costs",
+                f"warning: LiteLLM reprice recovered {', '.join(recovered)} for {tool} "
+                f"but still missing {', '.join(still)}; {range_label}",
                 file=sys.stderr,
             )
-        return online_usage
+        else:
+            print(
+                f"info: LiteLLM reprice recovered costs for {tool} "
+                f"({', '.join(recovered)}; {range_label})",
+                file=sys.stderr,
+            )
+        return patched
 
     print(
-        f"warning: ccusage offline pricing missing costs for {tool} "
-        f"({missing_label}; {range_label}); online retry did not recover prices",
+        f"warning: no pricing source recovered costs for {tool} "
+        f"({missing_label}; {range_label})",
         file=sys.stderr,
     )
-    return offline_usage
+    return candidate
 
 
 def filter_points_since(points: list[dict[str, Any]], since: str) -> list[dict[str, Any]]:
@@ -2603,8 +2790,9 @@ def main() -> int:
                     "cost": (
                         "Codex/Claude costs come from ccusage using LiteLLM official model pricing "
                         "(Codex reads service_tier from ~/.codex/config.toml): "
-                        "collect offline first for launchd reliability, then auto-retry online "
-                        "when any model has tokens but $0 cost (missing cached price); "
+                        "collect offline first for launchd reliability, auto-retry online when any "
+                        "model has tokens but $0 cost, then reprice remaining unpriced models from "
+                        "the LiteLLM JSON table (cached under ~/.cache/ai-usage-report); "
                         "Cursor costs come from the authenticated Dashboard API; "
                         "Comate cost is always 0. "
                         "Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; "

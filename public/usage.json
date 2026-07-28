@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-28T15:26:42+08:00",
+  "generated_at": "2026-07-28T15:36:04+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-27",
   "cursor_reconciliation": {
@@ -21,14 +21,14 @@
     {
       "tool": "Claude Code",
       "history": "2026-04-08 to 2026-07-28",
-      "cost": 17157.9894455,
-      "total_tokens": 8909894738
+      "cost": 20001.5377755,
+      "total_tokens": 8928672695
     },
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-07-28",
-      "cost": 3377.8790077500003,
-      "total_tokens": 3207385936
+      "cost": 3380.63666775,
+      "total_tokens": 3209690456
     },
     {
       "tool": "Comate",
@@ -5182,31 +5182,31 @@
       "codex_cache_read": 355959040,
       "codex_output": 1193334,
       "codex_reasoning": 524218,
-      "claude_tokens": 626730821,
-      "claude_cost": 402.8600000000001,
-      "claude_input": 625799364,
+      "claude_tokens": 645508778,
+      "claude_cost": 3246.40833,
+      "claude_input": 644565556,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
-      "claude_output": 931457,
-      "cursor_tokens": 58053756,
-      "cursor_cost": 73.4602991,
-      "cursor_input": 4643770,
+      "claude_output": 943222,
+      "cursor_tokens": 60358276,
+      "cursor_cost": 76.21795910000002,
+      "cursor_input": 4792911,
       "cursor_cache_write": 0,
-      "cursor_cache_read": 53012992,
-      "cursor_output": 396994,
+      "cursor_cache_read": 55144896,
+      "cursor_output": 420469,
       "comate_tokens": 0,
       "comate_cost": 0.0,
       "comate_input": 0,
       "comate_output": 0,
       "comate_sessions": 0,
       "comate_messages": 0,
-      "total_tokens": 1062447626,
-      "total_cost": 1094.1064246
+      "total_tokens": 1083530103,
+      "total_cost": 3940.4124146
     }
   ],
   "notes": {
     "token_breakdown": "Cards and tooltips show input, cache, and output tokens per tool. Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read. Comate tokens are positive contextUsed deltas from local sessions (not billable API tokens). Ducc is counted under Claude Code.",
-    "cost": "Codex/Claude costs come from ccusage using LiteLLM official model pricing (Codex reads service_tier from ~/.codex/config.toml): collect offline first for launchd reliability, then auto-retry online when any model has tokens but $0 cost (missing cached price); Cursor costs come from the authenticated Dashboard API; Comate cost is always 0. Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; Cursor is account-level and replaced from the API on each publish (if API unavailable, prior usage.json Cursor series is kept).",
+    "cost": "Codex/Claude costs come from ccusage using LiteLLM official model pricing (Codex reads service_tier from ~/.codex/config.toml): collect offline first for launchd reliability, auto-retry online when any model has tokens but $0 cost, then reprice remaining unpriced models from the LiteLLM JSON table (cached under ~/.cache/ai-usage-report); Cursor costs come from the authenticated Dashboard API; Comate cost is always 0. Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; Cursor is account-level and replaced from the API on each publish (if API unavailable, prior usage.json Cursor series is kept).",
     "merge": "Merged machine fragments: mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected."
   }
 }
