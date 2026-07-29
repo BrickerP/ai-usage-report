@@ -44,7 +44,21 @@ def empty_day() -> dict[str, Any]:
         "output": 0,
         "sessions": 0,
         "messages": 0,
+        "model_breakdowns": {},
     }
+
+
+def message_model(msg: dict[str, Any]) -> str:
+    payload = msg.get("payload")
+    payload = payload if isinstance(payload, dict) else {}
+    model = payload.get("model")
+    model = model if isinstance(model, dict) else {}
+    return str(
+        model.get("displayName")
+        or model.get("modelId")
+        or payload.get("modelName")
+        or ""
+    ).strip()
 
 
 def load_session(path: Path) -> dict[str, Any] | None:
@@ -85,6 +99,7 @@ def parse_comate(home: Path, timezone: str = "Asia/Shanghai") -> dict[str, Any]:
 
         session_day = ms_to_local_date(data.get("ctime") or data.get("utime"), timezone)
         prev_ctx: int | None = None
+        current_model = ""
         day_tokens = 0
         day_messages = 0
         touched_days: set[str] = set()
@@ -105,6 +120,10 @@ def parse_comate(home: Path, timezone: str = "Asia/Shanghai") -> dict[str, Any]:
                 row["messages"] += 1
                 touched_days.add(day)
 
+            selected_model = message_model(msg)
+            if selected_model:
+                current_model = selected_model
+
             usage = msg.get("tokenUsage")
             if not isinstance(usage, dict):
                 continue
@@ -118,6 +137,9 @@ def parse_comate(home: Path, timezone: str = "Asia/Shanghai") -> dict[str, Any]:
             row = by_date.setdefault(day, empty_day())
             row["tokens"] += delta
             row["input"] += delta
+            model_name = current_model or "Comate (unattributed)"
+            models = row["model_breakdowns"]
+            models[model_name] = safe_int(models.get(model_name)) + delta
             day_tokens += delta
 
         if day_tokens or day_messages:
@@ -132,7 +154,24 @@ def parse_comate(home: Path, timezone: str = "Asia/Shanghai") -> dict[str, Any]:
         row = by_date[date_key]
         if not (row["tokens"] or row["sessions"] or row["messages"]):
             continue
-        daily_points.append({"date": date_key, **row})
+        model_totals = row.pop("model_breakdowns", {})
+        daily_points.append(
+            {
+                "date": date_key,
+                **row,
+                "model_breakdowns": [
+                    {
+                        "model": model_name,
+                        "total_tokens": tokens,
+                        "cost_usd": 0.0,
+                        "source": "comate-local",
+                    }
+                    for model_name, tokens in sorted(
+                        model_totals.items(), key=lambda item: -item[1]
+                    )
+                ],
+            }
+        )
 
     total_tokens = sum(safe_int(p.get("tokens")) for p in daily_points)
     first = daily_points[0]["date"] if daily_points else ""
@@ -146,6 +185,7 @@ def parse_comate(home: Path, timezone: str = "Asia/Shanghai") -> dict[str, Any]:
         "cost": 0.0,
         "history": {"first": first, "last": last},
         "daily_timeline": daily_points,
+        "accounting_version": 1,
         "note": (
             "Comate tokens are positive contextUsed deltas from local chat sessions; "
             "not billable API tokens. Cost is always 0."

@@ -46,7 +46,7 @@ html[data-theme='light'] {
 
 @media (min-width: 1200px) {
   .tool-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -72,4 +72,27 @@ html[data-theme='light'] {
   grid-template-columns: 1fr auto;
   gap: 6px 12px;
   margin-top: 12px;
+}
+
+.model-list {
+  display: grid;
+  gap: 7px;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.model-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.model-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

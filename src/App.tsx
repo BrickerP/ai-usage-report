@@ -227,6 +227,35 @@ function ReportApp() {
                     </Fragment>
                   ))}
                 </div>
+                {tool.models.length ? (
+                  <div className="model-list">
+                    <Text
+                      size="sm"
+                      color="secondary"
+                      weight="semibold"
+                    >
+                      Models · {tool.models.length}
+                    </Text>
+                    {tool.models.map((model) => (
+                      <div
+                        className="model-row"
+                        key={`${tool.id}-${model.model}`}
+                      >
+                        <Text size="sm">
+                          <span className="model-name" title={model.model}>
+                            {model.model}
+                          </span>
+                        </Text>
+                        <Text size="sm" justify="end">
+                          {fmtCompact(model.tokens)}
+                        </Text>
+                        <Text size="sm" color="secondary" justify="end">
+                          {fmtUsd(model.cost)}
+                        </Text>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </VStack>
             </Card>
           ))}

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-LOCAL_TOOL_PREFIXES = ("codex", "claude", "comate")
+LOCAL_TOOL_PREFIXES = ("codex", "claude")
 ACCOUNT_TOOL_PREFIXES = ("cursor",)
 
 SafeInt = Callable[[Any], int]
@@ -52,18 +52,12 @@ def tool_field_names(tool_token_fields: dict[str, list[str]], prefixes: tuple[st
         names.append(f"{prefix}_cost")
         for field in tool_token_fields.get(prefix, []):
             names.append(f"{prefix}_{field}")
-        if prefix == "comate":
-            names.extend(["comate_sessions", "comate_messages"])
     return names
 
 
 def row_has_local_activity(row: dict[str, Any], safe_int: SafeInt, safe_float: SafeFloat) -> bool:
     for prefix in LOCAL_TOOL_PREFIXES:
         if safe_int(row.get(f"{prefix}_tokens")) or safe_float(row.get(f"{prefix}_cost")):
-            return True
-        if prefix == "comate" and (
-            safe_int(row.get("comate_sessions")) or safe_int(row.get("comate_messages"))
-        ):
             return True
     return False
 
@@ -80,6 +74,11 @@ def strip_row_to_local(
             out[name] = safe_float(row.get(name))
         else:
             out[name] = safe_int(row.get(name))
+    for prefix in LOCAL_TOOL_PREFIXES:
+        models = row.get(f"{prefix}_models")
+        out[f"{prefix}_models"] = [
+            dict(model) for model in models if isinstance(model, dict)
+        ] if isinstance(models, list) else []
     return out
 
 
@@ -580,9 +579,11 @@ def _copy_tool_group(
     target[f"{prefix}_cost"] = source[f"{prefix}_cost"]
     for field in tool_token_fields.get(prefix, []):
         target[f"{prefix}_{field}"] = source[f"{prefix}_{field}"]
-    if prefix == "comate":
-        target["comate_sessions"] = source["comate_sessions"]
-        target["comate_messages"] = source["comate_messages"]
+    target[f"{prefix}_models"] = [
+        dict(model)
+        for model in source.get(f"{prefix}_models", [])
+        if isinstance(model, dict)
+    ]
 
 
 def _tool_regressed(
@@ -595,13 +596,6 @@ def _tool_regressed(
         existing.get(f"{prefix}_tokens")
     ):
         return True
-    if prefix == "comate":
-        return (
-            safe_int(incoming.get("comate_sessions"))
-            < safe_int(existing.get("comate_sessions"))
-            or safe_int(incoming.get("comate_messages"))
-            < safe_int(existing.get("comate_messages"))
-        )
     return False
 
 
@@ -861,10 +855,62 @@ def merge_local_fragments(
                     target[name] = safe_float(target.get(name)) + safe_float(row.get(name))
                 else:
                     target[name] = safe_int(target.get(name)) + safe_int(row.get(name))
+            for prefix in LOCAL_TOOL_PREFIXES:
+                by_model: dict[str, dict[str, Any]] = {}
+                for model in [
+                    *(
+                        target.get(f"{prefix}_models")
+                        if isinstance(target.get(f"{prefix}_models"), list)
+                        else []
+                    ),
+                    *(
+                        row.get(f"{prefix}_models")
+                        if isinstance(row.get(f"{prefix}_models"), list)
+                        else []
+                    ),
+                ]:
+                    if not isinstance(model, dict):
+                        continue
+                    name = str(model.get("model") or "Legacy unknown").strip()
+                    acc = by_model.setdefault(
+                        name,
+                        {"model": name, "tokens": 0, "cost": 0.0},
+                    )
+                    acc["tokens"] += safe_int(model.get("tokens"))
+                    acc["cost"] += safe_float(model.get("cost"))
+                target[f"{prefix}_models"] = sorted(
+                    by_model.values(),
+                    key=lambda item: (-safe_int(item.get("tokens")), str(item.get("model"))),
+                )
 
     rows: list[dict[str, Any]] = []
     for date_key in sorted(by_date):
-        rows.append(by_date[date_key])
+        row = by_date[date_key]
+        for prefix in LOCAL_TOOL_PREFIXES:
+            models = row.get(f"{prefix}_models")
+            models = models if isinstance(models, list) else []
+            attributed_tokens = sum(safe_int(model.get("tokens")) for model in models)
+            attributed_cost = sum(safe_float(model.get("cost")) for model in models)
+            remainder_tokens = max(
+                0, safe_int(row.get(f"{prefix}_tokens")) - attributed_tokens
+            )
+            remainder_cost = max(
+                0.0, safe_float(row.get(f"{prefix}_cost")) - attributed_cost
+            )
+            if remainder_tokens or remainder_cost > 1e-9:
+                models = [
+                    *models,
+                    {
+                        "model": "Legacy unknown",
+                        "tokens": remainder_tokens,
+                        "cost": remainder_cost,
+                    },
+                ]
+            row[f"{prefix}_models"] = sorted(
+                models,
+                key=lambda item: (-safe_int(item.get("tokens")), str(item.get("model"))),
+            )
+        rows.append(row)
     seen: set[str] = set()
     ordered: list[str] = []
     for mid in machine_ids:
@@ -931,14 +977,12 @@ def apply_cursor_points(
         ct = safe_int(row.get("codex_tokens"))
         lt = safe_int(row.get("claude_tokens"))
         ut = safe_int(row.get("cursor_tokens"))
-        mt = safe_int(row.get("comate_tokens"))
         cc = safe_float(row.get("codex_cost"))
         lc = safe_float(row.get("claude_cost"))
         uc = safe_float(row.get("cursor_cost"))
-        mc = safe_float(row.get("comate_cost"))
-        if ct or lt or ut or mt or cc or lc or uc or mc:
-            row["total_tokens"] = ct + lt + ut + mt
-            row["total_cost"] = cc + lc + uc + mc
+        if ct or lt or ut or cc or lc or uc:
+            row["total_tokens"] = ct + lt + ut
+            row["total_cost"] = cc + lc + uc
             rows.append(row)
     return rows
 

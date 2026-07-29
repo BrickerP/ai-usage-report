@@ -2,7 +2,7 @@
 
 ## Source of truth
 - Status: Active
-- Last refreshed: 2026-07-29
+- Last refreshed: 2026-07-30
 - Primary product surfaces: Static usage dashboard, daily stacked charts, tool summary cards.
 - Evidence reviewed: `README.md`, `src/lib/usage.ts`, `src/components/UsageCharts.tsx`, `src/index.css`, `scripts/ai_usage_comparison_image.py`, and the published GitHub Pages report.
 
@@ -12,9 +12,9 @@
 - Avoid: Decorative complexity, unexplained double counting, and presenting estimates as billed amounts.
 
 ## Product goals
-- Goals: Show a readable daily and historical view of AI usage across Codex, Claude Code, Cursor, Comate, and the residual One API gateway source.
+- Goals: Show a readable daily and historical view of AI usage across Codex, Claude Code, Cursor, and the residual One API source, including the models that compose each existing card.
 - Non-goals: Reconcile provider invoices, attribute every request to an editor process, or claim exact USD settlement for One API.
-- Success signals: Existing Codex/Claude/Cursor series remain stable; combined totals contain mutually exclusive Codex, Claude, Cursor, and residual One API traffic under the documented configuration.
+- Success signals: Existing Codex/Claude/Cursor series remain stable; Comate is no longer independent; model rows reconcile to each card; combined totals contain mutually exclusive Codex, Claude, Cursor, and residual One API traffic.
 
 ## Personas and jobs
 - Primary personas: The repository owner using multiple Macs and publishing a private-operations-style public report.
@@ -23,7 +23,7 @@
 
 ## Information architecture
 - Primary navigation: Single-page report with date controls.
-- Core routes/screens: One dashboard route backed by `public/usage.json`.
+- Core routes/screens: One dashboard route backed by `public/usage.json`; no model-specific route or secondary dashboard.
 - Content hierarchy: Overall range and totals, tool cards, daily token/spend chart, then methodology notes.
 
 ## Design principles
@@ -41,9 +41,9 @@
 
 ## Components
 - Existing components to reuse: Tool cards, usage charts, range controls, methodology copy.
-- New/changed components: No new component; One API semantics and values change behind the existing card and chart series.
+- New/changed components: Existing tool cards gain compact model rows. Comate is removed as a card and series; its local pre-gateway history is retained under One API.
 - Variants and states: Fresh One API data, stale prior data, missing session, incomplete pagination, and zero residual traffic.
-- Token/component ownership: Existing CSS and `src/lib/usage.ts` own visual tokens; Python owns collection and merge semantics.
+- Token/component ownership: Existing CSS and `src/lib/usage.ts` own visual tokens; Python owns collection, per-day model persistence, and merge semantics.
 
 ## Accessibility
 - Target standard: Preserve current semantic HTML and aim for WCAG 2.1 AA readability.

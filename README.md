@@ -52,7 +52,8 @@ What happens:
    - A lower source snapshot is never allowed to overwrite the stored high-water value
 3. Fetch Cursor Dashboard API (account-level; it has its own `cursor_mutable_from` boundary)
 4. Fetch the latest five calendar days from One API and retain only residual
-   non-GPT/Codex and non-Claude models
+   non-GPT/Codex and non-Claude models; preserve the complete prior model timeline
+   outside that window
 5. SUM local tools across all fragments and reconcile account-level sources → write `public/usage.json`
 6. Build + commit + push
 7. If push races the other Mac: pull → **re-merge** → rebuild → push again
@@ -63,9 +64,9 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 
 | Tool | Rule |
 |------|------|
-| Codex / Claude Code / Comate | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected; report = SUM across `machines/*.json` |
+| Codex / Claude Code | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected; report = SUM across `machines/*.json` |
 | Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
-| One API | Account-level residual gateway series; exclude GPT/Codex and Claude model families, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination |
+| One API | Account-level residual gateway series; exclude GPT/Codex and Claude model families, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |
 | Ducc | Claude wrapper → counted under Claude Code |
 
 The non-overlap rule assumes Cursor reports its own cloud usage and
@@ -102,7 +103,7 @@ Older fragments stored Codex totals correctly but wrote `codex_cache_read=0` bec
 the collector used the legacy `cachedInputTokens` field instead of ccusage's current
 `cacheReadTokens`. The migration reconstructs the cache value from the same frozen
 snapshot (`codex_tokens - codex_input - codex_output`). It changes no totals, costs,
-dates, or Claude/Cursor/Comate fields and does not read mutable historical session logs.
+dates, or Claude/Cursor fields and does not read mutable historical session logs.
 
 Run it once on each Mac with that Mac's existing unique machine id. Publish Macs
 strictly one at a time: do not start Mac B until Mac A reports a successful push.
@@ -135,7 +136,7 @@ Do not use `--force-reseed` for this migration.
 |------|------|
 | `src/` | Astryx + React report UI |
 | `public/usage.json` | Merged daily series for the UI |
-| `public/machines/<id>.json` | Per-Mac Codex/Claude/Comate fragment |
+| `public/machines/<id>.json` | Per-Mac Codex/Claude fragment plus one-time local Comate history |
 | `scripts/ai_usage_comparison_image.py` | Collect + merge |
 | `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, and aggregation |
 | `scripts/comate_usage.py` | Local Comate session parser |
@@ -147,7 +148,9 @@ Do not use `--force-reseed` for this migration.
 
 - Codex / Claude Code: `npx ccusage@latest … --json --offline`
 - Cursor: authenticated Dashboard API via local Cursor session
-- Comate: `~/.comate-engine/store/chat_session_*` (positive `contextUsed` deltas; cost always 0)
+- Historical Comate: `~/.comate-engine/store/chat_session_*` (positive
+  `contextUsed` deltas; cost always 0), migrated under One API only on dates
+  without gateway coverage
 - One API: management log API through a saved `chrome-use` UUAP session. GPT/Codex
   and Claude model families are excluded; other named models such as Grok,
   DeepSeek, GLM, Kimi, and MiniMax form the residual series. Empty model names are
@@ -165,6 +168,11 @@ chrome-use state save /tmp/oneapi-chrome-state.json
 Use `ONEAPI_STATE_PATH` to choose another state file. Collection is complete-or-
 nothing: rate-limit or authentication failures retain the prior published One API
 series instead of writing a partial or zero snapshot.
+
+Each published daily row also carries compact model breakdowns. The existing
+tool cards aggregate those rows for the selected date range and show every
+non-zero model with tokens and estimated cost; no separate model dashboard is
+introduced.
 
 ## launchd
 

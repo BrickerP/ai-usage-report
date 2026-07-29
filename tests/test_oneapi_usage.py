@@ -322,6 +322,87 @@ class OneApiReconciliationTests(unittest.TestCase):
         self.assertAlmostEqual(by_date["2026-07-29"]["oneapi_cost"], 0.14)
         self.assertAlmostEqual(by_date["2026-07-29"]["total_cost"], 0.14)
 
+    def test_payload_keeps_prior_models_and_adds_non_overlapping_comate_history(self):
+        prior = {
+            "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+            "daily_timeline": [
+                {
+                    "date": "2026-07-20",
+                    "tokens": 20,
+                    "input": 20,
+                    "cost_usd": 0.02,
+                    "source": "oneapi",
+                    "model_breakdowns": [
+                        {"model": "grok-old", "total_tokens": 20, "cost_usd": 0.02}
+                    ],
+                }
+            ],
+        }
+        fetched = {
+            "available": True,
+            "complete": True,
+            "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+            "window": {"start": "2026-07-25", "end": "2026-07-29"},
+            "daily_timeline": [
+                {
+                    "date": "2026-07-29",
+                    "tokens": 30,
+                    "input": 30,
+                    "cost_usd": 0.03,
+                    "model_breakdowns": [
+                        {"model": "deepseek-new", "total_tokens": 30, "cost_usd": 0.03}
+                    ],
+                }
+            ],
+        }
+        comate = {
+            "history": {"first": "2026-07-13", "last": "2026-07-29"},
+            "total_tokens": 109,
+            "daily_timeline": [
+                {
+                    "date": "2026-07-13",
+                    "tokens": 9,
+                    "input": 9,
+                    "model_breakdowns": [
+                        {"model": "GLM-5", "total_tokens": 9, "cost_usd": 0}
+                    ],
+                },
+                {
+                    "date": "2026-07-29",
+                    "tokens": 100,
+                    "input": 100,
+                    "model_breakdowns": [
+                        {"model": "duplicate-local", "total_tokens": 100, "cost_usd": 0}
+                    ],
+                },
+            ],
+        }
+
+        result = usage_report.reconcile_oneapi_payload(prior, fetched, comate)
+
+        by_date = {point["date"]: point for point in result["daily_timeline"]}
+        self.assertEqual(set(by_date), {"2026-07-13", "2026-07-20", "2026-07-29"})
+        self.assertEqual(by_date["2026-07-13"]["source"], "comate-local")
+        self.assertEqual(by_date["2026-07-20"]["model_breakdowns"][0]["model"], "grok-old")
+        self.assertEqual(
+            by_date["2026-07-29"]["model_breakdowns"][0]["model"],
+            "deepseek-new",
+        )
+        self.assertEqual(result["totals"]["total_tokens"], 59)
+
+    def test_model_remainder_scales_to_card_total(self):
+        models = usage_report.models_with_remainder(
+            [
+                {"model": "a", "tokens": 80, "cost": 8},
+                {"model": "b", "tokens": 40, "cost": 4},
+            ],
+            total_tokens=90,
+            total_cost=9,
+        )
+
+        self.assertEqual(sum(model["tokens"] for model in models), 90)
+        self.assertAlmostEqual(sum(model["cost"] for model in models), 9)
+
 
 if __name__ == "__main__":
     unittest.main()

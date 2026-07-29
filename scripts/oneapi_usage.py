@@ -167,7 +167,11 @@ def aggregate_records(
                 "cost_cny": quota_to_cny(day_quota),
                 "cost_usd": quota_to_usd(day_quota),
                 "model_breakdowns": [
-                    {"model": model_name, **model_totals}
+                    {
+                        "model": model_name,
+                        **model_totals,
+                        "cost_usd": quota_to_usd(model_totals["quota_total"]),
+                    }
                     for model_name, model_totals in sorted(
                         models.items(),
                         key=lambda item: -item[1]["total_tokens"],

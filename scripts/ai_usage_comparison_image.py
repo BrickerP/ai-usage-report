@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 SCRIPTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPTS_DIR.parent
 DEFAULT_TZ = "Asia/Shanghai"
+MODEL_BREAKDOWN_VERSION = 2
 DEFAULT_MACHINES_DIR = REPO_ROOT / "public" / "machines"
 CURSOR_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
 LITELLM_PRICES_URL = (
@@ -79,6 +80,141 @@ def safe_float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def normalize_models(models: Any) -> list[dict[str, Any]]:
+    """Normalize model rows to the compact public schema."""
+    totals: dict[str, dict[str, Any]] = {}
+    for item in models if isinstance(models, list) else []:
+        if not isinstance(item, dict):
+            continue
+        name = str(
+            item.get("model")
+            or item.get("modelName")
+            or item.get("name")
+            or "Unattributed"
+        ).strip() or "Unattributed"
+        if name == "Unattributed history":
+            name = "Legacy unknown"
+        tokens = safe_int(
+            item.get("tokens")
+            if item.get("tokens") is not None
+            else item.get("total_tokens")
+        )
+        if not tokens:
+            tokens = model_breakdown_tokens(item)
+        cost = safe_float(
+            item.get("cost_usd")
+            if item.get("cost_usd") is not None
+            else item.get("cost")
+        )
+        if not (tokens or cost):
+            continue
+        row = totals.setdefault(name, {"model": name, "tokens": 0, "cost": 0.0})
+        row["tokens"] += tokens
+        row["cost"] += cost
+    return sorted(
+        totals.values(),
+        key=lambda row: (-safe_int(row.get("tokens")), str(row.get("model"))),
+    )
+
+
+def merge_models(*model_lists: Any) -> list[dict[str, Any]]:
+    return normalize_models(
+        [
+            item
+            for models in model_lists
+            for item in (models if isinstance(models, list) else [])
+        ]
+    )
+
+
+def models_with_remainder(
+    models: Any,
+    *,
+    total_tokens: Any,
+    total_cost: Any,
+    label: str = "Legacy unknown",
+) -> list[dict[str, Any]]:
+    result = normalize_models(models)
+    target_tokens = safe_int(total_tokens)
+    target_cost = safe_float(total_cost)
+    attributed_tokens = sum(safe_int(row.get("tokens")) for row in result)
+    attributed_cost = sum(safe_float(row.get("cost")) for row in result)
+    if result and attributed_tokens > target_tokens:
+        remaining = target_tokens
+        for index, row in enumerate(result):
+            if index == len(result) - 1:
+                row["tokens"] = remaining
+            else:
+                scaled = int(
+                    target_tokens * safe_int(row.get("tokens")) / attributed_tokens
+                )
+                row["tokens"] = scaled
+                remaining -= scaled
+        attributed_tokens = target_tokens
+
+    remainder_tokens = max(0, target_tokens - attributed_tokens)
+    remainder_cost = max(0.0, target_cost - attributed_cost)
+    if remainder_tokens or remainder_cost > 1e-9:
+        result = merge_models(
+            result,
+            [{"model": label, "tokens": remainder_tokens, "cost": remainder_cost}],
+        )
+
+    if result and target_cost >= 0:
+        current_cost = sum(safe_float(row.get("cost")) for row in result)
+        if abs(current_cost - target_cost) > 1e-9:
+            weight_total = current_cost or sum(
+                safe_int(row.get("tokens")) for row in result
+            )
+            remaining_cost = target_cost
+            for index, row in enumerate(result):
+                if index == len(result) - 1:
+                    row["cost"] = remaining_cost
+                else:
+                    weight = (
+                        safe_float(row.get("cost"))
+                        if current_cost
+                        else safe_int(row.get("tokens"))
+                    )
+                    scaled_cost = target_cost * weight / weight_total if weight_total else 0.0
+                    row["cost"] = scaled_cost
+                    remaining_cost -= scaled_cost
+    return result
+
+
+def ccusage_day_models(row: dict[str, Any]) -> list[dict[str, Any]]:
+    breakdowns = row.get("modelBreakdowns")
+    if isinstance(breakdowns, list):
+        return normalize_models(breakdowns)
+
+    models = row.get("models")
+    if not isinstance(models, dict):
+        return []
+    day_cost = safe_float(
+        row.get("costUSD")
+        if row.get("costUSD") is not None
+        else row.get("totalCost")
+    )
+    raw: list[dict[str, Any]] = []
+    total_model_tokens = 0
+    for name, values in models.items():
+        values = values if isinstance(values, dict) else {}
+        tokens = safe_int(values.get("totalTokens"))
+        if not tokens:
+            tokens = (
+                safe_int(values.get("inputTokens"))
+                + safe_int(values.get("cacheCreationTokens"))
+                + safe_int(values.get("cacheReadTokens"))
+                + safe_int(values.get("outputTokens"))
+            )
+        total_model_tokens += tokens
+        raw.append({"model": str(name), "tokens": tokens, "cost": 0.0})
+    if day_cost and total_model_tokens:
+        for model in raw:
+            model["cost"] = day_cost * safe_int(model["tokens"]) / total_model_tokens
+    return normalize_models(raw)
 
 
 def fmt_compact(value: Any) -> str:
@@ -179,6 +315,7 @@ def codex_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "cache_read": safe_int(cache_read),
                 "output": safe_int(row.get("outputTokens")),
                 "reasoning": safe_int(row.get("reasoningOutputTokens")),
+                "models": ccusage_day_models(row),
             }
         )
     rows.sort(key=lambda r: r["date"])
@@ -202,6 +339,7 @@ def claude_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "cache_create": safe_int(row.get("cacheCreationTokens")),
                 "cache_read": safe_int(row.get("cacheReadTokens")),
                 "output": safe_int(row.get("outputTokens")),
+                "models": ccusage_day_models(row),
             }
         )
     rows.sort(key=lambda r: r["date"])
@@ -212,7 +350,6 @@ TOOL_TOKEN_FIELDS: dict[str, list[str]] = {
     "codex": ["input", "cache_read", "output", "reasoning"],
     "claude": ["input", "cache_create", "cache_read", "output"],
     "cursor": ["input", "cache_write", "cache_read", "output"],
-    "comate": ["input", "output"],
     "oneapi": ["input", "cache_read", "cache_write", "output"],
 }
 
@@ -224,9 +361,9 @@ def empty_daily_row(date_key: str) -> dict[str, Any]:
         row[f"{prefix}_cost"] = 0.0
         for field in TOOL_TOKEN_FIELDS[prefix]:
             row[f"{prefix}_{field}"] = 0
-    row["comate_sessions"] = 0
-    row["comate_messages"] = 0
     row["oneapi_requests"] = 0
+    for prefix in TOOL_TOKEN_FIELDS:
+        row[f"{prefix}_models"] = []
     row["total_tokens"] = 0
     row["total_cost"] = 0.0
     return row
@@ -259,8 +396,6 @@ def has_daily_activity(row: dict[str, Any]) -> bool:
             or safe_float(row.get(f"{prefix}_cost"))
             for prefix in TOOL_TOKEN_FIELDS
         )
-        or safe_int(row.get("comate_sessions"))
-        or safe_int(row.get("comate_messages"))
         or safe_int(row.get("oneapi_requests"))
     )
 
@@ -287,6 +422,131 @@ def apply_oneapi_point(row: dict[str, Any], point: dict[str, Any]) -> None:
     row["oneapi_cache_read"] = safe_int(point.get("cache_read"))
     row["oneapi_cache_write"] = safe_int(point.get("cache_write"))
     row["oneapi_requests"] = safe_int(point.get("requests"))
+    row["oneapi_models"] = normalize_models(point.get("model_breakdowns"))
+
+
+def oneapi_point_from_comate(point: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "date": str(point.get("date") or ""),
+        "tokens": safe_int(point.get("tokens")),
+        "input": safe_int(point.get("input")),
+        "output": safe_int(point.get("output")),
+        "cache_read": 0,
+        "cache_write": 0,
+        "requests": 0,
+        "quota": 0,
+        "cost_cny": 0.0,
+        "cost_usd": 0.0,
+        "source": "comate-local",
+        "model_breakdowns": [
+            {
+                "model": str(model.get("model") or "Comate (unattributed)"),
+                "total_tokens": safe_int(
+                    model.get("total_tokens")
+                    if model.get("total_tokens") is not None
+                    else model.get("tokens")
+                ),
+                "cost_usd": 0.0,
+                "source": "comate-local",
+            }
+            for model in (
+                point.get("model_breakdowns")
+                if isinstance(point.get("model_breakdowns"), list)
+                else []
+            )
+            if isinstance(model, dict)
+        ],
+    }
+
+
+def recompute_oneapi_totals(payload: dict[str, Any]) -> dict[str, Any]:
+    daily = [
+        point
+        for point in (payload.get("daily_timeline") or [])
+        if isinstance(point, dict) and point.get("date")
+    ]
+    daily.sort(key=lambda point: str(point.get("date")))
+    payload["daily_timeline"] = daily
+    total_quota = sum(safe_int(point.get("quota")) for point in daily)
+    payload["history"] = {
+        "first": str(daily[0].get("date")) if daily else "",
+        "last": str(daily[-1].get("date")) if daily else "",
+    }
+    payload["totals"] = {
+        "input_tokens": sum(safe_int(point.get("input")) for point in daily),
+        "output_tokens": sum(safe_int(point.get("output")) for point in daily),
+        "cache_read_tokens": sum(
+            safe_int(point.get("cache_read")) for point in daily
+        ),
+        "cache_write_tokens": sum(
+            safe_int(point.get("cache_write")) for point in daily
+        ),
+        "total_tokens": sum(safe_int(point.get("tokens")) for point in daily),
+        "quota": total_quota,
+        "cost_cny": oneapi_usage.quota_to_cny(total_quota),
+        "cost_usd": sum(safe_float(point.get("cost_usd")) for point in daily),
+        "requests": sum(safe_int(point.get("requests")) for point in daily),
+    }
+    return payload
+
+
+def reconcile_oneapi_payload(
+    prior: dict[str, Any],
+    fetched: dict[str, Any],
+    legacy_comate: dict[str, Any],
+) -> dict[str, Any]:
+    """Keep the complete model timeline while replacing only the fetched window."""
+    compatible = (
+        safe_int(prior.get("accounting_version"))
+        == oneapi_usage.ACCOUNTING_VERSION
+    )
+    by_date: dict[str, dict[str, Any]] = {}
+    if compatible:
+        for point in prior.get("daily_timeline") or []:
+            if isinstance(point, dict) and point.get("date"):
+                by_date[str(point["date"])] = copy.deepcopy(point)
+
+    result = copy.deepcopy(fetched if fetched else prior)
+    if fetched.get("available") and fetched.get("complete"):
+        window = fetched.get("window")
+        window = window if isinstance(window, dict) else {}
+        start = str(window.get("start") or "")
+        end = str(window.get("end") or "")
+        if not start or not end:
+            raise ValueError("complete One API collection is missing its window")
+        for date_key in list(by_date):
+            if start <= date_key <= end:
+                del by_date[date_key]
+        for point in fetched.get("daily_timeline") or []:
+            if not isinstance(point, dict) or not point.get("date"):
+                continue
+            date_key = str(point["date"])
+            if not (start <= date_key <= end):
+                raise ValueError(
+                    f"One API point {date_key} falls outside {start}..{end}"
+                )
+            gateway_point = copy.deepcopy(point)
+            gateway_point["source"] = "oneapi"
+            by_date[date_key] = gateway_point
+
+    for point in legacy_comate.get("daily_timeline") or []:
+        if not isinstance(point, dict) or not point.get("date"):
+            continue
+        date_key = str(point["date"])
+        existing = by_date.get(date_key)
+        if existing and existing.get("source") != "comate-local":
+            continue
+        by_date[date_key] = oneapi_point_from_comate(point)
+
+    result["accounting_version"] = oneapi_usage.ACCOUNTING_VERSION
+    result["daily_timeline"] = [by_date[key] for key in sorted(by_date)]
+    result["legacy_comate"] = {
+        "included": True,
+        "history": legacy_comate.get("history") or {},
+        "total_tokens": safe_int(legacy_comate.get("total_tokens")),
+        "note": "Local Comate context deltas are retained only for dates without One API gateway coverage.",
+    }
+    return recompute_oneapi_totals(result)
 
 
 def reconcile_oneapi_rows(
@@ -330,11 +590,13 @@ def reconcile_oneapi_rows(
             if not isinstance(point, dict) or not point.get("date"):
                 continue
             date_key = str(point["date"])
-            if not (window_start <= date_key <= window_end):
-                raise ValueError(
-                    f"One API point {date_key} falls outside "
-                    f"{window_start}..{window_end}"
-                )
+            row = by_date.setdefault(date_key, empty_daily_row(date_key))
+            apply_oneapi_point(row, point)
+    else:
+        for point in oneapi_data.get("daily_timeline") or []:
+            if not isinstance(point, dict) or not point.get("date"):
+                continue
+            date_key = str(point["date"])
             row = by_date.setdefault(date_key, empty_daily_row(date_key))
             apply_oneapi_point(row, point)
 
@@ -352,9 +614,7 @@ def apply_tool_point(row: dict[str, Any], prefix: str, point: dict[str, Any]) ->
     row[f"{prefix}_cost"] = safe_float(point.get("cost"))
     for field in TOOL_TOKEN_FIELDS[prefix]:
         row[f"{prefix}_{field}"] = safe_int(point.get(field))
-    if prefix == "comate":
-        row["comate_sessions"] = safe_int(point.get("sessions"))
-        row["comate_messages"] = safe_int(point.get("messages"))
+    row[f"{prefix}_models"] = normalize_models(point.get("models"))
 
 
 def usage_daily_rows(payload: Any) -> list[dict[str, Any]]:
@@ -377,14 +637,12 @@ def merge_daily_timeline(
     codex_pts: list[dict[str, Any]],
     claude_pts: list[dict[str, Any]],
     cursor_pts: list[dict[str, Any]],
-    comate_pts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     by_date: dict[str, dict[str, Any]] = {}
     for prefix, points in (
         ("codex", codex_pts),
         ("claude", claude_pts),
         ("cursor", cursor_pts),
-        ("comate", comate_pts or []),
     ):
         for point in points:
             date_key = str(point.get("date") or "")
@@ -477,6 +735,9 @@ def fetch_cursor_usage(
     cursor_day_cache_write: dict[str, int] = defaultdict(int)
     cursor_day_cache_read: dict[str, int] = defaultdict(int)
     cursor_day_cost = defaultdict(float)
+    cursor_day_models: dict[str, dict[str, dict[str, Any]]] = defaultdict(
+        lambda: defaultdict(lambda: {"tokens": 0, "cost": 0.0})
+    )
     page = 1
     filtered_complete = True
     processed_events = 0
@@ -542,6 +803,12 @@ def fetch_cursor_usage(
                 if cents <= 0:
                     cents = safe_float(event.get("charged_cents"))
                 cursor_day_cost[day_key] += cents / 100
+                model_name = str(event.get("model") or "Unattributed").strip()
+                model_tokens = (
+                    input_tokens + output_tokens + cache_write_tokens + cache_read_tokens
+                )
+                cursor_day_models[day_key][model_name]["tokens"] += model_tokens
+                cursor_day_models[day_key][model_name]["cost"] += cents / 100
         if len(events) < page_size or (
             expected_event_count is not None
             and page * page_size >= expected_event_count
@@ -564,6 +831,12 @@ def fetch_cursor_usage(
             "output": cursor_day_output[d],
             "cache_write": cursor_day_cache_write[d],
             "cache_read": cursor_day_cache_read[d],
+            "models": normalize_models(
+                [
+                    {"model": model_name, **values}
+                    for model_name, values in cursor_day_models[d].items()
+                ]
+            ),
         }
         for d in sorted(cursor_day_tokens.keys())
     ]
@@ -611,15 +884,8 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
     codex_usage = ccusage_daily("codex", timezone, since=today_key, until=today_key)
     claude_usage = ccusage_daily("claude", timezone, since=today_key, until=today_key)
     cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone, start_ms, end_ms)
-    comate = comate_usage.parse_comate(home, timezone)
-
     codex_pts = codex_daily_points(usage_daily_rows(codex_usage))
     claude_pts = claude_daily_points(usage_daily_rows(claude_usage))
-    comate_pts = [
-        point
-        for point in (comate.get("daily_timeline") or [])
-        if isinstance(point, dict) and point.get("date") == today_key
-    ]
     cursor_pts: list[dict[str, Any]] = []
     if cursor_usage.get("available"):
         cursor_pts = cursor_usage.get("daily_timeline") or []
@@ -630,7 +896,7 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
             if tokens or cost:
                 cursor_pts = [*cursor_pts, {"date": today_key, "tokens": tokens, "cost": cost}]
 
-    rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts, comate_pts)
+    rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts)
     row = daily_row_for_date(today_key, rows)
     return {
         "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -638,7 +904,6 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
         "date": today_key,
         "row": row,
         "cursor": cursor_usage,
-        "comate": comate,
     }
 
 
@@ -671,18 +936,11 @@ def render_today_text(data: dict[str, Any]) -> str:
             f"{fmt_int(row.get('cursor_output')):>12} "
             f"{fmt_usd(row.get('cursor_cost')):>12}"
         ),
-        (
-            f"{'Comate':<12} {fmt_int(row.get('comate_tokens')):>12} "
-            f"{fmt_int(row.get('comate_input')):>12} "
-            f"{fmt_int(0):>12} "
-            f"{fmt_int(row.get('comate_output')):>12} "
-            f"{fmt_usd(row.get('comate_cost')):>12}"
-        ),
         f"{'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12}",
         f"{'Total':<12} {fmt_int(row.get('total_tokens')):>12} {'':>12} {'':>12} {'':>12} {fmt_usd(row.get('total_cost')):>12}",
         "",
         "Cache column = cache read for Codex; cache create + read for Claude; cache write + read for Cursor.",
-        "Comate tokens are local contextUsed positive deltas (not billable); cost is always $0.",
+        "Historical local Comate context deltas are retained under One API.",
         "Codex reasoning tokens are included in total but omitted from this table.",
         "Ducc (Claude wrapper) is counted under Claude Code.",
     ]
@@ -719,6 +977,7 @@ def load_previous_cursor_points(usage_json: Path) -> list[dict[str, Any]]:
                 "cache_write": safe_int(row.get("cursor_cache_write")),
                 "cache_read": safe_int(row.get("cursor_cache_read")),
                 "output": safe_int(row.get("cursor_output")),
+                "models": normalize_models(row.get("cursor_models")),
             }
         )
     return points
@@ -749,10 +1008,9 @@ def resolve_cursor_points(
 def build_local_machine_daily(
     codex_pts: list[dict[str, Any]],
     claude_pts: list[dict[str, Any]],
-    comate_pts: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Local-only daily rows for this machine fragment (no Cursor)."""
-    return merge_daily_timeline(codex_pts, claude_pts, [], comate_pts)
+    return merge_daily_timeline(codex_pts, claude_pts, [])
 
 
 def local_today(timezone: str) -> str:
@@ -1157,6 +1415,55 @@ def validate_fragment_timezones(
             )
 
 
+def persist_local_model_metadata(
+    fragment_file: Path,
+    codex_points: list[dict[str, Any]],
+    claude_points: list[dict[str, Any]],
+    legacy_comate: dict[str, Any],
+) -> None:
+    """Backfill model rows without changing the durable numeric ledger."""
+    fragment = machine_fragments.load_machine_fragment(
+        fragment_file.parent, fragment_file.stem
+    )
+    if fragment is None:
+        raise FileNotFoundError(f"machine fragment disappeared: {fragment_file}")
+
+    points_by_tool = {
+        "codex": {
+            str(point.get("date")): point
+            for point in codex_points
+            if isinstance(point, dict) and point.get("date")
+        },
+        "claude": {
+            str(point.get("date")): point
+            for point in claude_points
+            if isinstance(point, dict) and point.get("date")
+        },
+    }
+    for row in fragment.get("daily") or []:
+        if not isinstance(row, dict):
+            continue
+        date_key = str(row.get("date") or "")
+        for prefix in ("codex", "claude"):
+            point = points_by_tool[prefix].get(date_key)
+            source_models = (
+                point.get("models")
+                if isinstance(point, dict)
+                else row.get(f"{prefix}_models")
+            )
+            row[f"{prefix}_models"] = models_with_remainder(
+                source_models,
+                total_tokens=row.get(f"{prefix}_tokens"),
+                total_cost=row.get(f"{prefix}_cost"),
+                label="Legacy unknown",
+            )
+
+    fragment["model_breakdown_version"] = MODEL_BREAKDOWN_VERSION
+    fragment["legacy_comate"] = legacy_comate
+    fragment["tools"] = ["codex", "claude"]
+    machine_fragments.write_json_atomic(fragment_file, fragment)
+
+
 def collect_local_machine(
     home: Path,
     timezone: str,
@@ -1178,6 +1485,10 @@ def collect_local_machine(
         else machine_fragments.load_machine_fragment(machines_path, machine_id)
     )
     first_seed = force_reseed or machine_fragments.is_first_seed(existing_frag)
+    needs_model_seed = (
+        safe_int((existing_frag or {}).get("model_breakdown_version"))
+        < MODEL_BREAKDOWN_VERSION
+    )
     since = "" if first_seed else machine_fragments.append_range_start(existing_frag, today)
     until = today
 
@@ -1191,6 +1502,18 @@ def collect_local_machine(
         claude_usage = ccusage_daily(
             "claude", timezone, since=since or today, until=until
         )
+
+    model_codex_usage = codex_usage
+    model_claude_usage = claude_usage
+    if needs_model_seed and not first_seed:
+        try:
+            model_codex_usage = ccusage_daily("codex", timezone)
+            model_claude_usage = ccusage_daily("claude", timezone)
+        except Exception as exc:
+            print(
+                f"warning: full model backfill failed; keeping incremental model rows: {exc}",
+                file=sys.stderr,
+            )
 
     local_summary = local_record_summary(home, tmp_dir)
     comate = comate_usage.parse_comate(home, timezone)
@@ -1213,30 +1536,15 @@ def collect_local_machine(
         "cost": safe_float(claude_totals.get("totalCost")),
         "total_tokens": safe_int(claude_totals.get("totalTokens")),
     }
-    comate_hist = comate.get("history") if isinstance(comate.get("history"), dict) else {}
-    comate_summary = {
-        "tool": "Comate",
-        "history": fmt_range(
-            str(comate_hist.get("first") or ""),
-            str(comate_hist.get("last") or ""),
-        ),
-        "cost": 0.0,
-        "total_tokens": safe_int(comate.get("total_tokens")),
-    }
-
+    codex_pts_all = codex_daily_points(usage_daily_rows(model_codex_usage))
+    claude_pts_all = claude_daily_points(usage_daily_rows(model_claude_usage))
     codex_pts = codex_daily_points(codex_rows)
     claude_pts = claude_daily_points(claude_rows)
-    comate_pts = [
-        point
-        for point in (comate.get("daily_timeline") or [])
-        if isinstance(point, dict)
-    ]
     if since:
         codex_pts = filter_points_since(codex_pts, since)
         claude_pts = filter_points_since(claude_pts, since)
-        comate_pts = filter_points_since(comate_pts, since)
 
-    local_daily = build_local_machine_daily(codex_pts, claude_pts, comate_pts)
+    local_daily = build_local_machine_daily(codex_pts, claude_pts)
     fragment_file, fragment_meta = machine_fragments.write_machine_fragment_append(
         machines_path,
         machine_id,
@@ -1248,6 +1556,12 @@ def collect_local_machine(
         today=today,
         hostname=socket.gethostname(),
         force_reseed=force_reseed,
+    )
+    persist_local_model_metadata(
+        fragment_file,
+        codex_pts_all,
+        claude_pts_all,
+        comate,
     )
     local_summary["machine_fragment"] = str(fragment_file)
     local_summary["fragment_mode"] = fragment_meta.get("mode")
@@ -1262,7 +1576,6 @@ def collect_local_machine(
         "fragment_meta": fragment_meta,
         "codex_summary": codex_summary,
         "claude_summary": claude_summary,
-        "comate_summary": comate_summary,
     }
 
 
@@ -1484,11 +1797,25 @@ def collect_usage(
             cursor_api_complete,
             cursor_reconciliation_stats,
         )
-        comate = {"available": False, "note": "merge-only; Comate not re-parsed"}
+        current_fragment = next(
+            (
+                fragment
+                for fragment in fragments
+                if machine_fragments.sanitize_machine_id(
+                    str(fragment.get("machine_id") or "")
+                )
+                == mid
+            ),
+            {},
+        )
+        comate = (
+            current_fragment.get("legacy_comate")
+            if isinstance(current_fragment.get("legacy_comate"), dict)
+            else {}
+        )
         local_summary = {"merge_only": True}
         codex_summary = {"tool": "Codex", "history": "from fragments", "cost": 0, "total_tokens": 0}
         claude_summary = {"tool": "Claude Code", "history": "from fragments", "cost": 0, "total_tokens": 0}
-        comate_summary = {"tool": "Comate", "history": "from fragments", "cost": 0, "total_tokens": 0}
     else:
         local = collect_local_machine(
             home,
@@ -1503,7 +1830,6 @@ def collect_usage(
         fragment_meta = local["fragment_meta"]
         codex_summary = local["codex_summary"]
         claude_summary = local["claude_summary"]
-        comate_summary = local["comate_summary"]
         comate = local["comate"]
         cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
         cursor_api_complete = bool(
@@ -1597,8 +1923,8 @@ def collect_usage(
             cursor_reconciliation_stats,
         )
 
-    # One API is the residual gateway source: GPT/Codex and Claude families are
-    # filtered by oneapi_usage so the remaining series can join combined totals.
+    # One API is the residual gateway source. Historical local Comate records are
+    # retained under it only when no gateway record exists for the same date.
     oneapi_state_path = os.environ.get("ONEAPI_STATE_PATH", "/tmp/oneapi-chrome-state.json")
     prior_rows = [
         row for row in (prior_payload.get("daily") or []) if isinstance(row, dict)
@@ -1664,11 +1990,33 @@ def collect_usage(
             "state_path": oneapi_state_path,
         }
 
+    if not comate and isinstance(prior_oneapi.get("legacy_comate"), dict):
+        comate = {
+            "history": prior_oneapi["legacy_comate"].get("history") or {},
+            "total_tokens": safe_int(
+                prior_oneapi["legacy_comate"].get("total_tokens")
+            ),
+            "daily_timeline": [
+                point
+                for point in (prior_oneapi.get("daily_timeline") or [])
+                if isinstance(point, dict) and point.get("source") == "comate-local"
+            ],
+        }
+    oneapi_data = reconcile_oneapi_payload(prior_oneapi, oneapi_data, comate)
+
     daily_rows = reconcile_oneapi_rows(
         daily_rows,
         durable_oneapi_rows,
         oneapi_data,
     )
+    for row in daily_rows:
+        for prefix in ("codex", "claude", "cursor", "oneapi"):
+            row[f"{prefix}_models"] = models_with_remainder(
+                row.get(f"{prefix}_models"),
+                total_tokens=row.get(f"{prefix}_tokens"),
+                total_cost=row.get(f"{prefix}_cost"),
+                label="Legacy unknown",
+            )
 
     # Recompute per-tool summary totals from merged daily for UI cards
     def sum_prefix(prefix: str) -> tuple[int, float, str]:
@@ -1681,7 +2029,6 @@ def collect_usage(
     for summary, prefix in (
         (codex_summary, "codex"),
         (claude_summary, "claude"),
-        (comate_summary, "comate"),
     ):
         tokens, cost, hist = sum_prefix(prefix)
         summary["total_tokens"] = tokens
@@ -1716,6 +2063,16 @@ def collect_usage(
         "requests": sum(safe_int(row.get("oneapi_requests")) for row in daily_rows),
     }
 
+    for summary, prefix in (
+        (codex_summary, "codex"),
+        (claude_summary, "claude"),
+        (cursor_summary, "cursor"),
+        (oneapi_summary, "oneapi"),
+    ):
+        summary["models"] = merge_models(
+            *(row.get(f"{prefix}_models") for row in daily_rows)
+        )
+
     span_first, span_last = "", ""
     if daily_rows:
         span_first, span_last = daily_rows[0]["date"], daily_rows[-1]["date"]
@@ -1726,12 +2083,11 @@ def collect_usage(
         "machine_id": mid,
         "machines": machine_ids,
         "machines_dir": str(machines_path),
-        "tools": [codex_summary, claude_summary, cursor_summary, comate_summary, oneapi_summary],
+        "tools": [codex_summary, claude_summary, cursor_summary, oneapi_summary],
         "local_summary": local_summary,
         "fragment_meta": fragment_meta,
         "cursor": cursor_usage,
         "oneapi": oneapi_data,
-        "comate": comate,
         "daily_timeline_rows": daily_rows,
         "timeline_meta": {
             "span": fmt_range(span_first, span_last),
@@ -1761,10 +2117,6 @@ CARD_BREAKDOWNS: dict[str, list[tuple[str, str]]] = {
         ("cache_read", "Cache read"),
         ("output", "Output"),
     ],
-    "Comate": [
-        ("input", "Context delta"),
-        ("output", "Output"),
-    ],
     "One API": [
         ("input", "Input"),
         ("cache_read", "Cache read"),
@@ -1780,7 +2132,6 @@ def render_html(data: dict[str, Any]) -> str:
         "Codex": "#2563eb",
         "Claude Code": "#c2410c",
         "Cursor": "#0d9488",
-        "Comate": "#a16207",
         "One API": "#7c3aed",
     }
     daily_rows = data.get("daily_timeline_rows") if isinstance(data.get("daily_timeline_rows"), list) else []
@@ -1801,7 +2152,6 @@ def render_html(data: dict[str, Any]) -> str:
         "Codex": ("codex", "codex_tokens", "codex_cost"),
         "Claude Code": ("claude", "claude_tokens", "claude_cost"),
         "Cursor": ("cursor", "cursor_tokens", "cursor_cost"),
-        "Comate": ("comate", "comate_tokens", "comate_cost"),
         "One API": ("oneapi", "oneapi_tokens", "oneapi_cost"),
     }
     cards_parts: list[str] = []
@@ -2775,7 +3125,7 @@ def render_png(html_path: Path, output_path: Path, width: int, height: int) -> N
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Collect Codex / Claude Code / Cursor / Comate usage, write per-machine "
+            "Collect Codex / Claude Code usage, write per-machine "
             "fragments under public/machines/, and merge into public/usage.json."
         )
     )
@@ -2986,11 +3336,11 @@ def main() -> int:
                     "token_breakdown": (
                         "Cards and tooltips show input, cache, and output tokens per tool. "
                         "Codex cache = cache read; Claude cache = create + read; "
-                        "Cursor cache = write + read. "
-                        "Comate tokens are positive contextUsed deltas from local sessions "
-                        "(not billable API tokens). Ducc is counted under Claude Code. "
+                        "Cursor cache = write + read. Ducc is counted under Claude Code. "
                         "One API includes only non-GPT/Codex and non-Claude model families "
-                        "from the gateway, such as Grok and DeepSeek."
+                        "from the gateway, such as Grok and DeepSeek. Historical local "
+                        "Comate context deltas are retained under One API only on dates "
+                        "without gateway coverage."
                     ),
                     "cost": (
                         "Codex/Claude costs come from ccusage using LiteLLM official model pricing "
@@ -2999,10 +3349,9 @@ def main() -> int:
                         "model has tokens but $0 cost, then reprice remaining unpriced models from "
                         "the LiteLLM JSON table (cached under ~/.cache/ai-usage-report); "
                         "Cursor costs come from the authenticated Dashboard API; "
-                        "Comate cost is always 0; "
                         "One API quota uses 250,000 units/CNY and is estimated at "
                         "~0.14 USD/CNY. "
-                        "Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; "
+                        "Codex/Claude daily totals are SUMMED across public/machines/*.json; "
                         "Cursor is account-level and replaced from the API on each publish "
                         "(if API unavailable, prior usage.json Cursor series is kept); "
                         "One API is account-level, excludes GPT/Codex and Claude traffic, "
