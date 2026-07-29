@@ -60,7 +60,7 @@ export type ToolId = 'codex' | 'claude' | 'cursor' | 'comate' | 'oneapi'
 export const TOOLS: Array<{
   id: ToolId
   label: string
-  color: 'blue' | 'orange' | 'teal' | 'muted'
+  color: 'blue' | 'orange' | 'teal' | 'muted' | 'purple'
   hex: string
   tokenKey: keyof DailyRow
   costKey: keyof DailyRow
@@ -128,7 +128,7 @@ export const TOOLS: Array<{
   {
     id: 'oneapi',
     label: 'One API',
-    color: 'muted' as const,
+    color: 'purple',
     hex: '#7c3aed',
     tokenKey: 'oneapi_tokens',
     costKey: 'oneapi_cost',
