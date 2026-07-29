@@ -50,6 +50,7 @@ local_records = load_module("local_ai_usage_records", SCRIPTS_DIR / "local_ai_us
 cursor_api = load_module("cursor_usage_api_probe", SCRIPTS_DIR / "cursor_usage_api_probe.py")
 comate_usage = load_module("comate_usage", SCRIPTS_DIR / "comate_usage.py")
 machine_fragments = load_module("machine_fragments", SCRIPTS_DIR / "machine_fragments.py")
+oneapi_usage = load_module("oneapi_usage", SCRIPTS_DIR / "oneapi_usage.py")
 
 
 def run_json(command: list[str], timeout: int = 240) -> Any:
@@ -212,6 +213,7 @@ TOOL_TOKEN_FIELDS: dict[str, list[str]] = {
     "claude": ["input", "cache_create", "cache_read", "output"],
     "cursor": ["input", "cache_write", "cache_read", "output"],
     "comate": ["input", "output"],
+    "oneapi": ["input", "cache_read", "cache_write", "output"],
 }
 
 
@@ -224,6 +226,7 @@ def empty_daily_row(date_key: str) -> dict[str, Any]:
             row[f"{prefix}_{field}"] = 0
     row["comate_sessions"] = 0
     row["comate_messages"] = 0
+    row["oneapi_requests"] = 0
     row["total_tokens"] = 0
     row["total_cost"] = 0.0
     return row
@@ -1487,6 +1490,55 @@ def collect_usage(
             cursor_reconciliation_stats,
         )
 
+    # Collect One API gateway data (independent gateway view)
+    oneapi_state_path = os.environ.get("ONEAPI_STATE_PATH", "/tmp/oneapi-chrome-state.json")
+    oneapi_data = None
+    oneapi_summary = {"tool": "One API", "history": "", "cost": 0.0, "total_tokens": 0}
+    if Path(oneapi_state_path).exists():
+        try:
+            oneapi_data = oneapi_usage.collect_oneapi(timezone=timezone)
+        except Exception as exc:
+            oneapi_summary = {"tool": "One API", "history": f"error: {exc}", "cost": 0.0, "total_tokens": 0}
+            oneapi_data = {"available": False, "note": str(exc)}
+    if oneapi_data is not None and oneapi_data.get("available") and oneapi_data.get("daily_timeline"):
+        oh = oneapi_data["history"]
+        ot = oneapi_data["totals"]
+        oneapi_summary = {
+            "tool": "One API",
+            "history": fmt_range(str(oh.get("first", "")), str(oh.get("last", ""))),
+            "cost": ot.get("quota", 0) / 1000 * 0.14,
+            "total_tokens": ot.get("total_tokens", 0),
+            "requests": ot.get("requests", 0),
+        }
+        oneapi_by_date = {r["date"]: r for r in oneapi_data["daily_timeline"] if isinstance(r, dict) and r.get("date")}
+        existing_dates = {r.get("date") for r in daily_rows if isinstance(r, dict) and r.get("date")}
+        for row in daily_rows:
+            if not isinstance(row, dict):
+                continue
+            date_key = str(row.get("date") or "")
+            oar = oneapi_by_date.get(date_key)
+            if oar:
+                row["oneapi_tokens"] = safe_int(oar.get("tokens"))
+                row["oneapi_cost"] = oar.get("quota", 0) / 1000 * 0.14
+                row["oneapi_input"] = safe_int(oar.get("input"))
+                row["oneapi_output"] = safe_int(oar.get("output"))
+                row["oneapi_cache_read"] = safe_int(oar.get("cache_read"))
+                row["oneapi_cache_write"] = safe_int(oar.get("cache_write"))
+                row["oneapi_requests"] = safe_int(oar.get("requests"))
+        for date_key, oar in sorted(oneapi_by_date.items()):
+            if date_key not in existing_dates:
+                row = empty_daily_row(date_key)
+                row["oneapi_tokens"] = safe_int(oar.get("tokens"))
+                row["oneapi_cost"] = oar.get("quota", 0) / 1000 * 0.14
+                row["oneapi_input"] = safe_int(oar.get("input"))
+                row["oneapi_output"] = safe_int(oar.get("output"))
+                row["oneapi_cache_read"] = safe_int(oar.get("cache_read"))
+                row["oneapi_cache_write"] = safe_int(oar.get("cache_write"))
+                row["oneapi_requests"] = safe_int(oar.get("requests"))
+                daily_rows.append(row)
+    if oneapi_data is None:
+        oneapi_data = {"available": False, "note": "ONEAPI_STATE_PATH not found; run chrome-use state save first"}
+
     # Recompute per-tool summary totals from merged daily for UI cards
     def sum_prefix(prefix: str) -> tuple[int, float, str]:
         tokens = sum(safe_int(r.get(f"{prefix}_tokens")) for r in daily_rows)
@@ -1534,7 +1586,7 @@ def collect_usage(
         "machine_id": mid,
         "machines": machine_ids,
         "machines_dir": str(machines_path),
-        "tools": [codex_summary, claude_summary, cursor_summary, comate_summary],
+        "tools": [codex_summary, claude_summary, cursor_summary, comate_summary, oneapi_summary],
         "local_summary": local_summary,
         "fragment_meta": fragment_meta,
         "cursor": cursor_usage,
@@ -1572,6 +1624,12 @@ CARD_BREAKDOWNS: dict[str, list[tuple[str, str]]] = {
         ("input", "Context delta"),
         ("output", "Output"),
     ],
+    "One API": [
+        ("input", "Input"),
+        ("cache_read", "Cache read"),
+        ("cache_write", "Cache write"),
+        ("output", "Output"),
+    ],
 }
 
 
@@ -1582,6 +1640,7 @@ def render_html(data: dict[str, Any]) -> str:
         "Claude Code": "#c2410c",
         "Cursor": "#0d9488",
         "Comate": "#a16207",
+        "One API": "#7c3aed",
     }
     daily_rows = data.get("daily_timeline_rows") if isinstance(data.get("daily_timeline_rows"), list) else []
     meta = data.get("timeline_meta") if isinstance(data.get("timeline_meta"), dict) else {}
@@ -1601,6 +1660,8 @@ def render_html(data: dict[str, Any]) -> str:
         "Codex": ("codex", "codex_tokens", "codex_cost"),
         "Claude Code": ("claude", "claude_tokens", "claude_cost"),
         "Cursor": ("cursor", "cursor_tokens", "cursor_cost"),
+        "Comate": ("comate", "comate_tokens", "comate_cost"),
+        "One API": ("oneapi", "oneapi_tokens", "oneapi_cost"),
     }
     cards_parts: list[str] = []
     for tool in tools:
@@ -2794,10 +2855,13 @@ def main() -> int:
                         "model has tokens but $0 cost, then reprice remaining unpriced models from "
                         "the LiteLLM JSON table (cached under ~/.cache/ai-usage-report); "
                         "Cursor costs come from the authenticated Dashboard API; "
-                        "Comate cost is always 0. "
+                        "Comate cost is always 0; "
+                        "One API cost is converted from quota (厘) at ~0.14 USD/CNY. "
                         "Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; "
                         "Cursor is account-level and replaced from the API on each publish "
-                        "(if API unavailable, prior usage.json Cursor series is kept)."
+                        "(if API unavailable, prior usage.json Cursor series is kept); "
+                        "One API is collected from the gateway log API and is independent "
+                        "(overlap with other tools is expected)."
                     ),
                     "merge": (
                         f"Merged machine fragments: {', '.join(machines) if machines else '(none)'}. "

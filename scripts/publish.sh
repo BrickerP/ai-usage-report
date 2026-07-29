@@ -232,6 +232,18 @@ recover_codex_cache_transaction() {
     --recover-codex-cache-transaction
 }
 
+require_oneapi_state() {
+  if [[ -f "$HOME/Projects/ai-usage-report/scripts/oneapi_usage.py" ]]; then
+    log "One API usage script found"
+  fi
+  if [[ ! -f "/tmp/oneapi-chrome-state.json" ]]; then
+    log "WARN: One API chrome state not found at /tmp/oneapi-chrome-state.json"
+    log "WARN: One API usage data will be skipped. To enable:"
+    log "  chrome-use open https://oneapi-comate.baidu-int.com/log"
+    log "  chrome-use state save /tmp/oneapi-chrome-state.json"
+  fi
+}
+
 remerge_usage() {
   local extra_args=()
   if [[ -n "$AI_USAGE_MACHINE_ID" ]]; then
@@ -402,6 +414,9 @@ ensure_on_publish_branch
 if (( SKIP_COLLECT == 0 && BACKFILL_CODEX_CACHE == 0 )); then
   log "capturing local usage → public/machines/ (network-independent)"
   collect_local_usage
+
+  log "refreshing One API chrome session state"
+  require_oneapi_state
 fi
 
 # Pull after local capture; pull_latest safely stashes and restores the fragment.
