@@ -1,6 +1,6 @@
 # AI usage report
 
-Local collector + Astryx web UI for **Codex / Claude Code / Cursor / Comate** token spend.
+Local collector + Astryx web UI for **Codex / Claude Code / Cursor / Comate / One API** token spend.
 Live site: https://brickerp.github.io/ai-usage-report/
 
 Supports **multiple Macs**: each machine writes `public/machines/<id>.json`; publish merges them (SUM for local tools; Cursor from account API).
@@ -51,9 +51,11 @@ What happens:
    - If the Mac was off for days, the old boundary remains and every missed day is recovered
    - A lower source snapshot is never allowed to overwrite the stored high-water value
 3. Fetch Cursor Dashboard API (account-level; it has its own `cursor_mutable_from` boundary)
-4. SUM local tools across all fragments → write `public/usage.json`
-5. Build + commit + push
-6. If push races the other Mac: pull → **re-merge** → rebuild → push again
+4. Fetch the latest five calendar days from One API and retain only residual
+   non-GPT/Codex and non-Claude models
+5. SUM local tools across all fragments and reconcile account-level sources → write `public/usage.json`
+6. Build + commit + push
+7. If push races the other Mac: pull → **re-merge** → rebuild → push again
 
 Same launchd schedule on both Macs is fine; a push collision just triggers re-merge.
 
@@ -63,7 +65,13 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 |------|------|
 | Codex / Claude Code / Comate | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected; report = SUM across `machines/*.json` |
 | Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
+| One API | Account-level residual gateway series; exclude GPT/Codex and Claude model families, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination |
 | Ducc | Claude wrapper → counted under Claude Code |
+
+The non-overlap rule assumes Cursor reports its own cloud usage and
+`use_openai_key=false`. This is the currently verified account configuration.
+If Cursor is later pointed at a custom OpenAI-compatible gateway, revalidate the
+boundary before combining Cursor and One API totals.
 
 One-time migration: `public/machines/legacy-other-mac.json` holds pre-multi-mac Codex/Claude history from the old single-Mac `usage.json`. After the other Mac publishes its own `machines/<id>.json`, delete the legacy file and re-publish once.
 
@@ -129,6 +137,7 @@ Do not use `--force-reseed` for this migration.
 | `public/usage.json` | Merged daily series for the UI |
 | `public/machines/<id>.json` | Per-Mac Codex/Claude/Comate fragment |
 | `scripts/ai_usage_comparison_image.py` | Collect + merge |
+| `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, and aggregation |
 | `scripts/comate_usage.py` | Local Comate session parser |
 | `scripts/machine_fragments.py` | Fragment I/O + SUM merge |
 | `scripts/publish.sh` | Pull → collect → build → push (+ re-merge on conflict) |
@@ -139,7 +148,23 @@ Do not use `--force-reseed` for this migration.
 - Codex / Claude Code: `npx ccusage@latest … --json --offline`
 - Cursor: authenticated Dashboard API via local Cursor session
 - Comate: `~/.comate-engine/store/chat_session_*` (positive `contextUsed` deltas; cost always 0)
-- Costs: ccusage LiteLLM pricing for Codex/Claude; Cursor API for Cursor
+- One API: management log API through a saved `chrome-use` UUAP session. GPT/Codex
+  and Claude model families are excluded; other named models such as Grok,
+  DeepSeek, GLM, Kimi, and MiniMax form the residual series. Empty model names are
+  excluded as unclassified.
+- Costs: ccusage LiteLLM pricing for Codex/Claude; Cursor API for Cursor; One API
+  quota converted at 250,000 units/CNY and estimated at 0.14 USD/CNY
+
+Save or refresh the One API browser state after logging in manually:
+
+```bash
+chrome-use open https://oneapi-comate.baidu-int.com/log
+chrome-use state save /tmp/oneapi-chrome-state.json
+```
+
+Use `ONEAPI_STATE_PATH` to choose another state file. Collection is complete-or-
+nothing: rate-limit or authentication failures retain the prior published One API
+series instead of writing a partial or zero snapshot.
 
 ## launchd
 
@@ -174,5 +199,6 @@ Optional env:
 - `AI_USAGE_TIMEZONE` (default `Asia/Shanghai`)
 - `GH_PUBLISH_ACCOUNT` (default `BrickerP`)
 - `PUBLISH_BRANCH` (default `main`)
+- `ONEAPI_STATE_PATH` (default `/tmp/oneapi-chrome-state.json`)
 - `AI_USAGE_RETRY_ATTEMPTS` / `AI_USAGE_RETRY_DELAY_SECONDS`
 - `AI_USAGE_JOB_RETRY_ATTEMPTS` / `AI_USAGE_JOB_RETRY_DELAY_SECONDS`

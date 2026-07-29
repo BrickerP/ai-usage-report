@@ -232,6 +232,121 @@ def empty_daily_row(date_key: str) -> dict[str, Any]:
     return row
 
 
+ONEAPI_ROW_FIELDS = (
+    "oneapi_tokens",
+    "oneapi_cost",
+    "oneapi_input",
+    "oneapi_output",
+    "oneapi_cache_read",
+    "oneapi_cache_write",
+    "oneapi_requests",
+)
+
+
+def recompute_daily_total(row: dict[str, Any]) -> None:
+    row["total_tokens"] = sum(
+        safe_int(row.get(f"{prefix}_tokens")) for prefix in TOOL_TOKEN_FIELDS
+    )
+    row["total_cost"] = sum(
+        safe_float(row.get(f"{prefix}_cost")) for prefix in TOOL_TOKEN_FIELDS
+    )
+
+
+def has_daily_activity(row: dict[str, Any]) -> bool:
+    return bool(
+        any(
+            safe_int(row.get(f"{prefix}_tokens"))
+            or safe_float(row.get(f"{prefix}_cost"))
+            for prefix in TOOL_TOKEN_FIELDS
+        )
+        or safe_int(row.get("comate_sessions"))
+        or safe_int(row.get("comate_messages"))
+        or safe_int(row.get("oneapi_requests"))
+    )
+
+
+def copy_oneapi_fields(target: dict[str, Any], source: dict[str, Any]) -> None:
+    for key in ONEAPI_ROW_FIELDS:
+        target[key] = (
+            safe_float(source.get(key))
+            if key == "oneapi_cost"
+            else safe_int(source.get(key))
+        )
+
+
+def clear_oneapi_fields(row: dict[str, Any]) -> None:
+    for key in ONEAPI_ROW_FIELDS:
+        row[key] = 0.0 if key == "oneapi_cost" else 0
+
+
+def apply_oneapi_point(row: dict[str, Any], point: dict[str, Any]) -> None:
+    row["oneapi_tokens"] = safe_int(point.get("tokens"))
+    row["oneapi_cost"] = safe_float(point.get("cost_usd"))
+    row["oneapi_input"] = safe_int(point.get("input"))
+    row["oneapi_output"] = safe_int(point.get("output"))
+    row["oneapi_cache_read"] = safe_int(point.get("cache_read"))
+    row["oneapi_cache_write"] = safe_int(point.get("cache_write"))
+    row["oneapi_requests"] = safe_int(point.get("requests"))
+
+
+def reconcile_oneapi_rows(
+    current_rows: list[dict[str, Any]],
+    prior_rows: list[dict[str, Any]],
+    oneapi_data: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Preserve durable history and replace only a complete fetched window."""
+    by_date = {
+        str(row.get("date")): dict(row)
+        for row in current_rows
+        if isinstance(row, dict) and row.get("date")
+    }
+
+    for prior in prior_rows:
+        if not isinstance(prior, dict) or not prior.get("date"):
+            continue
+        date_key = str(prior["date"])
+        if not (
+            safe_int(prior.get("oneapi_tokens"))
+            or safe_float(prior.get("oneapi_cost"))
+            or safe_int(prior.get("oneapi_requests"))
+        ):
+            continue
+        row = by_date.setdefault(date_key, empty_daily_row(date_key))
+        copy_oneapi_fields(row, prior)
+
+    if oneapi_data.get("available") and oneapi_data.get("complete"):
+        window = oneapi_data.get("window")
+        window = window if isinstance(window, dict) else {}
+        window_start = str(window.get("start") or "")
+        window_end = str(window.get("end") or "")
+        if not window_start or not window_end:
+            raise ValueError("complete One API collection is missing its window")
+
+        for date_key, row in by_date.items():
+            if window_start <= date_key <= window_end:
+                clear_oneapi_fields(row)
+
+        for point in oneapi_data.get("daily_timeline") or []:
+            if not isinstance(point, dict) or not point.get("date"):
+                continue
+            date_key = str(point["date"])
+            if not (window_start <= date_key <= window_end):
+                raise ValueError(
+                    f"One API point {date_key} falls outside "
+                    f"{window_start}..{window_end}"
+                )
+            row = by_date.setdefault(date_key, empty_daily_row(date_key))
+            apply_oneapi_point(row, point)
+
+    result: list[dict[str, Any]] = []
+    for date_key in sorted(by_date):
+        row = by_date[date_key]
+        recompute_daily_total(row)
+        if has_daily_activity(row):
+            result.append(row)
+    return result
+
+
 def apply_tool_point(row: dict[str, Any], prefix: str, point: dict[str, Any]) -> None:
     row[f"{prefix}_tokens"] = safe_int(point.get("tokens"))
     row[f"{prefix}_cost"] = safe_float(point.get("cost"))
@@ -281,17 +396,8 @@ def merge_daily_timeline(
     rows: list[dict[str, Any]] = []
     for date_key in sorted(by_date):
         row = by_date[date_key]
-        ct = safe_int(row.get("codex_tokens"))
-        lt = safe_int(row.get("claude_tokens"))
-        ut = safe_int(row.get("cursor_tokens"))
-        mt = safe_int(row.get("comate_tokens"))
-        cc = safe_float(row.get("codex_cost"))
-        lc = safe_float(row.get("claude_cost"))
-        uc = safe_float(row.get("cursor_cost"))
-        mc = safe_float(row.get("comate_cost"))
-        if ct or lt or ut or mt or cc or lc or uc or mc:
-            row["total_tokens"] = ct + lt + ut + mt
-            row["total_cost"] = cc + lc + uc + mc
+        recompute_daily_total(row)
+        if has_daily_activity(row):
             rows.append(row)
     return rows
 
@@ -470,6 +576,7 @@ def fetch_cursor_usage(
             "membership": state.get("membership", ""),
             "subscription_status": state.get("subscription_status", ""),
             "has_token_based_pricing": state.get("has_token_based_pricing"),
+            "use_openai_key": state.get("use_openai_key"),
             "client_version": version,
             "scope": account_scope,
             "query_scope": query_scope,
@@ -1490,54 +1597,78 @@ def collect_usage(
             cursor_reconciliation_stats,
         )
 
-    # Collect One API gateway data (independent gateway view)
+    # One API is the residual gateway source: GPT/Codex and Claude families are
+    # filtered by oneapi_usage so the remaining series can join combined totals.
     oneapi_state_path = os.environ.get("ONEAPI_STATE_PATH", "/tmp/oneapi-chrome-state.json")
-    oneapi_data = None
-    oneapi_summary = {"tool": "One API", "history": "", "cost": 0.0, "total_tokens": 0}
+    prior_rows = [
+        row for row in (prior_payload.get("daily") or []) if isinstance(row, dict)
+    ]
+    prior_oneapi = (
+        prior_payload.get("oneapi")
+        if isinstance(prior_payload.get("oneapi"), dict)
+        else {}
+    )
+    prior_oneapi_compatible = (
+        safe_int(prior_oneapi.get("accounting_version"))
+        == oneapi_usage.ACCOUNTING_VERSION
+    )
+    legacy_oneapi_present = any(
+        safe_int(row.get("oneapi_tokens"))
+        or safe_float(row.get("oneapi_cost"))
+        or safe_int(row.get("oneapi_requests"))
+        for row in prior_rows
+    )
+    durable_oneapi_rows = prior_rows if prior_oneapi_compatible else []
+    oneapi_data: dict[str, Any]
     if Path(oneapi_state_path).exists():
         try:
-            oneapi_data = oneapi_usage.collect_oneapi(timezone=timezone)
+            oneapi_data = oneapi_usage.collect_oneapi(
+                timezone=timezone,
+                state_path=oneapi_state_path,
+            )
+            oneapi_data["stale"] = False
+            oneapi_data["state_path"] = oneapi_state_path
+            oneapi_data["legacy_history_discarded"] = bool(
+                legacy_oneapi_present and not prior_oneapi_compatible
+            )
         except Exception as exc:
-            oneapi_summary = {"tool": "One API", "history": f"error: {exc}", "cost": 0.0, "total_tokens": 0}
-            oneapi_data = {"available": False, "note": str(exc)}
-    if oneapi_data is not None and oneapi_data.get("available") and oneapi_data.get("daily_timeline"):
-        oh = oneapi_data["history"]
-        ot = oneapi_data["totals"]
-        oneapi_summary = {
-            "tool": "One API",
-            "history": fmt_range(str(oh.get("first", "")), str(oh.get("last", ""))),
-            "cost": ot.get("quota", 0) / 1000 * 0.14,
-            "total_tokens": ot.get("total_tokens", 0),
-            "requests": ot.get("requests", 0),
+            note = f"One API refresh failed; kept prior compatible series: {exc}"
+            if legacy_oneapi_present and not prior_oneapi_compatible:
+                note += " Legacy pre-v2 One API values were not retained."
+            print(f"WARN: {note}", file=sys.stderr)
+            oneapi_data = {
+                **prior_oneapi,
+                "available": False,
+                "complete": False,
+                "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+                "stale": True,
+                "note": note,
+                "state_path": oneapi_state_path,
+            }
+    else:
+        note = (
+            f"One API state not found at {oneapi_state_path}; "
+            f"kept prior compatible series. "
+            f"Run chrome-use state save {oneapi_state_path} after UUAP login."
+        )
+        if legacy_oneapi_present and not prior_oneapi_compatible:
+            note += " Legacy pre-v2 One API values were not retained."
+        print(f"WARN: {note}", file=sys.stderr)
+        oneapi_data = {
+            **prior_oneapi,
+            "available": False,
+            "complete": False,
+            "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+            "stale": True,
+            "note": note,
+            "state_path": oneapi_state_path,
         }
-        oneapi_by_date = {r["date"]: r for r in oneapi_data["daily_timeline"] if isinstance(r, dict) and r.get("date")}
-        existing_dates = {r.get("date") for r in daily_rows if isinstance(r, dict) and r.get("date")}
-        for row in daily_rows:
-            if not isinstance(row, dict):
-                continue
-            date_key = str(row.get("date") or "")
-            oar = oneapi_by_date.get(date_key)
-            if oar:
-                row["oneapi_tokens"] = safe_int(oar.get("tokens"))
-                row["oneapi_cost"] = oar.get("quota", 0) / 1000 * 0.14
-                row["oneapi_input"] = safe_int(oar.get("input"))
-                row["oneapi_output"] = safe_int(oar.get("output"))
-                row["oneapi_cache_read"] = safe_int(oar.get("cache_read"))
-                row["oneapi_cache_write"] = safe_int(oar.get("cache_write"))
-                row["oneapi_requests"] = safe_int(oar.get("requests"))
-        for date_key, oar in sorted(oneapi_by_date.items()):
-            if date_key not in existing_dates:
-                row = empty_daily_row(date_key)
-                row["oneapi_tokens"] = safe_int(oar.get("tokens"))
-                row["oneapi_cost"] = oar.get("quota", 0) / 1000 * 0.14
-                row["oneapi_input"] = safe_int(oar.get("input"))
-                row["oneapi_output"] = safe_int(oar.get("output"))
-                row["oneapi_cache_read"] = safe_int(oar.get("cache_read"))
-                row["oneapi_cache_write"] = safe_int(oar.get("cache_write"))
-                row["oneapi_requests"] = safe_int(oar.get("requests"))
-                daily_rows.append(row)
-    if oneapi_data is None:
-        oneapi_data = {"available": False, "note": "ONEAPI_STATE_PATH not found; run chrome-use state save first"}
+
+    daily_rows = reconcile_oneapi_rows(
+        daily_rows,
+        durable_oneapi_rows,
+        oneapi_data,
+    )
 
     # Recompute per-tool summary totals from merged daily for UI cards
     def sum_prefix(prefix: str) -> tuple[int, float, str]:
@@ -1576,6 +1707,15 @@ def collect_usage(
             "total_tokens": tokens_c,
         }
 
+    tokens_o, cost_o, hist_o = sum_prefix("oneapi")
+    oneapi_summary = {
+        "tool": "One API",
+        "history": hist_o,
+        "cost": cost_o,
+        "total_tokens": tokens_o,
+        "requests": sum(safe_int(row.get("oneapi_requests")) for row in daily_rows),
+    }
+
     span_first, span_last = "", ""
     if daily_rows:
         span_first, span_last = daily_rows[0]["date"], daily_rows[-1]["date"]
@@ -1590,6 +1730,7 @@ def collect_usage(
         "local_summary": local_summary,
         "fragment_meta": fragment_meta,
         "cursor": cursor_usage,
+        "oneapi": oneapi_data,
         "comate": comate,
         "daily_timeline_rows": daily_rows,
         "timeline_meta": {
@@ -2839,6 +2980,7 @@ def main() -> int:
                 "machines": machines,
                 "tools": data.get("tools"),
                 "timeline_meta": data.get("timeline_meta"),
+                "oneapi": data.get("oneapi"),
                 "daily": data.get("daily_timeline_rows") or [],
                 "notes": {
                     "token_breakdown": (
@@ -2846,7 +2988,9 @@ def main() -> int:
                         "Codex cache = cache read; Claude cache = create + read; "
                         "Cursor cache = write + read. "
                         "Comate tokens are positive contextUsed deltas from local sessions "
-                        "(not billable API tokens). Ducc is counted under Claude Code."
+                        "(not billable API tokens). Ducc is counted under Claude Code. "
+                        "One API includes only non-GPT/Codex and non-Claude model families "
+                        "from the gateway, such as Grok and DeepSeek."
                     ),
                     "cost": (
                         "Codex/Claude costs come from ccusage using LiteLLM official model pricing "
@@ -2856,12 +3000,13 @@ def main() -> int:
                         "the LiteLLM JSON table (cached under ~/.cache/ai-usage-report); "
                         "Cursor costs come from the authenticated Dashboard API; "
                         "Comate cost is always 0; "
-                        "One API cost is converted from quota (厘) at ~0.14 USD/CNY. "
+                        "One API quota uses 250,000 units/CNY and is estimated at "
+                        "~0.14 USD/CNY. "
                         "Codex/Claude/Comate daily totals are SUMMED across public/machines/*.json; "
                         "Cursor is account-level and replaced from the API on each publish "
                         "(if API unavailable, prior usage.json Cursor series is kept); "
-                        "One API is collected from the gateway log API and is independent "
-                        "(overlap with other tools is expected)."
+                        "One API is account-level, excludes GPT/Codex and Claude traffic, "
+                        "and keeps its prior series when authentication or pagination fails."
                     ),
                     "merge": (
                         f"Merged machine fragments: {', '.join(machines) if machines else '(none)'}. "
