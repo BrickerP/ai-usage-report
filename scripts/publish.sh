@@ -233,14 +233,15 @@ recover_codex_cache_transaction() {
 }
 
 require_oneapi_state() {
+  local state_path="${ONEAPI_STATE_PATH:-/tmp/oneapi-chrome-state.json}"
   if [[ -f "$HOME/Projects/ai-usage-report/scripts/oneapi_usage.py" ]]; then
     log "One API usage script found"
   fi
-  if [[ ! -f "/tmp/oneapi-chrome-state.json" ]]; then
-    log "WARN: One API chrome state not found at /tmp/oneapi-chrome-state.json"
-    log "WARN: One API usage data will be skipped. To enable:"
+  if [[ ! -f "$state_path" ]]; then
+    log "WARN: One API chrome state not found at $state_path"
+    log "WARN: the prior One API series will be kept. To refresh the session:"
     log "  chrome-use open https://oneapi-comate.baidu-int.com/log"
-    log "  chrome-use state save /tmp/oneapi-chrome-state.json"
+    log "  chrome-use state save $state_path"
   fi
 }
 
@@ -415,7 +416,7 @@ if (( SKIP_COLLECT == 0 && BACKFILL_CODEX_CACHE == 0 )); then
   log "capturing local usage → public/machines/ (network-independent)"
   collect_local_usage
 
-  log "refreshing One API chrome session state"
+  log "checking One API chrome session state"
   require_oneapi_state
 fi
 
