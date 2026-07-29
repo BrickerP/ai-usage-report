@@ -140,7 +140,8 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
         num(r, 'codex_cost') +
         num(r, 'claude_cost') +
         num(r, 'cursor_cost') +
-        num(r, 'comate_cost'),
+        num(r, 'comate_cost') +
+        num(r, 'oneapi_cost'),
     )
 
     chart.setOption(
@@ -194,9 +195,11 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
             'Claude',
             'Cursor',
             'Comate',
+            'One API',
             'Codex cache',
             'Claude cache',
             'Cursor cache',
+            'One API cache',
             'Daily spend (all tools)',
           ],
           type: 'scroll',
@@ -313,8 +316,17 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
             stack: 'tokens',
             xAxisIndex: 0,
             yAxisIndex: 0,
-            itemStyle: stackSegStyle(TOOLS[3].hex, 'top'),
+            itemStyle: stackSegStyle(TOOLS[3].hex, 'mid'),
             data: daily.map((r) => num(r, 'comate_tokens')),
+          },
+          {
+            name: 'One API',
+            ...stackBar,
+            stack: 'tokens',
+            xAxisIndex: 0,
+            yAxisIndex: 0,
+            itemStyle: stackSegStyle(TOOLS[4].hex, 'top'),
+            data: daily.map((r) => num(r, 'oneapi_tokens')),
           },
           {
             name: 'Codex cache',
@@ -342,9 +354,20 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
             stack: 'cache',
             xAxisIndex: 1,
             yAxisIndex: 1,
-            itemStyle: stackSegStyle(TOOLS[2].hex, 'top'),
+            itemStyle: stackSegStyle(TOOLS[2].hex, 'mid'),
             data: daily.map(
               (r) => num(r, 'cursor_cache_write') + num(r, 'cursor_cache_read'),
+            ),
+          },
+          {
+            name: 'One API cache',
+            ...stackBar,
+            stack: 'cache',
+            xAxisIndex: 1,
+            yAxisIndex: 1,
+            itemStyle: stackSegStyle(TOOLS[4].hex, 'top'),
+            data: daily.map(
+              (r) => num(r, 'oneapi_cache_read') + num(r, 'oneapi_cache_write'),
             ),
           },
           {
