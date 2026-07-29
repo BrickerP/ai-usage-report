@@ -203,14 +203,14 @@ pull_latest() {
 
 collect_local_usage() {
   local extra_args=()
-  if [[ -n "$AI_USAGE_MACHINE_ID" ]]; then
+  if [[ -n "${AI_USAGE_MACHINE_ID:-}" ]]; then
     extra_args+=(--machine-id "$AI_USAGE_MACHINE_ID")
   fi
   python3 "$ROOT/scripts/ai_usage_comparison_image.py" \
     --machines-dir "$ROOT/public/machines" \
     --timezone "$AI_USAGE_TIMEZONE" \
     --collect-local-only \
-    "${extra_args[@]}"
+    "${extra_args[@]:+${extra_args[@]}}"
 }
 
 backfill_codex_cache() {
@@ -246,7 +246,7 @@ require_oneapi_state() {
 
 remerge_usage() {
   local extra_args=()
-  if [[ -n "$AI_USAGE_MACHINE_ID" ]]; then
+  if [[ -n "${AI_USAGE_MACHINE_ID:-}" ]]; then
     extra_args+=(--machine-id "$AI_USAGE_MACHINE_ID")
   fi
   log "re-merging machines/*.json + Cursor API → usage.json"
@@ -255,7 +255,7 @@ remerge_usage() {
     --machines-dir "$ROOT/public/machines" \
     --timezone "$AI_USAGE_TIMEZONE" \
     --merge-only \
-    "${extra_args[@]}"
+    "${extra_args[@]:+${extra_args[@]}}"
 }
 
 build_site() {
