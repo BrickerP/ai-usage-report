@@ -4,10 +4,12 @@ export type DailyRow = {
   claude_tokens: number
   cursor_tokens: number
   comate_tokens: number
+  oneapi_tokens: number
   codex_cost: number
   claude_cost: number
   cursor_cost: number
   comate_cost: number
+  oneapi_cost: number
   total_tokens: number
   total_cost: number
   codex_input: number
@@ -26,6 +28,11 @@ export type DailyRow = {
   comate_output: number
   comate_sessions?: number
   comate_messages?: number
+  oneapi_input: number
+  oneapi_output: number
+  oneapi_cache_read: number
+  oneapi_cache_write: number
+  oneapi_requests?: number
 }
 
 export type UsagePayload = {
@@ -48,7 +55,7 @@ export type UsagePayload = {
   }
 }
 
-export type ToolId = 'codex' | 'claude' | 'cursor' | 'comate'
+export type ToolId = 'codex' | 'claude' | 'cursor' | 'comate' | 'oneapi'
 
 export const TOOLS: Array<{
   id: ToolId
@@ -118,6 +125,21 @@ export const TOOLS: Array<{
     ],
     cacheKeys: [],
   },
+  {
+    id: 'oneapi',
+    label: 'One API',
+    color: 'muted' as const,
+    hex: '#7c3aed',
+    tokenKey: 'oneapi_tokens',
+    costKey: 'oneapi_cost',
+    breakdown: [
+      { key: 'oneapi_input', label: 'Input' },
+      { key: 'oneapi_cache_read', label: 'Cache read' },
+      { key: 'oneapi_cache_write', label: 'Cache write' },
+      { key: 'oneapi_output', label: 'Output' },
+    ],
+    cacheKeys: ['oneapi_cache_read', 'oneapi_cache_write'],
+  },
 ]
 
 export function num(row: DailyRow, key: keyof DailyRow): number {
@@ -130,7 +152,9 @@ export function rowCache(row: DailyRow): number {
     num(row, 'claude_cache_create') +
     num(row, 'claude_cache_read') +
     num(row, 'cursor_cache_write') +
-    num(row, 'cursor_cache_read')
+    num(row, 'cursor_cache_read') +
+    num(row, 'oneapi_cache_read') +
+    num(row, 'oneapi_cache_write')
   )
 }
 
