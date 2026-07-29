@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-30T01:49:17+08:00",
+  "generated_at": "2026-07-30T01:53:01+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-29",
   "cursor_reconciliation": {
@@ -16,8 +16,8 @@
     {
       "tool": "Codex",
       "history": "2026-01-08 to 2026-07-30",
-      "cost": 93501.58076465,
-      "total_tokens": 66133548262,
+      "cost": 93506.33092665,
+      "total_tokens": 66141861551,
       "models": [
         {
           "model": "Legacy unknown",
@@ -26,13 +26,13 @@
         },
         {
           "model": "gpt-5.6-sol",
-          "tokens": 5017966159,
-          "cost": 5919.995433143933
+          "tokens": 5025987453,
+          "cost": 5924.638876123255
         },
         {
           "model": "gpt-5.5",
-          "tokens": 569434059,
-          "cost": 638.0621357138772
+          "tokens": 569726054,
+          "cost": 638.1688547345559
         },
         {
           "model": "gpt-5.6-luna",
@@ -54,13 +54,13 @@
     {
       "tool": "Claude Code",
       "history": "2026-04-08 to 2026-07-30",
-      "cost": 41371.3528175,
-      "total_tokens": 13137915522,
+      "cost": 41411.9061075,
+      "total_tokens": 13145994708,
       "models": [
         {
           "model": "Legacy unknown",
           "tokens": 9395005290,
-          "cost": 22388.440744499996
+          "cost": 22388.4407445
         },
         {
           "model": "claude-opus-4-8",
@@ -69,8 +69,8 @@
         },
         {
           "model": "claude-opus-5",
-          "tokens": 1109268663,
-          "cost": 5595.574875000003
+          "tokens": 1117347849,
+          "cost": 5636.128165
         },
         {
           "model": "claude-fable-5-high",
@@ -216,8 +216,8 @@
     "span": "2026-01-08 to 2026-07-30"
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "ownership_rule": "exclude_gpt_codex_and_claude_model_families",
     "timezone": "Asia/Shanghai",
@@ -568,7 +568,7 @@
     ],
     "pages": 364,
     "rate_limit_retries": 0,
-    "stale": false,
+    "stale": true,
     "state_path": "/tmp/oneapi-chrome-state.json",
     "legacy_history_discarded": false,
     "legacy_comate": {
@@ -579,7 +579,8 @@
       },
       "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
-    }
+    },
+    "note": "One API refresh failed; kept prior compatible series: [Errno 2] No such file or directory: 'chrome-use'"
   },
   "daily": [
     {
@@ -8511,12 +8512,12 @@
         {
           "model": "Legacy unknown",
           "tokens": 987000937,
-          "cost": 4957.797944999998
+          "cost": 4957.797945
         },
         {
           "model": "claude-opus-5",
           "tokens": 906762001,
-          "cost": 4554.937945000002
+          "cost": 4554.937945000001
         },
         {
           "model": "claude-opus-4-8",
@@ -8555,7 +8556,7 @@
       "codex_output": 1996193,
       "codex_reasoning": 717932,
       "claude_tokens": 298582429,
-      "claude_cost": 1543.0191250000007,
+      "claude_cost": 1543.0191250000003,
       "claude_input": 296077080,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
@@ -8599,7 +8600,7 @@
         {
           "model": "claude-opus-5",
           "tokens": 173741993,
-          "cost": 896.0880650000005
+          "cost": 896.088065
         },
         {
           "model": "Legacy unknown",
@@ -8687,22 +8688,22 @@
         }
       ],
       "total_tokens": 1457905638,
-      "total_cost": 2453.004670720001
+      "total_cost": 2453.0046707200004
     },
     {
       "date": "2026-07-30",
-      "codex_tokens": 63761609,
-      "codex_cost": 47.304767999999996,
-      "codex_input": 2394110,
-      "codex_cache_read": 61209856,
-      "codex_output": 157643,
-      "codex_reasoning": 62587,
-      "claude_tokens": 28764669,
-      "claude_cost": 144.54886500000003,
-      "claude_input": 28728393,
+      "codex_tokens": 72074898,
+      "codex_cost": 52.054930000000006,
+      "codex_input": 2489626,
+      "codex_cache_read": 69422080,
+      "codex_output": 163192,
+      "codex_reasoning": 64304,
+      "claude_tokens": 36843855,
+      "claude_cost": 185.102155,
+      "claude_input": 36799711,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
-      "claude_output": 36276,
+      "claude_output": 44144,
       "cursor_tokens": 0,
       "cursor_cost": 0.0,
       "cursor_input": 0,
@@ -8719,20 +8720,20 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 58464840,
-          "cost": 43.37509256325573
+          "tokens": 66486134,
+          "cost": 48.01853554257712
         },
         {
           "model": "gpt-5.5",
-          "tokens": 5296769,
-          "cost": 3.9296754367442635
+          "tokens": 5588764,
+          "cost": 4.0363944574228885
         }
       ],
       "claude_models": [
         {
           "model": "claude-opus-5",
-          "tokens": 28764669,
-          "cost": 144.54886500000003
+          "tokens": 36843855,
+          "cost": 185.102155
         }
       ],
       "cursor_models": [],
@@ -8743,8 +8744,8 @@
           "cost": 0.11329976000000001
         }
       ],
-      "total_tokens": 107870610,
-      "total_cost": 191.96693276000002
+      "total_tokens": 124263085,
+      "total_cost": 237.27038476
     }
   ],
   "notes": {
