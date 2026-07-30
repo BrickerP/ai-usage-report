@@ -15,7 +15,9 @@ export type SourceStatus = {
 
 export type DegradedSourceNotice = {
   id: string
+  label: string
   status: 'stale' | 'failed'
+  retained: boolean
   message: string
 }
 
@@ -224,20 +226,22 @@ export function degradedSourceNotices(
     if (!source || source.status === 'fresh') return []
 
     const label = sourceLabel(id)
-    const retained =
-      normalizedSourceId(id) === 'oneapi'
-        ? '; previously saved data is retained and still shown'
-        : ''
+    const retained = normalizedSourceId(id) === 'oneapi'
+    const retainedCopy = retained
+      ? '; previously saved data is retained and still shown'
+      : ''
     const summary =
       source.status === 'stale'
-        ? `${label} is stale${retained}`
-        : `${label} refresh failed${retained}`
+        ? `${label} is stale${retainedCopy}`
+        : `${label} refresh failed${retainedCopy}`
     const details = statusDetails(source)
 
     return [
       {
         id,
+        label,
         status: source.status,
+        retained,
         message: `${summary}.${details.length ? ` ${details.join('; ')}.` : ''}`,
       },
     ]

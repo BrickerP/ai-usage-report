@@ -68,6 +68,11 @@ function modelLabel(series: ModelSeriesSpec) {
   return series.kind === 'legacy' ? 'Unattributed (legacy)' : series.label
 }
 
+function compactTimestamp(value?: string | null) {
+  if (!value) return '—'
+  return value.slice(0, 16).replace('T', ' ')
+}
+
 function ReportApp() {
   const [payload, setPayload] = useState<UsagePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -77,6 +82,8 @@ function ReportApp() {
   const [selectedTool, setSelectedTool] = useState<ToolId | null>(null)
   const [pinnedModel, setPinnedModel] = useState<string | null>(null)
   const [isModelListOpen, setIsModelListOpen] = useState(false)
+  const [isReportDetailsOpen, setIsReportDetailsOpen] = useState(false)
+  const [isRangeDetailsOpen, setIsRangeDetailsOpen] = useState(false)
   const [isViewHydrated, setIsViewHydrated] = useState(false)
   const chartSectionRef = useRef<HTMLDivElement>(null)
   const modelDetailsToggleRef = useRef<HTMLButtonElement>(null)
@@ -114,6 +121,7 @@ function ReportApp() {
           savedView.to,
         ) ?? nextRange
       setPreset('all')
+      setIsRangeDetailsOpen(true)
     } else {
       setPreset(nextPreset)
     }
@@ -207,6 +215,7 @@ function ReportApp() {
     (next: ViewPreset) => {
       setPreset(next)
       setRange(indexForPreset(daily, next))
+      setIsRangeDetailsOpen(false)
     },
     [daily],
   )
@@ -412,6 +421,14 @@ function ReportApp() {
     payload.timeline_meta?.span ||
     `${daily[0]?.date || '—'} — ${daily.at(-1)?.date || '—'}`
   const degradedSources = degradedSourceNotices(payload.source_status)
+  const sourceHealthSummary = degradedSources
+    .map((source) => {
+      const status =
+        source.status === 'stale' ? 'is stale' : 'refresh failed'
+      const retained = source.retained ? '; retained data is shown' : ''
+      return `${source.label} ${status}${retained}.`
+    })
+    .join(' ')
   const selectionStatus = activeTool
     ? pinnedModel
       ? `Viewing ${activeTool.label} models. Focused on ${pinnedModel}.`
@@ -434,22 +451,9 @@ function ReportApp() {
           <Heading level={1} type="display-2">
             AI coding spend & tokens
           </Heading>
-          <HStack gap={4} wrap="wrap">
-            <Text size="sm" color="secondary">
-              Generated {payload.generated_at || '—'}
-            </Text>
-            <Text size="sm" color="secondary">
-              Timezone {payload.timezone || '—'}
-            </Text>
-            <Text size="sm" color="secondary">
-              Full span {fullSpan}
-            </Text>
-            {payload.machines?.length ? (
-              <Text size="sm" color="secondary">
-                Machines {payload.machines.join(', ')}
-              </Text>
-            ) : null}
-          </HStack>
+          <Text size="sm" color="secondary">
+            Updated {compactTimestamp(payload.generated_at)}
+          </Text>
           {degradedSources.length ? (
             <div
               className="source-health-notice"
@@ -461,11 +465,72 @@ function ReportApp() {
                 !
               </span>
               <span>
-                <span className="source-health-title">
-                  Some usage sources are degraded.
-                </span>{' '}
-                {degradedSources.map((source) => source.message).join(' ')}
+                <span className="source-health-title">Data freshness</span>{' '}
+                {sourceHealthSummary}
               </span>
+            </div>
+          ) : null}
+          <Button
+            label={
+              isReportDetailsOpen
+                ? 'Hide report details'
+                : 'Show report details and methodology'
+            }
+            variant="ghost"
+            size="sm"
+            className="report-details-trigger"
+            aria-expanded={isReportDetailsOpen}
+            aria-controls="report-details-panel"
+            onClick={() => setIsReportDetailsOpen((open) => !open)}
+          >
+            {isReportDetailsOpen ? 'Hide report details' : 'Report details'}
+          </Button>
+          {isReportDetailsOpen ? (
+            <div id="report-details-panel" className="report-details-panel">
+              <dl className="report-meta">
+                <div>
+                  <dt>Generated</dt>
+                  <dd>{payload.generated_at || '—'}</dd>
+                </div>
+                <div>
+                  <dt>Timezone</dt>
+                  <dd>{payload.timezone || '—'}</dd>
+                </div>
+                <div>
+                  <dt>Full span</dt>
+                  <dd>{fullSpan}</dd>
+                </div>
+                {payload.machines?.length ? (
+                  <div>
+                    <dt>Machines</dt>
+                    <dd>{payload.machines.join(', ')}</dd>
+                  </div>
+                ) : null}
+              </dl>
+              {degradedSources.length ? (
+                <div className="report-methodology">
+                  <strong>Source freshness</strong>
+                  <p>
+                    {degradedSources
+                      .map((source) => source.message)
+                      .join(' ')}
+                  </p>
+                </div>
+              ) : null}
+              <div className="report-methodology">
+                <strong>Token breakdown</strong>
+                <p>
+                  {payload.notes?.token_breakdown ||
+                    'Cards and tooltips show input, cache, and output tokens per tool.'}
+                </p>
+              </div>
+              <div className="report-methodology">
+                <strong>Cost estimate</strong>
+                <p>
+                  {payload.notes?.cost ||
+                    'Codex/Claude from ccusage; Cursor from Dashboard API.'}
+                </p>
+              </div>
             </div>
           ) : null}
         </VStack>
@@ -490,15 +555,6 @@ function ReportApp() {
             </Text>
           </VStack>
         </Card>
-
-        <Text size="sm" color="secondary">
-          <Text weight="semibold">Token breakdown: </Text>
-          {payload.notes?.token_breakdown ||
-            'Cards and tooltips show input, cache, and output tokens per tool.'}{' '}
-          <Text weight="semibold">Cost estimate: </Text>
-          {payload.notes?.cost ||
-            'Codex/Claude from ccusage; Cursor from Dashboard API.'}
-        </Text>
 
         <div className="tool-grid">
           {summary.byTool.map((tool) => (
@@ -525,67 +581,47 @@ function ReportApp() {
                   ))}
                 </div>
                 {tool.models.length ? (
-                  <div className="model-list">
-                    <HStack justify="between" align="center" gap={2}>
-                      <Text size="sm" color="secondary" weight="semibold">
-                        Models ·{' '}
-                        {
-                          tool.models.filter(
-                            (model) => model.model !== 'Legacy unknown',
-                          ).length
-                        }
-                      </Text>
-                      <Button
-                        label={`${selectedTool === tool.id ? 'Viewing' : 'Explore'} ${tool.label} models`}
-                        variant="ghost"
-                        size="sm"
-                        className={`model-drill-trigger${selectedTool === tool.id ? ' is-active' : ''}`}
-                        aria-pressed={selectedTool === tool.id}
-                        data-active={selectedTool === tool.id ? 'true' : 'false'}
-                        style={{ '--tool-color': tool.hex } as CSSProperties}
-                        onClick={() => selectTool(tool.id, true)}
-                        icon={
-                          selectedTool === tool.id ? (
-                            <span
-                              className="model-drill-state-icon"
-                              aria-hidden="true"
-                            >
-                              ✓
-                            </span>
-                          ) : undefined
-                        }
-                        endContent={
+                  <div className="tool-card-action">
+                    <Text size="sm" color="secondary" weight="semibold">
+                      {
+                        tool.models.filter(
+                          (model) => model.model !== 'Legacy unknown',
+                        ).length
+                      }{' '}
+                      models
+                    </Text>
+                    <Button
+                      label={`${selectedTool === tool.id ? 'Viewing' : 'View'} ${tool.label} models`}
+                      variant="ghost"
+                      size="sm"
+                      className={`model-drill-trigger${selectedTool === tool.id ? ' is-active' : ''}`}
+                      aria-pressed={selectedTool === tool.id}
+                      data-active={selectedTool === tool.id ? 'true' : 'false'}
+                      style={{ '--tool-color': tool.hex } as CSSProperties}
+                      onClick={() => selectTool(tool.id, true)}
+                      icon={
+                        selectedTool === tool.id ? (
+                          <span
+                            className="model-drill-state-icon"
+                            aria-hidden="true"
+                          >
+                            ✓
+                          </span>
+                        ) : undefined
+                      }
+                      endContent={
+                        selectedTool === tool.id ? undefined : (
                           <span
                             className="model-drill-arrow"
                             aria-hidden="true"
                           >
                             ›
                           </span>
-                        }
-                      >
-                        {selectedTool === tool.id ? 'Viewing' : 'Explore'}
-                      </Button>
-                    </HStack>
-                    {tool.models.map((model) => (
-                      <div
-                        className="model-row"
-                        key={`${tool.id}-${model.model}`}
-                      >
-                        <Text size="sm">
-                          <span className="model-name" title={model.model}>
-                            {model.model === 'Legacy unknown'
-                              ? 'Unattributed (legacy)'
-                              : model.model}
-                          </span>
-                        </Text>
-                        <Text size="sm" justify="end">
-                          {fmtCompact(model.tokens)}
-                        </Text>
-                        <Text size="sm" color="secondary" justify="end">
-                          {fmtUsd(model.cost)}
-                        </Text>
-                      </div>
-                    ))}
+                        )
+                      }
+                    >
+                      {selectedTool === tool.id ? 'Viewing' : 'View models'}
+                    </Button>
                   </div>
                 ) : null}
               </VStack>
@@ -608,38 +644,57 @@ function ReportApp() {
               <SegmentedControlItem value="all" label="All" />
             </SegmentedControl>
 
-            <DateRangeInput
-              label="Dates"
-              value={dateRangeValue}
-              onChange={onDatesChange}
-              min={daily[0]?.date as ISODateString | undefined}
-              max={daily.at(-1)?.date as ISODateString | undefined}
-              size="md"
-              numberOfMonths={1}
-            />
-
-            <HStack gap={2} align="end">
-              <IconButton
-                label="Earlier"
-                icon={<Icon icon="chevronLeft" />}
-                isDisabled={range[0] <= 0}
-                onClick={() => nudge(-1)}
-              />
-              <IconButton
-                label="Later"
-                icon={<Icon icon="chevronRight" />}
-                isDisabled={range[1] >= daily.length - 1}
-                onClick={() => nudge(1)}
-              />
-              <Button
-                label="Reset 30d"
-                variant="secondary"
-                size="md"
-                isDisabled={preset === '30'}
-                onClick={() => applyPreset('30')}
-              />
-            </HStack>
+            <Button
+              label={
+                isRangeDetailsOpen
+                  ? 'Hide custom date controls'
+                  : 'Show custom date controls'
+              }
+              variant="ghost"
+              size="sm"
+              className="range-details-trigger"
+              aria-expanded={isRangeDetailsOpen}
+              aria-controls="range-details-panel"
+              onClick={() => setIsRangeDetailsOpen((open) => !open)}
+            >
+              {isRangeDetailsOpen ? 'Hide custom dates' : 'Custom dates'}
+            </Button>
           </div>
+          {isRangeDetailsOpen ? (
+            <div id="range-details-panel" className="range-details-panel">
+              <DateRangeInput
+                label="Dates"
+                value={dateRangeValue}
+                onChange={onDatesChange}
+                min={daily[0]?.date as ISODateString | undefined}
+                max={daily.at(-1)?.date as ISODateString | undefined}
+                size="md"
+                numberOfMonths={1}
+              />
+
+              <HStack gap={2} align="end">
+                <IconButton
+                  label="Earlier"
+                  icon={<Icon icon="chevronLeft" />}
+                  isDisabled={range[0] <= 0}
+                  onClick={() => nudge(-1)}
+                />
+                <IconButton
+                  label="Later"
+                  icon={<Icon icon="chevronRight" />}
+                  isDisabled={range[1] >= daily.length - 1}
+                  onClick={() => nudge(1)}
+                />
+                <Button
+                  label="Reset 30d"
+                  variant="secondary"
+                  size="md"
+                  isDisabled={preset === '30'}
+                  onClick={() => applyPreset('30')}
+                />
+              </HStack>
+            </div>
+          ) : null}
         </VStack>
 
         <Card padding={3}>
@@ -654,7 +709,7 @@ function ReportApp() {
               onKeyDown={stepBackInChart}
             >
               <div className="chart-heading">
-                <div>
+                <div className="chart-title-block">
                   {activeTool ? (
                     <div className="chart-breadcrumb">
                       <button
@@ -668,29 +723,37 @@ function ReportApp() {
                       <span aria-current="page">{activeTool.label}</span>
                     </div>
                   ) : null}
-                  <Heading level={3}>
-                    {activeTool
-                      ? `${activeTool.label} models over time`
-                      : 'Daily tokens by tool'}
-                  </Heading>
-                  <Text size="sm" color="secondary">
-                    {activeTool
-                      ? pinnedModel
-                        ? `Focused on ${pinnedModel}. Other model tokens stay visible for context; spend follows this model.`
-                        : `Models and spend for ${spanLabel}.`
-                      : 'Select a tool below to view its model mix. Spend follows the current view.'}
-                  </Text>
+                  <div className="chart-title-row">
+                    <Heading level={3}>
+                      {activeTool
+                        ? `${activeTool.label} models`
+                        : 'Daily usage'}
+                    </Heading>
+                    {activeTool && pinnedModel ? (
+                      <div className="chart-focus-state">
+                        <span>
+                          Focused · <strong>{pinnedModel}</strong>
+                          {!pinnedModelUsage ? ' · No usage in range' : ''}
+                        </span>
+                        <button type="button" onClick={clearModelFocus}>
+                          Clear
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  {!activeTool ? (
+                    <Text size="sm" color="secondary">
+                      Choose a tool to inspect its models.
+                    </Text>
+                  ) : !pinnedModel ? (
+                    <Text size="sm" color="secondary">
+                      {spanLabel}
+                    </Text>
+                  ) : null}
                 </div>
 
                 {activeTool && modelSelection ? (
                   <div className="chart-toolbar">
-                    <Badge
-                      label={`${modelSelection.modelCount} identified model${modelSelection.modelCount === 1 ? '' : 's'}`}
-                      variant="neutral"
-                    />
-                    {modelSelection.hasLegacy ? (
-                      <Badge label="+ unattributed" variant="neutral" />
-                    ) : null}
                     <Button
                       label={
                         isModelListOpen
@@ -708,17 +771,6 @@ function ReportApp() {
                         ? 'Hide model details'
                         : `All ${modelSelection.modelCount} models`}
                     </Button>
-                    <Button
-                      label="Reset chart to all tools"
-                      variant="ghost"
-                      size="sm"
-                      onClick={returnToTools}
-                    >
-                      Reset view
-                    </Button>
-                    <span className="chart-keyboard-hint">
-                      <kbd>Esc</kbd> steps back
-                    </span>
                   </div>
                 ) : null}
               </div>
@@ -738,7 +790,8 @@ function ReportApp() {
               >
                 <span id="series-keyboard-help" className="visually-hidden">
                   Use Left and Right Arrow to move between series. Use Home and
-                  End to jump to the first or last series.
+                  End to jump to the first or last series. Use Escape to close
+                  details, clear model focus, or return to all tools.
                 </span>
                 {activeTool && modelSelection
                   ? modelSelection.series.map((series, index) => {
@@ -752,6 +805,13 @@ function ReportApp() {
                           className="series-key-button"
                           key={series.id}
                           aria-pressed={canFocus ? isFocused : undefined}
+                          aria-label={`${modelLabel(series)}, ${fmtCompact(series.tokens)} tokens${
+                            canFocus
+                              ? isFocused
+                                ? ', focused; activate to clear focus'
+                                : ', activate to focus'
+                              : ', open model details'
+                          }`}
                           onClick={() => {
                             if (series.kind === 'other') {
                               setIsModelListOpen(true)
@@ -774,12 +834,6 @@ function ReportApp() {
                             aria-hidden="true"
                           />
                           <span>{modelLabel(series)}</span>
-                          <span className="series-key-value">
-                            {fmtCompact(series.tokens)}
-                          </span>
-                          {isFocused ? (
-                            <span className="series-key-state">Focused</span>
-                          ) : null}
                         </button>
                       )
                     })
@@ -788,6 +842,7 @@ function ReportApp() {
                         type="button"
                         className="series-key-button"
                         key={tool.id}
+                        aria-label={`View ${tool.label} models, ${fmtCompact(tool.tokens)} tokens`}
                         onClick={() => selectTool(tool.id)}
                       >
                         <span
@@ -796,34 +851,9 @@ function ReportApp() {
                           aria-hidden="true"
                         />
                         <span>{tool.label}</span>
-                        <span className="series-key-value">
-                          {fmtCompact(tool.tokens)}
-                        </span>
-                        <span aria-hidden="true">›</span>
                       </button>
                     ))}
               </div>
-
-              {activeTool && pinnedModel ? (
-                <div className="model-focus-note" role="status">
-                  <span className="model-focus-copy">
-                    <span>
-                      Focused: <strong>{pinnedModel}</strong>
-                      {!pinnedModelUsage ? ' · No usage in this range' : ''}
-                    </span>
-                    <span className="model-focus-context">
-                      Other model tokens are dimmed for context · spend shows
-                      this model
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={clearModelFocus}
-                  >
-                    Clear focus
-                  </button>
-                </div>
-              ) : null}
 
               <UsageCharts
                 daily={visible}

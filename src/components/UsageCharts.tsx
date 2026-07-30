@@ -11,7 +11,6 @@ import { CanvasRenderer } from 'echarts/renderers'
 import type {
   DailyRow,
   ModelSeriesSelection,
-  ModelUsage,
   ToolId,
 } from '../lib/usage'
 import {
@@ -264,50 +263,32 @@ export function UsageCharts({
             type: 'shadow',
             shadowStyle: { color: 'rgba(15, 23, 42, 0.05)' },
           },
-          borderRadius: 10,
-          padding: [12, 14],
+          borderRadius: 8,
+          padding: [8, 10],
           backgroundColor: 'rgba(255,255,255,0.98)',
           borderColor: '#e2e8f0',
           borderWidth: 1,
           textStyle: { color: '#0f172a', fontSize: 12 },
           extraCssText:
-            'box-shadow:0 12px 40px rgba(15,23,42,0.08);max-height:60vh;overflow:auto;',
+            'box-shadow:0 8px 24px rgba(15,23,42,0.08);max-height:60vh;overflow:auto;',
           formatter: (params: unknown) => {
             const list = params as Array<{ dataIndex: number }>
             if (!list?.length) return ''
             const row = daily[list[0].dataIndex]
             if (!row) return ''
-            const lines = [`<strong>${escapeHtml(row.date)}</strong>`]
+            const lines = [
+              `<strong>${escapeHtml(row.date)}${activeTool ? ` · ${escapeHtml(activeTool.label)}` : ''}</strong>`,
+            ]
 
             if (activeTool) {
-              const rawModels = row[activeTool.modelKey]
-              const models = (
-                Array.isArray(rawModels) ? (rawModels as ModelUsage[]) : []
-              )
-                .filter((model) => Number(model.tokens) || Number(model.cost))
-                .sort(
-                  (a, b) =>
-                    Number(b.tokens) - Number(a.tokens) ||
-                    a.model.localeCompare(b.model),
-                )
-              lines.push(
-                `<div style="margin-top:8px"><strong>${escapeHtml(activeTool.label)}</strong></div>`,
-              )
-              for (const model of models) {
-                const suffix =
-                  model.model === 'Legacy unknown' ? ' · unattributed' : ''
+              const tooltipSeries = focusedSeries ? [focusedSeries] : specs
+              for (const spec of tooltipSeries) {
+                const point = modelSeriesPoint(row, activeTool.id, spec)
+                if (!focusedSeries && !point.tokens && !point.cost) continue
+                const label =
+                  spec.kind === 'legacy' ? 'Unattributed' : spec.label
                 lines.push(
-                  `${escapeHtml(model.model)}${suffix}: ${fmtExact(Number(model.tokens) || 0)} · ${fmtTooltipUsd(Number(model.cost) || 0)}`,
-                )
-              }
-              if (focusedSeries) {
-                const focused = modelSeriesPoint(
-                  row,
-                  activeTool.id,
-                  focusedSeries,
-                )
-                lines.push(
-                  `<div style="margin-top:8px">Focused: <strong>${escapeHtml(focusedSeries.label)}</strong> · ${fmtExact(focused.tokens)} · ${fmtTooltipUsd(focused.cost)}</div>`,
+                  `${escapeHtml(label)}: <strong>${fmtExact(point.tokens)}</strong> · ${fmtTooltipUsd(point.cost)}`,
                 )
               }
               lines.push(
@@ -320,13 +301,6 @@ export function UsageCharts({
               lines.push(
                 `<div style="margin-top:8px"><strong>${escapeHtml(tool.label)}</strong>: ${fmtExact(num(row, tool.tokenKey))} · ${fmtTooltipUsd(num(row, tool.costKey))}</div>`,
               )
-              const parts = tool.breakdown
-                .map((part) => {
-                  const value = num(row, part.key)
-                  return value ? `${part.label} ${fmtExact(value)}` : ''
-                })
-                .filter(Boolean)
-              if (parts.length) lines.push(parts.join(' · '))
             }
             const dayTokens = TOOLS.reduce(
               (sum, tool) => sum + num(row, tool.tokenKey),
@@ -358,6 +332,8 @@ export function UsageCharts({
             data: dates,
             gridIndex: 1,
             axisLabel: {
+              formatter: (value: string) => value.slice(5),
+              hideOverlap: true,
               rotate,
               fontSize: 11,
               color: '#64748b',
@@ -374,9 +350,7 @@ export function UsageCharts({
           {
             type: 'value',
             gridIndex: 0,
-            name: activeTool
-              ? `${activeTool.label} model tokens / day`
-              : 'Tool tokens / day',
+            name: 'Tokens / day',
             nameTextStyle: {
               fontSize: 11,
               color: '#94a3b8',
@@ -387,6 +361,7 @@ export function UsageCharts({
               color: '#64748b',
             },
             min: 0,
+            splitNumber: 4,
             splitLine: {
               show: true,
               lineStyle: { color: 'rgba(148,163,184,0.2)', type: [4, 4] },
@@ -395,9 +370,7 @@ export function UsageCharts({
           {
             type: 'value',
             gridIndex: 1,
-            name: activeTool
-              ? `${focusedSeries?.label ?? activeTool.label} spend / day`
-              : 'Total spend / day',
+            name: 'Spend / day',
             nameTextStyle: {
               fontSize: 11,
               color: '#94a3b8',
@@ -408,6 +381,7 @@ export function UsageCharts({
               color: '#64748b',
             },
             min: 0,
+            splitNumber: 3,
             splitLine: {
               show: true,
               lineStyle: { color: 'rgba(148,163,184,0.14)', type: [4, 4] },

@@ -53,13 +53,81 @@ const chartsSource = readFileSync(
   'utf8',
 )
 
-test('interaction controls expose explicit state semantics', () => {
-  assert.match(appSource, /isDisabled=\{range\[0\] <= 0\}/)
-  assert.match(appSource, /isDisabled=\{range\[1\] >= daily\.length - 1\}/)
+test('core interaction and data-state semantics remain explicit', () => {
+  assert.match(appSource, /className="selection-status visually-hidden"/)
+  assert.match(appSource, /Viewing \$\{activeTool\.label\} models/)
   assert.match(
     appSource,
-    /label="Reset 30d"[\s\S]{0,180}isDisabled=\{preset === '30'\}/,
+    /className="report-state-card"[\s\S]*role="alert"[\s\S]*aria-live="assertive"/,
   )
+  assert.match(
+    appSource,
+    /className="report-state-card"[\s\S]*role="status"[\s\S]*aria-live="polite"[\s\S]*aria-busy="true"/,
+  )
+  assert.match(
+    appSource,
+    /title="No usage data yet"[\s\S]{0,260}label="Reload usage data"/,
+  )
+  assert.match(appSource, /aria-label="Back to all tools"/)
+  assert.match(appSource, /aria-keyshortcuts="Escape"/)
+  assert.match(appSource, /onKeyDown=\{stepBackInChart\}/)
+  assert.match(appSource, /aria-describedby="series-keyboard-help"/)
+  assert.match(appSource, /onKeyDown=\{moveSeriesFocus\}/)
+  assert.match(stylesheetSource, /@media \(prefers-reduced-motion: reduce\)/)
+  assert.match(appSource, /behavior: reduceMotion \? 'auto' : 'smooth'/)
+  assert.match(chartsSource, /animation: !reduceMotion/)
+})
+
+test('report context is concise by default and fully disclosed on demand', () => {
+  assert.match(
+    appSource,
+    /const \[isReportDetailsOpen, setIsReportDetailsOpen\] = useState\(false\)/,
+  )
+  assert.match(appSource, /aria-expanded=\{isReportDetailsOpen\}/)
+  assert.match(appSource, /aria-controls="report-details-panel"/)
+  assert.match(appSource, /id="report-details-panel"/)
+  assert.match(appSource, /payload\.notes\?\.token_breakdown/)
+  assert.match(appSource, /payload\.notes\?\.cost/)
+  assert.match(appSource, /className="source-health-notice"/)
+  assert.match(appSource, /aria-live="polite"/)
+  assert.match(appSource, /source\.label/)
+  assert.match(appSource, /source\.retained/)
+  assert.doesNotMatch(
+    appSource,
+    /<Text size="sm" color="secondary">\s*<Text weight="semibold">Token breakdown:/,
+  )
+})
+
+test('tool cards expose one model action without permanent inventories', () => {
+  assert.match(appSource, /className="tool-card-action"/)
+  assert.match(appSource, /aria-pressed=\{selectedTool === tool\.id\}/)
+  assert.match(
+    appSource,
+    /onClick=\{\(\) => selectTool\(tool\.id, true\)\}/,
+  )
+  assert.doesNotMatch(appSource, /tool\.models\.map\(/)
+  assert.doesNotMatch(appSource, /className="model-row"/)
+  assert.doesNotMatch(stylesheetSource, /\.model-row/)
+})
+
+test('advanced time controls are disclosed without losing capability', () => {
+  assert.match(
+    appSource,
+    /const \[isRangeDetailsOpen, setIsRangeDetailsOpen\] = useState\(false\)/,
+  )
+  assert.match(appSource, /aria-expanded=\{isRangeDetailsOpen\}/)
+  assert.match(appSource, /aria-controls="range-details-panel"/)
+  assert.match(appSource, /id="range-details-panel"/)
+  assert.match(appSource, /setIsRangeDetailsOpen\(true\)/)
+  assert.match(appSource, /onChange=\{onDatesChange\}/)
+  assert.match(appSource, /isDisabled=\{range\[0\] <= 0\}/)
+  assert.match(appSource, /isDisabled=\{range\[1\] >= daily\.length - 1\}/)
+  assert.match(appSource, /label="Reset 30d"/)
+  assert.match(appSource, /isDisabled=\{preset === '30'\}/)
+  assert.match(appSource, /onClick=\{\(\) => applyPreset\('30'\)\}/)
+})
+
+test('model details and focus preserve keyboard and accessible state', () => {
   assert.match(appSource, /aria-expanded=\{isModelListOpen\}/)
   assert.match(appSource, /aria-controls="model-details-panel"/)
   assert.match(
@@ -75,39 +143,22 @@ test('interaction controls expose explicit state semantics', () => {
   assert.match(appSource, /role="region"/)
   assert.match(appSource, /aria-labelledby="model-details-heading"/)
   assert.match(appSource, /if \(wasOpen === isModelListOpen\) return/)
+  assert.match(appSource, /aria-pressed=\{canFocus \? isFocused : undefined\}/)
+  assert.match(appSource, /className="chart-focus-state"/)
+  assert.match(appSource, /Focused · <strong>\{pinnedModel\}<\/strong>/)
   assert.match(
     appSource,
-    /isFocused \? \([\s\S]*className="series-key-state"[\s\S]*Focused[\s\S]*\) : null/,
+    /className="chart-focus-state"[\s\S]{0,360}onClick=\{clearModelFocus\}/,
   )
-  assert.match(stylesheetSource, /\.series-key-state/)
-  assert.match(appSource, /className="selection-status visually-hidden"/)
-  assert.match(appSource, /role="status"/)
-  assert.match(appSource, /aria-live="polite"/)
-  assert.match(appSource, /Viewing \$\{activeTool\.label\} models/)
-  assert.match(
-    appSource,
-    /className="report-state-card"[\s\S]*role="alert"[\s\S]*aria-live="assertive"/,
-  )
-  assert.match(
-    appSource,
-    /className="report-state-card"[\s\S]*role="status"[\s\S]*aria-live="polite"[\s\S]*aria-busy="true"/,
-  )
-  assert.match(appSource, /aria-label="Back to all tools"/)
-  assert.match(stylesheetSource, /\.chart-breadcrumb button:hover/)
-  assert.match(stylesheetSource, /\.model-focus-note button:hover/)
+  assert.doesNotMatch(appSource, /className="model-focus-note"/)
+  assert.doesNotMatch(appSource, /className="series-key-value"/)
+  assert.doesNotMatch(appSource, /className="series-key-state"/)
+  assert.doesNotMatch(appSource, /label="Reset chart to all tools"/)
   assert.match(appSource, /focusedModel=\{pinnedModel\}/)
   assert.match(chartsSource, /focusedModel: string \| null/)
   assert.match(chartsSource, /const focusedSeries = activeTool && focusedModel/)
   assert.match(chartsSource, /opacity: isDimmed \? 0\.22 : 1/)
   assert.match(chartsSource, /focusedSeries\?\.label \?\? activeTool\.label/)
-  assert.match(
-    appSource,
-    /Other model tokens stay visible for context; spend follows this model/,
-  )
-  assert.match(
-    appSource,
-    /Other model tokens are dimmed for context · spend shows[\s\n]+this model/,
-  )
   assert.match(chartsSource, /const focusedAccessibleSeries =/)
   assert.match(
     chartsSource,
@@ -121,8 +172,6 @@ test('interaction controls expose explicit state semantics', () => {
     chartsSource,
     /activeTool && focusedAccessibleSeries[\s\S]{0,240}modelSeriesPoint\([\s\S]{0,180}\)\.cost/,
   )
-  assert.match(appSource, /aria-describedby="series-keyboard-help"/)
-  assert.match(appSource, /onKeyDown=\{moveSeriesFocus\}/)
   assert.match(appSource, /const \[loadAttempt, setLoadAttempt\] = useState\(0\)/)
   assert.match(appSource, /\}, \[loadAttempt\]\)/)
   assert.match(appSource, /savedView\.model !== 'Legacy unknown'/)
@@ -138,9 +187,6 @@ test('interaction controls expose explicit state semantics', () => {
     appSource,
     /title="No usage data yet"[\s\S]{0,260}label="Reload usage data"/,
   )
-  assert.match(stylesheetSource, /@media \(prefers-reduced-motion: reduce\)/)
-  assert.match(appSource, /aria-keyshortcuts="Escape"/)
-  assert.match(appSource, /onKeyDown=\{stepBackInChart\}/)
   assert.match(
     appSource,
     /const clearModelFocus = useCallback\(\(\) => \{[\s\S]{0,120}focusChartSection\(\)/,
@@ -149,16 +195,19 @@ test('interaction controls expose explicit state semantics', () => {
     appSource,
     /action === 'clear-model'[\s\S]{0,80}clearModelFocus\(\)/,
   )
+})
+
+test('tooltips follow plotted series instead of dumping raw detail', () => {
   assert.match(
-    appSource,
-    /onClick=\{clearModelFocus\}[\s\S]{0,80}Clear focus/,
+    chartsSource,
+    /const tooltipSeries = focusedSeries \? \[focusedSeries\] : specs/,
   )
-  assert.match(
-    appSource,
-    /label="Reset chart to all tools"[\s\S]{0,160}onClick=\{returnToTools\}/,
-  )
-  assert.match(appSource, /behavior: reduceMotion \? 'auto' : 'smooth'/)
-  assert.match(chartsSource, /animation: !reduceMotion/)
+  assert.match(chartsSource, /modelSeriesPoint\(row, activeTool\.id, spec\)/)
+  assert.match(chartsSource, /Tool total:/)
+  assert.match(chartsSource, /name: 'Tokens \/ day'/)
+  assert.match(chartsSource, /name: 'Spend \/ day'/)
+  assert.doesNotMatch(chartsSource, /const rawModels =/)
+  assert.doesNotMatch(chartsSource, /tool\.breakdown/)
 })
 
 test('series keyboard navigation wraps and supports boundary keys', () => {
@@ -318,7 +367,9 @@ test('a failed source notice identifies the failed refresh without diagnostics',
   assert.deepEqual(notices, [
     {
       id: 'cursor',
+      label: 'Cursor',
       status: 'failed',
+      retained: false,
       message: 'Cursor refresh failed. last attempted 2026-07-30.',
     },
   ])
@@ -354,6 +405,25 @@ test('an unknown internal source id is not rendered', () => {
 
   assert.equal(notices[0].message, 'Data source refresh failed.')
   assert.doesNotMatch(notices[0].message, /Users|PRIVATE_TOKEN/)
+})
+
+test('compact source notices preserve every known source label', () => {
+  const notices = degradedSourceNotices({
+    codex: { status: 'stale' },
+    claudecode: { status: 'failed' },
+    cursor: { status: 'stale' },
+    oneapi: { status: 'failed' },
+  })
+
+  assert.deepEqual(
+    notices.map(({ label, retained }) => ({ label, retained })),
+    [
+      { label: 'Codex', retained: false },
+      { label: 'Claude Code', retained: false },
+      { label: 'Cursor', retained: false },
+      { label: 'One API', retained: true },
+    ],
+  )
 })
 
 test('model drilldown keeps the top four, legacy, and a conserving other group', () => {
