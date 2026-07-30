@@ -330,9 +330,15 @@ export function selectModelSeries(
   const legacy = fullModels.find((model) => model.model === 'Legacy unknown')
   const identified = fullModels.filter((model) => model.model !== 'Legacy unknown')
   let visible = identified.slice(0, 4)
-  const pinned = pinnedModel
-    ? identified.find((model) => model.model === pinnedModel)
-    : undefined
+  const pinnedName = String(pinnedModel ?? '').trim()
+  const pinned =
+    pinnedName && pinnedName !== 'Legacy unknown'
+      ? identified.find((model) => model.model === pinnedName) ?? {
+          model: pinnedName,
+          tokens: 0,
+          cost: 0,
+        }
+      : undefined
   if (pinned && !visible.some((model) => model.model === pinned.model)) {
     visible = [...visible.slice(0, 3), pinned]
   }

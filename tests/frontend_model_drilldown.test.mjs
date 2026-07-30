@@ -8,6 +8,13 @@ import {
   selectModelSeries,
   TOOLS,
 } from '../src/lib/usage.ts'
+import {
+  buildReportViewSearch,
+  explorationBackAction,
+  indexRangeForDates,
+  nextSeriesIndex,
+  parseReportView,
+} from '../src/lib/interaction.ts'
 
 const rows = [
   {
@@ -79,11 +86,11 @@ test('interaction controls expose explicit state semantics', () => {
   assert.match(appSource, /Viewing \$\{activeTool\.label\} models/)
   assert.match(
     appSource,
-    /className="page"[\s\S]*role="alert"[\s\S]*aria-live="assertive"/,
+    /className="report-state-card"[\s\S]*role="alert"[\s\S]*aria-live="assertive"/,
   )
   assert.match(
     appSource,
-    /className="page"[\s\S]*role="status"[\s\S]*aria-live="polite"[\s\S]*aria-busy="true"/,
+    /className="report-state-card"[\s\S]*role="status"[\s\S]*aria-live="polite"[\s\S]*aria-busy="true"/,
   )
   assert.match(appSource, /aria-label="Back to all tools"/)
   assert.match(stylesheetSource, /\.chart-breadcrumb button:hover/)
@@ -93,6 +100,178 @@ test('interaction controls expose explicit state semantics', () => {
   assert.match(chartsSource, /const focusedSeries = activeTool && focusedModel/)
   assert.match(chartsSource, /opacity: isDimmed \? 0\.22 : 1/)
   assert.match(chartsSource, /focusedSeries\?\.label \?\? activeTool\.label/)
+  assert.match(
+    appSource,
+    /Other model tokens stay visible for context; spend follows this model/,
+  )
+  assert.match(
+    appSource,
+    /Other model tokens are dimmed for context · spend shows[\s\n]+this model/,
+  )
+  assert.match(chartsSource, /const focusedAccessibleSeries =/)
+  assert.match(
+    chartsSource,
+    /other model tokens are dimmed and spend follows the focused model/,
+  )
+  assert.match(
+    chartsSource,
+    /description: activeTool[\s\S]{0,220}focusedSeries[\s\S]{0,220}spend follows the focused model/,
+  )
+  assert.match(
+    chartsSource,
+    /activeTool && focusedAccessibleSeries[\s\S]{0,240}modelSeriesPoint\([\s\S]{0,180}\)\.cost/,
+  )
+  assert.match(appSource, /aria-describedby="series-keyboard-help"/)
+  assert.match(appSource, /onKeyDown=\{moveSeriesFocus\}/)
+  assert.match(appSource, /const \[loadAttempt, setLoadAttempt\] = useState\(0\)/)
+  assert.match(appSource, /\}, \[loadAttempt\]\)/)
+  assert.match(appSource, /savedView\.model !== 'Legacy unknown'/)
+  assert.match(
+    appSource,
+    /label="Retry loading usage data"[\s\S]{0,160}onClick=\{retryLoad\}/,
+  )
+  assert.match(
+    appSource,
+    /const retryLoad = useCallback\(\(\) => \{[\s\S]{0,180}setIsViewHydrated\(false\)/,
+  )
+  assert.match(
+    appSource,
+    /title="No usage data yet"[\s\S]{0,260}label="Reload usage data"/,
+  )
+  assert.match(stylesheetSource, /@media \(prefers-reduced-motion: reduce\)/)
+  assert.match(appSource, /aria-keyshortcuts="Escape"/)
+  assert.match(appSource, /onKeyDown=\{stepBackInChart\}/)
+  assert.match(
+    appSource,
+    /const clearModelFocus = useCallback\(\(\) => \{[\s\S]{0,120}focusChartSection\(\)/,
+  )
+  assert.match(
+    appSource,
+    /action === 'clear-model'[\s\S]{0,80}clearModelFocus\(\)/,
+  )
+  assert.match(
+    appSource,
+    /onClick=\{clearModelFocus\}[\s\S]{0,80}Clear focus/,
+  )
+  assert.match(
+    appSource,
+    /label="Reset chart to all tools"[\s\S]{0,160}onClick=\{returnToTools\}/,
+  )
+  assert.match(appSource, /behavior: reduceMotion \? 'auto' : 'smooth'/)
+  assert.match(chartsSource, /animation: !reduceMotion/)
+})
+
+test('series keyboard navigation wraps and supports boundary keys', () => {
+  assert.equal(nextSeriesIndex('ArrowRight', 0, 4), 1)
+  assert.equal(nextSeriesIndex('ArrowRight', 3, 4), 0)
+  assert.equal(nextSeriesIndex('ArrowLeft', 0, 4), 3)
+  assert.equal(nextSeriesIndex('ArrowLeft', 2, 4), 1)
+  assert.equal(nextSeriesIndex('Home', 2, 4), 0)
+  assert.equal(nextSeriesIndex('End', 1, 4), 3)
+  assert.equal(nextSeriesIndex('Enter', 1, 4), null)
+  assert.equal(nextSeriesIndex('ArrowRight', -1, 4), null)
+  assert.equal(nextSeriesIndex('ArrowRight', 0, 0), null)
+})
+
+test('report view state round-trips valid tool, model, and preset values', () => {
+  const search = buildReportViewSearch('?keep=yes', {
+    tool: 'oneapi',
+    model: 'deepseek/v4 flash',
+    preset: '7',
+    from: null,
+    to: null,
+  })
+
+  assert.equal(
+    search,
+    '?keep=yes&tool=oneapi&model=deepseek%2Fv4+flash&range=7',
+  )
+  assert.deepEqual(parseReportView(search), {
+    tool: 'oneapi',
+    model: 'deepseek/v4 flash',
+    preset: '7',
+    from: null,
+    to: null,
+  })
+})
+
+test('custom dates override presets and clamp to the available timeline', () => {
+  const view = parseReportView(
+    '?range=90&from=2026-07-02&to=2026-07-20&tool=claude',
+  )
+  assert.deepEqual(view, {
+    tool: 'claude',
+    model: null,
+    preset: null,
+    from: '2026-07-02',
+    to: '2026-07-20',
+  })
+  assert.deepEqual(
+    indexRangeForDates(
+      ['2026-07-10', '2026-07-11', '2026-07-12'],
+      '2026-01-01',
+      '2026-12-31',
+    ),
+    [0, 2],
+  )
+})
+
+test('invalid report view values safely collapse to defaults', () => {
+  assert.deepEqual(
+    parseReportView('?tool=private&model=secret&range=365&from=no&to=also-no'),
+    {
+      tool: null,
+      model: null,
+      preset: null,
+      from: null,
+      to: null,
+    },
+  )
+  assert.equal(
+    buildReportViewSearch('?tool=oneapi&model=old&range=7', {
+      tool: null,
+      model: null,
+      preset: '30',
+      from: null,
+      to: null,
+    }),
+    '',
+  )
+})
+
+test('Escape unwinds chart exploration one layer at a time', () => {
+  assert.equal(
+    explorationBackAction({
+      detailsOpen: true,
+      modelFocused: true,
+      toolSelected: true,
+    }),
+    'close-details',
+  )
+  assert.equal(
+    explorationBackAction({
+      detailsOpen: false,
+      modelFocused: true,
+      toolSelected: true,
+    }),
+    'clear-model',
+  )
+  assert.equal(
+    explorationBackAction({
+      detailsOpen: false,
+      modelFocused: false,
+      toolSelected: true,
+    }),
+    'clear-tool',
+  )
+  assert.equal(
+    explorationBackAction({
+      detailsOpen: false,
+      modelFocused: false,
+      toolSelected: false,
+    }),
+    null,
+  )
 })
 
 test('fresh source status adds no page-level notice', () => {
@@ -237,6 +416,35 @@ test('pinning a small model promotes it without losing any totals', () => {
   assert.equal(
     result.series.reduce((sum, series) => sum + series.tokens, 0),
     360,
+  )
+})
+
+test('a pinned model with no usage in range remains a zero-value focused series', () => {
+  const recentRows = [
+    {
+      date: '2026-07-30',
+      oneapi_models: [{ model: 'grok', tokens: 12, cost: 0.5 }],
+    },
+  ]
+  const result = selectModelSeries(
+    recentRows,
+    'oneapi',
+    'deepseek-v4-flash',
+  )
+  const focused = result.series.find(
+    (series) => series.label === 'deepseek-v4-flash',
+  )
+
+  assert.ok(focused)
+  assert.equal(focused.tokens, 0)
+  assert.equal(focused.cost, 0)
+  assert.deepEqual(modelSeriesPoint(recentRows[0], 'oneapi', focused), {
+    tokens: 0,
+    cost: 0,
+  })
+  assert.equal(
+    result.series.reduce((sum, series) => sum + series.tokens, 0),
+    12,
   )
 })
 

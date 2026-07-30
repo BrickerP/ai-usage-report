@@ -38,6 +38,59 @@ html[data-theme='light'] {
   padding: 40px 24px 64px;
 }
 
+.report-state-page {
+  display: grid;
+  min-height: 100%;
+  align-items: center;
+}
+
+.report-state-page > * {
+  width: min(100%, 560px);
+  margin-inline: auto;
+}
+
+.report-state-card,
+.chart-empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+
+.report-loading-bar {
+  width: min(100%, 240px);
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.report-loading-bar::after {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-text-accent, #2563eb);
+  content: '';
+  animation: report-loading 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes report-loading {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(138%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-loading-bar::after {
+    width: 100%;
+    animation: none;
+  }
+}
+
 .source-health-notice {
   display: flex;
   align-items: flex-start;
@@ -104,6 +157,27 @@ html[data-theme='light'] {
   gap: 10px 16px;
   min-width: 0;
   margin-bottom: 10px;
+}
+
+.chart-keyboard-hint {
+  color: var(--color-text-secondary, #556169);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.chart-keyboard-hint kbd {
+  padding: 2px 5px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 5px;
+  background: var(--color-background-primary, #fff);
+  color: var(--color-text-primary, #0a1317);
+  font: inherit;
+  font-weight: 600;
+}
+
+.chart-panel:focus-visible {
+  outline: 2px solid var(--color-border-focus, #2563eb);
+  outline-offset: 4px;
 }
 
 .chart-breadcrumb {
@@ -311,6 +385,8 @@ html[data-theme='light'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .series-key-button,
+  .model-focus-button,
   .model-drill-trigger,
   .model-drill-arrow {
     transition: none;
@@ -336,6 +412,16 @@ html[data-theme='light'] {
   background: color-mix(in srgb, currentColor 5%, transparent);
   color: var(--color-text-secondary, #556169);
   font-size: 0.8125rem;
+}
+
+.model-focus-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.model-focus-context {
+  color: var(--color-text-secondary, #556169);
+  font-size: 0.75rem;
 }
 
 .model-focus-note button {

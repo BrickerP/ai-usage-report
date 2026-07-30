@@ -238,17 +238,22 @@ export function UsageCharts({
         }))
     const lineColor = activeTool?.hex ?? '#334155'
     const rotate = dates.length > 24 ? 32 : 0
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches
 
     chart.setOption(
       {
-        animation: true,
+        animation: !reduceMotion,
         textStyle: {
           fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
         },
         aria: {
           enabled: true,
           description: activeTool
-            ? `${activeTool.label} daily model tokens and spend`
+            ? focusedSeries
+              ? `${activeTool.label} daily model tokens, focused on ${focusedSeries.label}; other model tokens are dimmed and spend follows the focused model`
+              : `${activeTool.label} daily model tokens and spend`
             : 'Daily tokens and spend by AI coding tool',
         },
         axisPointer: { link: [{ xAxisIndex: [0, 1] }], snap: true },
@@ -446,12 +451,23 @@ export function UsageCharts({
     )
   }, [daily, focusedModel, modelSelection, selectedTool])
 
-  const label = selectedTool
-    ? `${TOOLS.find((tool) => tool.id === selectedTool)?.label ?? selectedTool} daily model usage`
-    : 'Daily usage by AI coding tool'
   const activeTool = selectedTool
     ? TOOLS.find((tool) => tool.id === selectedTool)
     : undefined
+  const focusedAccessibleSeries =
+    activeTool && focusedModel
+      ? modelSelection?.series.find(
+          (series) =>
+            series.kind === 'model' &&
+            series.models.length === 1 &&
+            series.models[0] === focusedModel,
+        )
+      : undefined
+  const label = activeTool
+    ? focusedAccessibleSeries
+      ? `${activeTool.label} daily model usage, focused on ${focusedAccessibleSeries.label}; other model tokens are dimmed and spend follows the focused model`
+      : `${activeTool.label} daily model usage`
+    : 'Daily usage by AI coding tool'
   const accessibleSeries = activeTool
     ? modelSelection?.series ?? []
     : TOOLS.map((tool) => ({
@@ -480,7 +496,9 @@ export function UsageCharts({
                 </th>
               ))}
               <th scope="col">
-                {activeTool ? `${activeTool.label} spend` : 'All tools spend'}
+                {activeTool
+                  ? `${focusedAccessibleSeries?.label ?? activeTool.label} spend`
+                  : 'All tools spend'}
               </th>
             </tr>
           </thead>
@@ -504,8 +522,14 @@ export function UsageCharts({
                 ))}
                 <td>
                   {fmtTooltipUsd(
-                    activeTool
-                      ? num(row, activeTool.costKey)
+                    activeTool && focusedAccessibleSeries
+                      ? modelSeriesPoint(
+                          row,
+                          activeTool.id,
+                          focusedAccessibleSeries,
+                        ).cost
+                      : activeTool
+                        ? num(row, activeTool.costKey)
                       : TOOLS.reduce(
                           (sum, tool) => sum + num(row, tool.costKey),
                           0,

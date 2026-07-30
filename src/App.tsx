@@ -25,10 +25,18 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { UsageCharts } from './components/UsageCharts'
 import { modelSeriesColor } from './lib/chart'
 import { fmtCompact, fmtUsd } from './lib/format'
+import {
+  buildReportViewSearch,
+  explorationBackAction,
+  indexRangeForDates,
+  nextSeriesIndex,
+  parseReportView,
+  type ViewPreset,
+} from './lib/interaction'
 import {
   degradedSourceNotices,
   indexForPreset,
@@ -41,8 +49,6 @@ import {
   type ToolId,
   type UsagePayload,
 } from './lib/usage'
-
-type Preset = '7' | '30' | '90' | 'all'
 
 function fmtExactTokens(value: number) {
   return new Intl.NumberFormat('en-US', {
@@ -65,11 +71,13 @@ function modelLabel(series: ModelSeriesSpec) {
 function ReportApp() {
   const [payload, setPayload] = useState<UsagePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [preset, setPreset] = useState<Preset>('30')
+  const [loadAttempt, setLoadAttempt] = useState(0)
+  const [preset, setPreset] = useState<ViewPreset>('30')
   const [range, setRange] = useState<[number, number]>([0, -1])
   const [selectedTool, setSelectedTool] = useState<ToolId | null>(null)
   const [pinnedModel, setPinnedModel] = useState<string | null>(null)
   const [isModelListOpen, setIsModelListOpen] = useState(false)
+  const [isViewHydrated, setIsViewHydrated] = useState(false)
   const chartSectionRef = useRef<HTMLDivElement>(null)
   const modelDetailsToggleRef = useRef<HTMLButtonElement>(null)
   const modelDetailsPanelRef = useRef<HTMLDivElement>(null)
@@ -90,7 +98,39 @@ function ReportApp() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [loadAttempt])
+
+  useEffect(() => {
+    if (!payload || isViewHydrated) return
+    const savedView = parseReportView(window.location.search)
+    const nextPreset = savedView.preset ?? '30'
+    let nextRange = indexForPreset(payload.daily, nextPreset)
+
+    if (savedView.from && savedView.to) {
+      nextRange =
+        indexRangeForDates(
+          payload.daily.map((row) => row.date),
+          savedView.from,
+          savedView.to,
+        ) ?? nextRange
+      setPreset('all')
+    } else {
+      setPreset(nextPreset)
+    }
+    setRange(nextRange)
+
+    if (savedView.tool) {
+      setSelectedTool(savedView.tool)
+      const knownModel = savedView.model
+        ? savedView.model !== 'Legacy unknown' &&
+          selectModelSeries(payload.daily, savedView.tool).fullModels.some(
+            (model) => model.model === savedView.model,
+          )
+        : false
+      setPinnedModel(knownModel ? savedView.model : null)
+    }
+    setIsViewHydrated(true)
+  }, [isViewHydrated, payload])
 
   useEffect(() => {
     const wasOpen = wasModelListOpen.current
@@ -139,8 +179,32 @@ function ReportApp() {
     }
   }, [visible])
 
+  useEffect(() => {
+    if (!payload || !isViewHydrated || !visible.length) return
+    const isFullRange = range[0] === 0 && range[1] === daily.length - 1
+    const isCustomRange = preset === 'all' && !isFullRange
+    const nextSearch = buildReportViewSearch(window.location.search, {
+      tool: selectedTool,
+      model: selectedTool ? pinnedModel : null,
+      preset: isCustomRange ? null : preset,
+      from: isCustomRange ? visible[0].date : null,
+      to: isCustomRange ? visible[visible.length - 1].date : null,
+    })
+    const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`
+    window.history.replaceState(window.history.state, '', nextUrl)
+  }, [
+    daily.length,
+    isViewHydrated,
+    payload,
+    pinnedModel,
+    preset,
+    range,
+    selectedTool,
+    visible,
+  ])
+
   const applyPreset = useCallback(
-    (next: Preset) => {
+    (next: ViewPreset) => {
       setPreset(next)
       setRange(indexForPreset(daily, next))
     },
@@ -187,48 +251,154 @@ function ReportApp() {
     [daily],
   )
 
-  const selectTool = useCallback((toolId: ToolId, scrollToChart = false) => {
-    setSelectedTool(toolId)
-    setPinnedModel(null)
-    setIsModelListOpen(false)
-    if (scrollToChart) {
-      window.requestAnimationFrame(() => {
-        chartSectionRef.current?.scrollIntoView({
-          behavior: 'smooth',
+  const focusChartSection = useCallback((scrollToChart = false) => {
+    window.requestAnimationFrame(() => {
+      const chartSection = chartSectionRef.current
+      if (!chartSection) return
+      if (scrollToChart) {
+        const reduceMotion = window.matchMedia(
+          '(prefers-reduced-motion: reduce)',
+        ).matches
+        chartSection.scrollIntoView({
+          behavior: reduceMotion ? 'auto' : 'smooth',
           block: 'start',
         })
-      })
-    }
+      }
+      chartSection.focus({ preventScroll: true })
+    })
   }, [])
+
+  const selectTool = useCallback(
+    (toolId: ToolId, scrollToChart = false) => {
+      setSelectedTool(toolId)
+      setPinnedModel(null)
+      setIsModelListOpen(false)
+      focusChartSection(scrollToChart)
+    },
+    [focusChartSection],
+  )
 
   const returnToTools = useCallback(() => {
     setSelectedTool(null)
     setPinnedModel(null)
     setIsModelListOpen(false)
+    focusChartSection()
+  }, [focusChartSection])
+
+  const clearModelFocus = useCallback(() => {
+    setPinnedModel(null)
+    focusChartSection()
+  }, [focusChartSection])
+
+  const stepBackInChart = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== 'Escape') return
+      const action = explorationBackAction({
+        detailsOpen: isModelListOpen,
+        modelFocused: Boolean(pinnedModel),
+        toolSelected: Boolean(selectedTool),
+      })
+      if (!action) return
+      event.preventDefault()
+      event.stopPropagation()
+      if (action === 'close-details') {
+        setIsModelListOpen(false)
+      } else if (action === 'clear-model') {
+        clearModelFocus()
+      } else {
+        returnToTools()
+      }
+    },
+    [
+      clearModelFocus,
+      isModelListOpen,
+      pinnedModel,
+      returnToTools,
+      selectedTool,
+    ],
+  )
+
+  const toggleModelFocus = useCallback(
+    (model: string) => {
+      if (pinnedModel === model) clearModelFocus()
+      else setPinnedModel(model)
+      setIsModelListOpen(false)
+    },
+    [clearModelFocus, pinnedModel],
+  )
+
+  const retryLoad = useCallback(() => {
+    setError(null)
+    setPayload(null)
+    setIsViewHydrated(false)
+    setLoadAttempt((attempt) => attempt + 1)
   }, [])
 
-  const toggleModelFocus = useCallback((model: string) => {
-    setPinnedModel((current) => (current === model ? null : model))
-    setIsModelListOpen(false)
-  }, [])
+  const moveSeriesFocus = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const buttons = Array.from(
+        event.currentTarget.querySelectorAll<HTMLButtonElement>(
+          ':scope > button:not(:disabled)',
+        ),
+      )
+      const currentIndex = buttons.indexOf(
+        document.activeElement as HTMLButtonElement,
+      )
+      const nextIndex = nextSeriesIndex(
+        event.key,
+        currentIndex,
+        buttons.length,
+      )
+      if (nextIndex === null) return
+      event.preventDefault()
+      buttons[nextIndex]?.focus()
+    },
+    [],
+  )
 
   if (error) {
     return (
-      <div className="page" role="alert" aria-live="assertive">
-        <EmptyState title="Could not load usage data" description={error} />
+      <div className="page report-state-page">
+        <Card variant="muted" padding={4}>
+          <div
+            className="report-state-card"
+            role="alert"
+            aria-live="assertive"
+          >
+            <Badge label="Report unavailable" variant="neutral" />
+            <Heading level={1}>Could not load usage data</Heading>
+            <Text color="secondary">{error}</Text>
+            <Button
+              label="Retry loading usage data"
+              variant="primary"
+              onClick={retryLoad}
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
       </div>
     )
   }
 
   if (!payload) {
     return (
-      <div
-        className="page"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <Text color="secondary">Loading usage report…</Text>
+      <div className="page report-state-page">
+        <Card variant="muted" padding={4}>
+          <div
+            className="report-state-card"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Badge label="Loading report" variant="neutral" />
+            <Heading level={1}>Loading usage data</Heading>
+            <Text color="secondary">
+              Fetching the latest published daily report…
+            </Text>
+            <span className="report-loading-bar" aria-hidden="true" />
+          </div>
+        </Card>
       </div>
     )
   }
@@ -429,7 +599,7 @@ function ReportApp() {
             <SegmentedControl
               label="Range preset"
               value={preset}
-              onChange={(v) => applyPreset(v as Preset)}
+              onChange={(v) => applyPreset(v as ViewPreset)}
               size="md"
             >
               <SegmentedControlItem value="7" label="7 days" />
@@ -474,7 +644,15 @@ function ReportApp() {
 
         <Card padding={3}>
           {daily.length ? (
-            <div className="chart-panel" ref={chartSectionRef}>
+            <div
+              className="chart-panel"
+              ref={chartSectionRef}
+              role="region"
+              aria-label="Usage chart exploration"
+              aria-keyshortcuts="Escape"
+              tabIndex={-1}
+              onKeyDown={stepBackInChart}
+            >
               <div className="chart-heading">
                 <div>
                   {activeTool ? (
@@ -497,7 +675,9 @@ function ReportApp() {
                   </Heading>
                   <Text size="sm" color="secondary">
                     {activeTool
-                      ? `Models and spend for ${spanLabel}.`
+                      ? pinnedModel
+                        ? `Focused on ${pinnedModel}. Other model tokens stay visible for context; spend follows this model.`
+                        : `Models and spend for ${spanLabel}.`
                       : 'Select a tool below to view its model mix. Spend follows the current view.'}
                   </Text>
                 </div>
@@ -528,6 +708,17 @@ function ReportApp() {
                         ? 'Hide model details'
                         : `All ${modelSelection.modelCount} models`}
                     </Button>
+                    <Button
+                      label="Reset chart to all tools"
+                      variant="ghost"
+                      size="sm"
+                      onClick={returnToTools}
+                    >
+                      Reset view
+                    </Button>
+                    <span className="chart-keyboard-hint">
+                      <kbd>Esc</kbd> steps back
+                    </span>
                   </div>
                 ) : null}
               </div>
@@ -536,12 +727,19 @@ function ReportApp() {
                 className={`chart-series-key ${
                   activeTool ? 'is-model' : 'is-tool'
                 }`}
+                role="group"
                 aria-label={
                   activeTool
                     ? `${activeTool.label} model series`
                     : 'Select a tool'
                 }
+                aria-describedby="series-keyboard-help"
+                onKeyDown={moveSeriesFocus}
               >
+                <span id="series-keyboard-help" className="visually-hidden">
+                  Use Left and Right Arrow to move between series. Use Home and
+                  End to jump to the first or last series.
+                </span>
                 {activeTool && modelSelection
                   ? modelSelection.series.map((series, index) => {
                       const canFocus =
@@ -608,13 +806,19 @@ function ReportApp() {
 
               {activeTool && pinnedModel ? (
                 <div className="model-focus-note" role="status">
-                  <span>
-                    Focused: <strong>{pinnedModel}</strong>
-                    {!pinnedModelUsage ? ' · No usage in this range' : ''}
+                  <span className="model-focus-copy">
+                    <span>
+                      Focused: <strong>{pinnedModel}</strong>
+                      {!pinnedModelUsage ? ' · No usage in this range' : ''}
+                    </span>
+                    <span className="model-focus-context">
+                      Other model tokens are dimmed for context · spend shows
+                      this model
+                    </span>
                   </span>
                   <button
                     type="button"
-                    onClick={() => setPinnedModel(null)}
+                    onClick={clearModelFocus}
                   >
                     Clear focus
                   </button>
@@ -710,10 +914,23 @@ function ReportApp() {
               ) : null}
             </div>
           ) : (
-            <EmptyState
-              title="No daily rows"
-              description="Run npm run collect to refresh public/usage.json"
-            />
+            <div
+              className="chart-empty-state"
+              role="status"
+              aria-live="polite"
+            >
+              <EmptyState
+                title="No usage data yet"
+                description="The report loaded successfully, but it contains no daily rows."
+              />
+              <Button
+                label="Reload usage data"
+                variant="secondary"
+                onClick={retryLoad}
+              >
+                Reload data
+              </Button>
+            </div>
           )}
         </Card>
       </VStack>
