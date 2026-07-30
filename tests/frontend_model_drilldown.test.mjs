@@ -41,6 +41,10 @@ const stylesheetSource = readFileSync(
   new URL('../src/index.css', import.meta.url),
   'utf8',
 )
+const chartsSource = readFileSync(
+  new URL('../src/components/UsageCharts.tsx', import.meta.url),
+  'utf8',
+)
 
 test('interaction controls expose explicit state semantics', () => {
   assert.match(appSource, /isDisabled=\{range\[0\] <= 0\}/)
@@ -84,6 +88,11 @@ test('interaction controls expose explicit state semantics', () => {
   assert.match(appSource, /aria-label="Back to all tools"/)
   assert.match(stylesheetSource, /\.chart-breadcrumb button:hover/)
   assert.match(stylesheetSource, /\.model-focus-note button:hover/)
+  assert.match(appSource, /focusedModel=\{pinnedModel\}/)
+  assert.match(chartsSource, /focusedModel: string \| null/)
+  assert.match(chartsSource, /const focusedSeries = activeTool && focusedModel/)
+  assert.match(chartsSource, /opacity: isDimmed \? 0\.22 : 1/)
+  assert.match(chartsSource, /focusedSeries\?\.label \?\? activeTool\.label/)
 })
 
 test('fresh source status adds no page-level notice', () => {

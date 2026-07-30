@@ -35,6 +35,7 @@ echarts.use([
 type Props = {
   daily: DailyRow[]
   selectedTool: ToolId | null
+  focusedModel: string | null
   modelSelection: ModelSeriesSelection | null
   onSelectTool: (toolId: ToolId) => void
   onOpenModelList: () => void
@@ -120,6 +121,7 @@ function fmtAxisUsd(value: number) {
 export function UsageCharts({
   daily,
   selectedTool,
+  focusedModel,
   modelSelection,
   onSelectTool,
   onOpenModelList,
@@ -170,35 +172,53 @@ export function UsageCharts({
     const activeTool = selectedTool
       ? TOOLS.find((tool) => tool.id === selectedTool)
       : undefined
+    const focusedSeries = activeTool && focusedModel
+      ? modelSelection?.series.find(
+          (series) =>
+            series.kind === 'model' &&
+            series.models.length === 1 &&
+            series.models[0] === focusedModel,
+        )
+      : undefined
+    const hasFocusedModel = Boolean(focusedSeries)
     const totalDaySpend = daily.map((row) =>
-      activeTool
-        ? num(row, activeTool.costKey)
-        : TOOLS.reduce((sum, tool) => sum + num(row, tool.costKey), 0),
+      activeTool && focusedSeries
+        ? modelSeriesPoint(row, activeTool.id, focusedSeries).cost
+        : activeTool
+          ? num(row, activeTool.costKey)
+          : TOOLS.reduce((sum, tool) => sum + num(row, tool.costKey), 0),
     )
     const specs = activeTool ? modelSelection?.series ?? [] : []
     const bars = activeTool
-      ? specs.map((spec, index) => ({
-          id: spec.id,
-          name: spec.label,
-          type: 'bar' as const,
-          stack: 'tokens',
-          cursor: spec.kind === 'other' ? 'pointer' : 'default',
-          barCategoryGap: '42%',
-          barMaxWidth: 34,
-          xAxisIndex: 0,
-          yAxisIndex: 0,
-          emphasis: {
-            focus: 'series' as const,
-            blurScope: 'coordinateSystem' as const,
-          },
-          itemStyle: stackSegStyle(
-            modelSeriesColor(activeTool.hex, index, spec.kind),
-            capFor(index, specs.length),
-          ),
-          data: daily.map(
-            (row) => modelSeriesPoint(row, activeTool.id, spec).tokens,
-          ),
-        }))
+      ? specs.map((spec, index) => {
+          const isFocused = hasFocusedModel && spec.id === focusedSeries?.id
+          const isDimmed = hasFocusedModel && !isFocused
+          return {
+            id: spec.id,
+            name: spec.label,
+            type: 'bar' as const,
+            stack: 'tokens',
+            cursor: spec.kind === 'other' ? 'pointer' : 'default',
+            barCategoryGap: '42%',
+            barMaxWidth: 34,
+            xAxisIndex: 0,
+            yAxisIndex: 0,
+            emphasis: {
+              focus: 'series' as const,
+              blurScope: 'coordinateSystem' as const,
+            },
+            itemStyle: {
+              ...stackSegStyle(
+                modelSeriesColor(activeTool.hex, index, spec.kind),
+                capFor(index, specs.length),
+              ),
+              opacity: isDimmed ? 0.22 : 1,
+            },
+            data: daily.map(
+              (row) => modelSeriesPoint(row, activeTool.id, spec).tokens,
+            ),
+          }
+        })
       : TOOLS.map((tool, index) => ({
           id: `tool:${tool.id}`,
           name: tool.label,
@@ -273,6 +293,16 @@ export function UsageCharts({
                   model.model === 'Legacy unknown' ? ' · unattributed' : ''
                 lines.push(
                   `${escapeHtml(model.model)}${suffix}: ${fmtExact(Number(model.tokens) || 0)} · ${fmtTooltipUsd(Number(model.cost) || 0)}`,
+                )
+              }
+              if (focusedSeries) {
+                const focused = modelSeriesPoint(
+                  row,
+                  activeTool.id,
+                  focusedSeries,
+                )
+                lines.push(
+                  `<div style="margin-top:8px">Focused: <strong>${escapeHtml(focusedSeries.label)}</strong> · ${fmtExact(focused.tokens)} · ${fmtTooltipUsd(focused.cost)}</div>`,
                 )
               }
               lines.push(
@@ -361,7 +391,7 @@ export function UsageCharts({
             type: 'value',
             gridIndex: 1,
             name: activeTool
-              ? `${activeTool.label} spend / day`
+              ? `${focusedSeries?.label ?? activeTool.label} spend / day`
               : 'Total spend / day',
             nameTextStyle: {
               fontSize: 11,
@@ -384,7 +414,7 @@ export function UsageCharts({
           {
             id: 'spend',
             name: activeTool
-              ? `${activeTool.label} spend`
+              ? `${focusedSeries?.label ?? activeTool.label} spend`
               : 'Daily spend (all tools)',
             type: 'line',
             xAxisIndex: 1,
@@ -414,7 +444,7 @@ export function UsageCharts({
       },
       { notMerge: true },
     )
-  }, [daily, modelSelection, selectedTool])
+  }, [daily, focusedModel, modelSelection, selectedTool])
 
   const label = selectedTool
     ? `${TOOLS.find((tool) => tool.id === selectedTool)?.label ?? selectedTool} daily model usage`

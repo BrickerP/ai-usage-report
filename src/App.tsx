@@ -624,6 +624,7 @@ function ReportApp() {
               <UsageCharts
                 daily={visible}
                 selectedTool={selectedTool}
+                focusedModel={pinnedModel}
                 modelSelection={modelSelection}
                 onSelectTool={(toolId) => selectTool(toolId)}
                 onOpenModelList={() => setIsModelListOpen(true)}
