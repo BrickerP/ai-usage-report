@@ -59,14 +59,23 @@ require_publish_auth() {
     die "could not read a stored Git credential for $REMOTE_NAME"
   fi
 
-  local probe_ref
-  probe_ref="refs/heads/ai-usage-auth-probe/$(date -u '+%Y%m%dT%H%M%SZ')-$$"
-  log "verifying Git push access with an isolated dry-run probe"
-  if ! GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false GCM_INTERACTIVE=Never \
-    git push --dry-run --no-verify "$REMOTE_NAME" "HEAD:${probe_ref}" \
-      >/dev/null 2>&1; then
-    die "Git credential dry-run push probe failed for $REMOTE_NAME"
-  fi
+  local attempt=1
+  while (( attempt <= PULL_RETRY_ATTEMPTS )); do
+    local probe_ref
+    probe_ref="refs/heads/ai-usage-auth-probe/$(date -u '+%Y%m%dT%H%M%SZ')-$$-${attempt}"
+    log "verifying Git push access with an isolated dry-run probe (attempt ${attempt})"
+    if GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false GCM_INTERACTIVE=Never \
+      git push --dry-run --no-verify "$REMOTE_NAME" "HEAD:${probe_ref}" \
+        >/dev/null 2>&1; then
+      return 0
+    fi
+    if (( attempt < PULL_RETRY_ATTEMPTS )); then
+      log "WARN: dry-run push probe failed; retrying in ${PULL_RETRY_DELAY_SECONDS}s"
+      sleep "$PULL_RETRY_DELAY_SECONDS"
+    fi
+    ((attempt += 1))
+  done
+  die "Git credential dry-run push probe failed after ${PULL_RETRY_ATTEMPTS} attempts for $REMOTE_NAME"
 }
 
 if (( BACKFILL_CODEX_CACHE == 1 && SKIP_COLLECT == 1 )); then
