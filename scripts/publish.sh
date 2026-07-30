@@ -40,6 +40,8 @@ REMOTE_NAME="${REMOTE_NAME:-origin}"
 PUBLISH_BRANCH="${PUBLISH_BRANCH:-main}"
 RETRY_ATTEMPTS="${AI_USAGE_RETRY_ATTEMPTS:-3}"
 RETRY_DELAY_SECONDS="${AI_USAGE_RETRY_DELAY_SECONDS:-300}"
+PULL_RETRY_ATTEMPTS="${AI_USAGE_PULL_RETRY_ATTEMPTS:-3}"
+PULL_RETRY_DELAY_SECONDS="${AI_USAGE_PULL_RETRY_DELAY_SECONDS:-60}"
 AI_USAGE_TIMEZONE="${AI_USAGE_TIMEZONE:-Asia/Shanghai}"
 AI_USAGE_MACHINE_ID="${AI_USAGE_MACHINE_ID:-}"
 
@@ -178,9 +180,21 @@ resolve_generated_rebase_conflicts() {
 }
 
 pull_latest() {
-  ensure_on_publish_branch
-  log "git fetch ${REMOTE_NAME} ${PUBLISH_BRANCH}"
-  git fetch "$REMOTE_NAME" "$PUBLISH_BRANCH" || die "git fetch failed"
+  local attempt=1
+  while (( attempt <= PULL_RETRY_ATTEMPTS )); do
+    ensure_on_publish_branch
+    log "git fetch ${REMOTE_NAME} ${PUBLISH_BRANCH} (attempt ${attempt})"
+    if git fetch "$REMOTE_NAME" "$PUBLISH_BRANCH"; then
+      break
+    fi
+    if (( attempt < PULL_RETRY_ATTEMPTS )); then
+      log "WARN: git fetch failed; retrying in ${PULL_RETRY_DELAY_SECONDS}s"
+      sleep "$PULL_RETRY_DELAY_SECONDS"
+    else
+      die "git fetch failed after ${PULL_RETRY_ATTEMPTS} attempts"
+    fi
+    ((attempt += 1))
+  done
 
   local remote_tip
   remote_tip="$(git rev-parse "${REMOTE_NAME}/${PUBLISH_BRANCH}")" || \
@@ -193,26 +207,36 @@ pull_latest() {
     stashed=1
   fi
 
-  log "git pull --rebase ${REMOTE_NAME} ${PUBLISH_BRANCH}"
-  if ! git pull --rebase "$REMOTE_NAME" "$PUBLISH_BRANCH"; then
+  attempt=1
+  while (( attempt <= PULL_RETRY_ATTEMPTS )); do
+    log "git pull --rebase ${REMOTE_NAME} ${PUBLISH_BRANCH} (attempt ${attempt})"
+    if git pull --rebase "$REMOTE_NAME" "$PUBLISH_BRANCH"; then
+      break
+    fi
     if [ -d "$ROOT/.git/rebase-merge" ] || [ -d "$ROOT/.git/rebase-apply" ]; then
       log "rebase stopped; resolving generated usage/docs conflicts"
-      if ! resolve_generated_rebase_conflicts "$remote_tip"; then
-        log "ERROR: pull --rebase has a non-generated or unresolvable conflict"
-        abort_publish_rebase
-        if (( stashed )); then
-          git stash pop || log "WARN: stash pop failed after pull error"
-        fi
-        die "git pull --rebase ${REMOTE_NAME}/${PUBLISH_BRANCH} failed"
+      if resolve_generated_rebase_conflicts "$remote_tip"; then
+        break
       fi
-    else
-      log "ERROR: pull --rebase failed before a resolvable rebase began"
+      log "ERROR: pull --rebase has a non-generated or unresolvable conflict"
+      abort_publish_rebase
       if (( stashed )); then
         git stash pop || log "WARN: stash pop failed after pull error"
       fi
       die "git pull --rebase ${REMOTE_NAME}/${PUBLISH_BRANCH} failed"
     fi
-  fi
+    if (( attempt < PULL_RETRY_ATTEMPTS )); then
+      log "WARN: git pull failed; retrying in ${PULL_RETRY_DELAY_SECONDS}s"
+      sleep "$PULL_RETRY_DELAY_SECONDS"
+    else
+      log "ERROR: pull --rebase failed after ${PULL_RETRY_ATTEMPTS} attempts"
+      if (( stashed )); then
+        git stash pop || log "WARN: stash pop failed after pull error"
+      fi
+      die "git pull --rebase ${REMOTE_NAME}/${PUBLISH_BRANCH} failed"
+    fi
+    ((attempt += 1))
+  done
 
   if (( stashed )); then
     log "restoring stashed local changes"
