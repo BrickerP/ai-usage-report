@@ -25,6 +25,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { CSSProperties } from 'react'
 import { UsageCharts } from './components/UsageCharts'
 import { modelSeriesColor } from './lib/chart'
 import { fmtCompact, fmtUsd } from './lib/format'
@@ -329,14 +330,34 @@ function ReportApp() {
                         }
                       </Text>
                       <Button
-                        label={`Explore ${tool.label} models`}
+                        label={`${selectedTool === tool.id ? 'Viewing' : 'Explore'} ${tool.label} models`}
                         variant="ghost"
                         size="sm"
-                        className="model-drill-trigger"
+                        className={`model-drill-trigger${selectedTool === tool.id ? ' is-active' : ''}`}
+                        aria-pressed={selectedTool === tool.id}
+                        data-active={selectedTool === tool.id ? 'true' : 'false'}
+                        style={{ '--tool-color': tool.hex } as CSSProperties}
                         onClick={() => selectTool(tool.id, true)}
-                        endContent={<span aria-hidden="true">›</span>}
+                        icon={
+                          selectedTool === tool.id ? (
+                            <span
+                              className="model-drill-state-icon"
+                              aria-hidden="true"
+                            >
+                              ✓
+                            </span>
+                          ) : undefined
+                        }
+                        endContent={
+                          <span
+                            className="model-drill-arrow"
+                            aria-hidden="true"
+                          >
+                            ›
+                          </span>
+                        }
                       >
-                        Explore
+                        {selectedTool === tool.id ? 'Viewing' : 'Explore'}
                       </Button>
                     </HStack>
                     {tool.models.map((model) => (
@@ -423,7 +444,7 @@ function ReportApp() {
                         All tools
                       </button>
                       <span aria-hidden="true">/</span>
-                      <span>{activeTool.label}</span>
+                      <span aria-current="page">{activeTool.label}</span>
                     </div>
                   ) : null}
                   <Heading level={3}>

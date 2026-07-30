@@ -138,7 +138,6 @@ html[data-theme='light'] {
 }
 
 .series-key-button,
-.model-drill-trigger,
 .model-focus-button {
   min-height: 36px;
   border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
@@ -166,21 +165,19 @@ html[data-theme='light'] {
 }
 
 .series-key-button:hover,
-.model-drill-trigger:hover,
 .model-focus-button:hover {
   border-color: color-mix(in srgb, currentColor 30%, transparent);
   background: color-mix(in srgb, currentColor 5%, transparent);
 }
 
 .series-key-button:active,
-.model-drill-trigger:active,
 .model-focus-button:active {
   transform: translateY(1px);
 }
 
 .series-key-button:focus-visible,
-.model-drill-trigger:focus-visible,
 .model-focus-button:focus-visible,
+.model-drill-trigger:focus-visible,
 .chart-breadcrumb button:focus-visible,
 .chart-breadcrumb a:focus-visible {
   outline: 2px solid var(--color-border-focus, #2563eb);
@@ -222,12 +219,76 @@ html[data-theme='light'] {
   box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 10%, transparent);
 }
 
-.model-drill-trigger,
 .model-focus-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 7px 12px;
+}
+
+.model-drill-trigger {
+  min-width: 94px;
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary, #556169);
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    transform 100ms ease;
+}
+
+.model-drill-trigger:hover {
+  background: color-mix(in srgb, var(--tool-color, currentColor) 7%, transparent);
+  color: var(--tool-color, currentColor);
+}
+
+.model-drill-trigger:active {
+  transform: scale(0.98) translateY(1px);
+}
+
+.model-drill-trigger[data-active='true'] {
+  background: color-mix(in srgb, var(--tool-color, currentColor) 11%, transparent);
+  color: var(--tool-color, currentColor);
+}
+
+.model-drill-trigger[data-active='true']:hover {
+  background: color-mix(in srgb, var(--tool-color, currentColor) 15%, transparent);
+}
+
+.model-drill-state-icon,
+.model-drill-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.model-drill-state-icon {
+  font-weight: 700;
+}
+
+.model-drill-arrow {
+  transition: transform 140ms ease;
+}
+
+.model-drill-trigger:hover .model-drill-arrow {
+  transform: translateX(2px);
+}
+
+.model-drill-trigger[data-active='true'] .model-drill-arrow {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-drill-trigger,
+  .model-drill-arrow {
+    transition: none;
+  }
 }
 
 .model-detail-panel {
