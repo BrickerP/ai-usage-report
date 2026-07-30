@@ -369,6 +369,7 @@ def collect_oneapi(
     state_path: str = "/tmp/oneapi-chrome-state.json",
     since: str = "",
     until: str = "",
+    days: int = 2,
 ) -> dict[str, Any]:
     tz = resolve_tz(timezone)
     now = dt.datetime.now(tz=tz)
@@ -376,7 +377,7 @@ def collect_oneapi(
     start_date = (
         dt.date.fromisoformat(since)
         if since
-        else end_date - dt.timedelta(days=4)
+        else end_date - dt.timedelta(days=days - 1)
     )
     end_time = dt.time.max if until else now.time()
     end_ts = int(
@@ -544,9 +545,10 @@ if __name__ == "__main__":
     p.add_argument("--state-path", default="/tmp/oneapi-chrome-state.json")
     p.add_argument("--since", default="")
     p.add_argument("--until", default="")
+    p.add_argument("--days", type=int, default=2, help="Lookback days from today (default 2). Ignored when --since or --until is set.")
     a = p.parse_args()
     try:
-        r = collect_oneapi(a.timezone, a.state_path, a.since, a.until)
+        r = collect_oneapi(a.timezone, a.state_path, a.since, a.until, days=a.days)
         print(json.dumps(r, ensure_ascii=False, indent=2))
     except (FileNotFoundError, RuntimeError, ValueError) as e:
         print(f"ERROR: {e}", file=sys.stderr)

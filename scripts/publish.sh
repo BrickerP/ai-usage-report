@@ -266,10 +266,35 @@ require_oneapi_state() {
   fi
 }
 
+collect_oneapi_cache() {
+  local state_path="${ONEAPI_STATE_PATH:-/tmp/oneapi-chrome-state.json}"
+  local cache_path="${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
+  if [[ ! -f "$state_path" ]]; then
+    log "One API state not found; skipping One API pre-collection"
+    return 0
+  fi
+  log "pre-collecting One API snapshot → ${cache_path}"
+  python3 "$ROOT/scripts/oneapi_usage.py" \
+    --state-path "$state_path" \
+    --days 2 \
+    > "$cache_path" 2> >(while IFS= read -r line; do log "oneapi: $line"; done >&2)
+  local rc=$?
+  if (( rc != 0 )); then
+    log "WARN: One API pre-collection failed (exit ${rc}); merge will fall back to prior series"
+    rm -f "$cache_path"
+  else
+    log "One API snapshot saved (${cache_path})"
+  fi
+}
+
+ONEAPI_CACHE_ARG=""
 remerge_usage() {
   local extra_args=()
   if [[ -n "${AI_USAGE_MACHINE_ID:-}" ]]; then
     extra_args+=(--machine-id "$AI_USAGE_MACHINE_ID")
+  fi
+  if [[ -n "$ONEAPI_CACHE_ARG" ]]; then
+    extra_args+=($ONEAPI_CACHE_ARG)
   fi
   log "re-merging machines/*.json + Cursor API → usage.json"
   python3 "$ROOT/scripts/ai_usage_comparison_image.py" \
@@ -438,6 +463,11 @@ push_with_remmerge() {
       if (( BACKFILL_CODEX_CACHE == 1 )); then
         backfill_codex_cache
       else
+        # Re-collect One API snapshot to avoid a live chrome-use fetch inside merge
+        collect_oneapi_cache
+        if [[ -f "${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}" ]]; then
+          ONEAPI_CACHE_ARG="--oneapi-cache-path ${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
+        fi
         remerge_usage
       fi
     fi
@@ -466,6 +496,11 @@ if (( SKIP_COLLECT == 0 && BACKFILL_CODEX_CACHE == 0 )); then
 
   log "checking One API chrome session state"
   require_oneapi_state
+
+  # Pre-collect One API snapshot before Git pull so chrome-use isn't racing
+  # against the merge timeout. The cache file is loaded by remerge_usage
+  # to skip the live chrome-use fetch inside the merge step.
+  collect_oneapi_cache
 fi
 
 if (( SKIP_PUSH == 0 )); then
@@ -477,6 +512,11 @@ fi
 # Pull after local capture; pull_latest safely stashes and restores the fragment.
 pull_latest
 require_backfill_at_remote_tip
+
+# Wire One API cache arg if a snapshot was collected
+if [[ -f "${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}" ]]; then
+  ONEAPI_CACHE_ARG="--oneapi-cache-path ${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
+fi
 
 if (( SKIP_COLLECT == 0 )); then
   if (( BACKFILL_CODEX_CACHE == 1 )); then

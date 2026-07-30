@@ -1968,6 +1968,8 @@ def collect_usage(
     merge_only: bool = False,
     usage_json_path: Path | None = None,
     force_reseed: bool = False,
+    oneapi_days: int = 2,
+    oneapi_cache_path: Path | None = None,
 ) -> dict[str, Any]:
     mid = machine_fragments.resolve_machine_id(machine_id)
     machines_path = Path(machines_dir) if machines_dir else DEFAULT_MACHINES_DIR
@@ -2248,11 +2250,32 @@ def collect_usage(
     oneapi_refresh_complete = False
     oneapi_refresh_error = ""
     oneapi_status_error = ""
-    if Path(oneapi_state_path).exists():
+
+    # If a pre-collected One API snapshot was provided, load it directly
+    if oneapi_cache_path and oneapi_cache_path.exists():
+        try:
+            cached = json.loads(oneapi_cache_path.read_text())
+            if isinstance(cached, dict) and cached.get("complete"):
+                print(f"INFO: loaded pre-cached One API snapshot from {oneapi_cache_path}", file=sys.stderr)
+                oneapi_data = cached
+                oneapi_refresh_complete = True
+                oneapi_data["stale"] = False
+                oneapi_data["state_path"] = oneapi_state_path
+                oneapi_data["legacy_history_discarded"] = bool(
+                    legacy_oneapi_present and not prior_oneapi_compatible
+                )
+            else:
+                raise RuntimeError("cached One API snapshot is incomplete or invalid")
+        except Exception as exc:
+            print(f"WARN: failed to load cached One API snapshot; falling back to live fetch: {exc}", file=sys.stderr)
+            oneapi_cache_path = None
+
+    elif Path(oneapi_state_path).exists():
         try:
             oneapi_data = oneapi_usage.collect_oneapi(
                 timezone=timezone,
                 state_path=oneapi_state_path,
+                days=oneapi_days,
             )
             oneapi_refresh_complete = bool(
                 oneapi_data.get("available") and oneapi_data.get("complete")
@@ -3580,6 +3603,10 @@ def main() -> int:
         help="Validate and print Codex cache backfill stats without writing files.",
     )
     parser.add_argument("--cursor-page-size", type=int, default=500)
+    parser.add_argument("--oneapi-days", type=int, default=2,
+                        help="One API lookback days from today (default 2).")
+    parser.add_argument("--oneapi-cache-path", type=str, default="",
+                        help="Path to a pre-collected One API JSON snapshot to skip live fetch.")
     parser.add_argument("--width", type=int, default=1400)
     parser.add_argument("--height", type=int, default=1000)
     args = parser.parse_args()
@@ -3691,6 +3718,12 @@ def main() -> int:
                 Path(args.json_out).expanduser() if args.json_out else None
             ),
             force_reseed=bool(args.force_reseed),
+            oneapi_days=max(1, args.oneapi_days),
+            oneapi_cache_path=(
+                Path(args.oneapi_cache_path).expanduser()
+                if args.oneapi_cache_path
+                else None
+            ),
         )
         if args.json_out:
             json_path = Path(args.json_out).expanduser()
