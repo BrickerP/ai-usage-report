@@ -1,7 +1,7 @@
 {
   "machine_id": "mac-wpd",
   "hostname": "wpdeMacBook-Pro.local",
-  "collected_at": "2026-07-30T03:35:09+08:00",
+  "collected_at": "2026-07-30T20:56:25+08:00",
   "seeded_at": "2026-07-18T04:05:53+08:00",
   "seeded": true,
   "append_mode": true,
@@ -20,8 +20,7 @@
   "scope": "machine-local",
   "tools": [
     "codex",
-    "claude",
-    "comate"
+    "claude"
   ],
   "policy": "Durable ledger: dates before mutable_from are finalized; every run re-collects mutable_from through today and always keeps yesterday + today open. Lower source snapshots remain at their previous high-water.",
   "daily": [
@@ -39,12 +38,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 8611660,
+          "cost": 6.752718700000001
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-09",
@@ -60,12 +61,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 33167177,
+          "cost": 18.5412178
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-12",
@@ -81,12 +84,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 62412845,
+          "cost": 35.84542989999999
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-13",
@@ -102,12 +107,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 64260390,
+          "cost": 33.7789053
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-14",
@@ -123,12 +130,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 106673088,
+          "cost": 52.803621499999984
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-15",
@@ -144,12 +153,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 132366995,
+          "cost": 75.24710247345233
+        },
+        {
+          "model": "gpt-5.1-codex-max",
+          "tokens": 8169021,
+          "cost": 4.643870326547672
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-16",
@@ -165,12 +181,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 107202988,
+          "cost": 68.3831519
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-18",
@@ -186,12 +204,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 27039771,
+          "cost": 29.4242669
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-19",
@@ -207,12 +227,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 147237045,
+          "cost": 101.59274649999999
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-20",
@@ -228,12 +250,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 251202279,
+          "cost": 138.10671490000001
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-21",
@@ -249,12 +273,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 141745917,
+          "cost": 81.4528596
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-22",
@@ -270,12 +296,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 28594618,
+          "cost": 19.0159263
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-23",
@@ -291,12 +319,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 152233452,
+          "cost": 91.0068866
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-26",
@@ -312,12 +342,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 150936065,
+          "cost": 94.8882207
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-27",
@@ -333,12 +365,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 93217359,
+          "cost": 53.79378829999999
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-28",
@@ -354,12 +388,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 109576756,
+          "cost": 74.552037
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-29",
@@ -375,12 +411,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 113646360,
+          "cost": 75.5928348
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-30",
@@ -396,12 +434,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 137883023,
+          "cost": 104.515642
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-01-31",
@@ -417,12 +457,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 185324814,
+          "cost": 131.3728927
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-02",
@@ -438,12 +480,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 161594808,
+          "cost": 113.4608853
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-03",
@@ -459,12 +503,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 355026673,
+          "cost": 230.21665449999998
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-04",
@@ -480,12 +526,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 150857590,
+          "cost": 128.6527802
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-05",
@@ -501,12 +549,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 256029457,
+          "cost": 170.4086489
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-06",
@@ -522,12 +572,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 418419592,
+          "cost": 274.2573111518313
+        },
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 81103664,
+          "cost": 53.160208648168606
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-07",
@@ -543,12 +600,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 52433062,
+          "cost": 36.0612538584712
+        },
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 5118679,
+          "cost": 3.520412041528788
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-08",
@@ -564,12 +628,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 32469385,
+          "cost": 20.7164622
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-09",
@@ -585,12 +651,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 478016244,
+          "cost": 301.4448083956641
+        },
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 19793447,
+          "cost": 12.482069204335938
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-10",
@@ -606,12 +679,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 344276921,
+          "cost": 224.28472977329452
+        },
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 38264376,
+          "cost": 24.927942326705473
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-11",
@@ -627,12 +707,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 287186449,
+          "cost": 175.59756362230698
+        },
+        {
+          "model": "gpt-5.2-codex",
+          "tokens": 21701968,
+          "cost": 13.269472566963877
+        },
+        {
+          "model": "gpt-5.1-codex-mini",
+          "tokens": 11111541,
+          "cost": 6.79405151072909
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-12",
@@ -648,12 +740,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 175124761,
+          "cost": 111.46238579460014
+        },
+        {
+          "model": "gpt-5.1-codex-mini",
+          "tokens": 22873295,
+          "cost": 14.55826130539986
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-13",
@@ -669,12 +768,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 336547105,
+          "cost": 194.6120357832643
+        },
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 112951866,
+          "cost": 65.31564901673563
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-14",
@@ -690,12 +796,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 454139734,
+          "cost": 253.43754565948623
+        },
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 107940075,
+          "cost": 60.23711566779768
+        },
+        {
+          "model": "gpt-5.1-codex-mini",
+          "tokens": 13886261,
+          "cost": 7.749376772716044
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-24",
@@ -711,12 +829,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 74389048,
+          "cost": 51.95741793106823
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 49871663,
+          "cost": 34.833122711939964
+        },
+        {
+          "model": "gpt-5.1-codex-mini",
+          "tokens": 2071503,
+          "cost": 1.4468520569917984
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-25",
@@ -732,12 +862,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 263914819,
+          "cost": 169.1486046895928
+        },
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 48406000,
+          "cost": 31.02443201040722
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-26",
@@ -753,12 +890,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 159524638,
+          "cost": 110.88303375017298
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 14484313,
+          "cost": 10.067815149827009
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-27",
@@ -774,12 +918,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 140373290,
+          "cost": 103.5009164
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-02-28",
@@ -795,12 +941,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 302370018,
+          "cost": 179.97573420860203
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 18124893,
+          "cost": 10.788241991397943
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-02",
@@ -816,12 +969,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 147145083,
+          "cost": 103.0755509219199
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 37620053,
+          "cost": 26.352954578080094
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-03",
@@ -837,12 +997,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 183929235,
+          "cost": 103.1115834
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-04",
@@ -858,12 +1020,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 122611496,
+          "cost": 88.11533549333095
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 10704050,
+          "cost": 7.692516506669073
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-05",
@@ -879,12 +1048,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 320441519,
+          "cost": 192.2998686
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-06",
@@ -900,12 +1071,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 90625891,
+          "cost": 84.36044491490159
+        },
+        {
+          "model": "gpt-5.3-codex",
+          "tokens": 455701,
+          "cost": 0.4241959850984039
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-09",
@@ -921,12 +1099,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 70749538,
+          "cost": 57.600297000000005
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-10",
@@ -942,12 +1122,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 47507369,
+          "cost": 63.57107
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-11",
@@ -963,12 +1145,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 237674023,
+          "cost": 205.85318900000001
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-12",
@@ -984,12 +1168,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 362805255,
+          "cost": 423.68402999999995
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-13",
@@ -1005,12 +1191,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 198182580,
+          "cost": 250.79490699999997
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-15",
@@ -1026,12 +1214,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 64986253,
+          "cost": 59.245082999999994
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-16",
@@ -1047,12 +1237,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 413497962,
+          "cost": 428.22598000000005
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-17",
@@ -1068,12 +1260,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 738060251,
+          "cost": 802.496005
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-18",
@@ -1089,12 +1283,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 715086610,
+          "cost": 937.4836162290942
+        },
+        {
+          "model": "gpt-5.1-codex-mini",
+          "tokens": 8208397,
+          "cost": 10.761266670905847
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-19",
@@ -1110,12 +1311,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 372195813,
+          "cost": 394.7967279999999
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-20",
@@ -1131,12 +1334,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 296351347,
+          "cost": 379.671669
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-22",
@@ -1152,12 +1357,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 30238177,
+          "cost": 27.036693
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-23",
@@ -1173,12 +1380,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 101142414,
+          "cost": 96.067852
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-24",
@@ -1194,12 +1403,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 81606579,
+          "cost": 106.837184
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-25",
@@ -1215,12 +1426,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 342672041,
+          "cost": 406.908728
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-26",
@@ -1236,12 +1449,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 372646830,
+          "cost": 402.781754
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-27",
@@ -1257,12 +1472,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 635620664,
+          "cost": 698.882956
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-28",
@@ -1278,12 +1495,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 134993818,
+          "cost": 161.36529000000002
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-29",
@@ -1299,12 +1518,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 198841167,
+          "cost": 248.999225
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-30",
@@ -1320,12 +1541,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 179511661,
+          "cost": 223.40189200000003
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-03-31",
@@ -1341,12 +1564,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 276753244,
+          "cost": 301.96788399999997
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-01",
@@ -1362,12 +1587,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 204519385,
+          "cost": 235.787922
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-02",
@@ -1383,12 +1610,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 122087557,
+          "cost": 172.12178300000002
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-03",
@@ -1404,12 +1633,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 54681505,
+          "cost": 55.83430699999999
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-04",
@@ -1425,12 +1656,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 27361441,
+          "cost": 38.32578
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-05",
@@ -1446,12 +1679,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 44635007,
+          "cost": 66.213211
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-06",
@@ -1467,12 +1702,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 26057568,
+          "cost": 40.123984
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-07",
@@ -1488,12 +1725,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 66967396,
+          "cost": 82.911341
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-08",
@@ -1509,12 +1748,25 @@
       "claude_cache_create": 2901200,
       "claude_cache_read": 285867084,
       "claude_output": 874155,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 35261907,
+          "cost": 59.315885
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-6",
+          "tokens": 279635454,
+          "cost": 181.08718300000018
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 10038121,
+          "cost": 2.048932300000001
+        }
+      ]
     },
     {
       "date": "2026-04-09",
@@ -1530,12 +1782,25 @@
       "claude_cache_create": 5735468,
       "claude_cache_read": 233163068,
       "claude_output": 623846,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 35579617,
+          "cost": 54.825082
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-6",
+          "tokens": 230471238,
+          "cost": 180.72054775
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 9060498,
+          "cost": 1.3996347500000001
+        }
+      ]
     },
     {
       "date": "2026-04-10",
@@ -1551,12 +1816,25 @@
       "claude_cache_create": 2163561,
       "claude_cache_read": 62182852,
       "claude_output": 264281,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 38492632,
+          "cost": 50.577127000000004
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 38047171,
+          "cost": 6.488454900000004
+        },
+        {
+          "model": "claude-opus-4-6",
+          "tokens": 26611451,
+          "cost": 19.018072749999984
+        }
+      ]
     },
     {
       "date": "2026-04-11",
@@ -1572,12 +1850,25 @@
       "claude_cache_create": 170183,
       "claude_cache_read": 1975178,
       "claude_output": 11517,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 58854019,
+          "cost": 74.06839
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 2146322,
+          "cost": 0.4579558
+        },
+        {
+          "model": "claude-sonnet-4-6",
+          "tokens": 11204,
+          "cost": 0.03157125
+        }
+      ]
     },
     {
       "date": "2026-04-12",
@@ -1593,12 +1884,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 88320441,
+          "cost": 125.741201
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-04-13",
@@ -1614,12 +1907,25 @@
       "claude_cache_create": 2213320,
       "claude_cache_read": 36486257,
       "claude_output": 382731,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 26385880,
+          "cost": 41.394991000000005
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 34958485,
+          "cost": 6.7663565999999955
+        },
+        {
+          "model": "claude-opus-4-6",
+          "tokens": 4184303,
+          "cost": 8.115270500000003
+        }
+      ]
     },
     {
       "date": "2026-04-14",
@@ -1635,12 +1941,25 @@
       "claude_cache_create": 1329830,
       "claude_cache_read": 12979368,
       "claude_output": 367978,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 31670785,
+          "cost": 44.18776900000001
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 7706357,
+          "cost": 1.2473668499999995
+        },
+        {
+          "model": "claude-sonnet-4-6",
+          "tokens": 6976765,
+          "cost": 10.676080350000003
+        }
+      ]
     },
     {
       "date": "2026-04-15",
@@ -1656,12 +1975,20 @@
       "claude_cache_create": 477814,
       "claude_cache_read": 13193578,
       "claude_output": 32402,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 60178175,
+          "cost": 69.473617
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 13704396,
+          "cost": 2.0792372999999995
+        }
+      ]
     },
     {
       "date": "2026-04-16",
@@ -1677,12 +2004,20 @@
       "claude_cache_create": 364375,
       "claude_cache_read": 11139571,
       "claude_output": 30061,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 26957324,
+          "cost": 37.153819
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 11534318,
+          "cost": 1.7200418499999994
+        }
+      ]
     },
     {
       "date": "2026-04-17",
@@ -1698,12 +2033,25 @@
       "claude_cache_create": 189884,
       "claude_cache_read": 1949849,
       "claude_output": 12846,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 19957445,
+          "cost": 27.891346
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 1817347,
+          "cost": 0.38786005000000007
+        },
+        {
+          "model": "claude-opus-4-6",
+          "tokens": 337785,
+          "cost": 0.55631425
+        }
+      ]
     },
     {
       "date": "2026-04-20",
@@ -1719,12 +2067,25 @@
       "claude_cache_create": 311648,
       "claude_cache_read": 7591913,
       "claude_output": 20920,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 108399,
+          "cost": 0.307763
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 7776570,
+          "cost": 1.1818634499999998
+        },
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 150117,
+          "cost": 0.36846925
+        }
+      ]
     },
     {
       "date": "2026-04-21",
@@ -1740,12 +2101,25 @@
       "claude_cache_create": 1091523,
       "claude_cache_read": 33436742,
       "claude_output": 111936,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 131488903,
+          "cost": 150.104363
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 18868264,
+          "cost": 14.433822499999998
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 16203442,
+          "cost": 2.812498450000001
+        }
+      ]
     },
     {
       "date": "2026-04-22",
@@ -1761,12 +2135,25 @@
       "claude_cache_create": 2712445,
       "claude_cache_read": 84724996,
       "claude_output": 504643,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.4",
+          "tokens": 3405720,
+          "cost": 4.034191
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 81170030,
+          "cost": 75.42685000000002
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 7474352,
+          "cost": 1.2913096
+        }
+      ]
     },
     {
       "date": "2026-04-23",
@@ -1782,12 +2169,24 @@
       "claude_cache_create": 11130772,
       "claude_cache_read": 586549877,
       "claude_output": 1247864,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 557926943,
+          "cost": 371.65997824999965
+        },
+        {
+          "model": "claude-opus-4-5-20251101",
+          "tokens": 38994566,
+          "cost": 37.083772
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 2742370,
+          "cost": 0.62749115
+        }
+      ]
     },
     {
       "date": "2026-04-24",
@@ -1803,12 +2202,24 @@
       "claude_cache_create": 10180404,
       "claude_cache_read": 550838562,
       "claude_output": 1599498,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 527791432,
+          "cost": 373.8984714999995
+        },
+        {
+          "model": "claude-opus-4-5-20251101",
+          "tokens": 24431423,
+          "cost": 22.19744374999999
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 10761564,
+          "cost": 1.9048104
+        }
+      ]
     },
     {
       "date": "2026-04-25",
@@ -1824,12 +2235,14 @@
       "claude_cache_create": 966053,
       "claude_cache_read": 44608908,
       "claude_output": 304237,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 45991205,
+          "cost": 40.13094400000002
+        }
+      ]
     },
     {
       "date": "2026-04-26",
@@ -1845,12 +2258,19 @@
       "claude_cache_create": 2648798,
       "claude_cache_read": 114752648,
       "claude_output": 714064,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 103210558,
+          "cost": 87.51280349999998
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 14974392,
+          "cost": 2.4392558500000012
+        }
+      ]
     },
     {
       "date": "2026-04-27",
@@ -1866,12 +2286,19 @@
       "claude_cache_create": 8533917,
       "claude_cache_read": 735105977,
       "claude_output": 1939143,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 711950186,
+          "cost": 472.7520622500004
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 34197498,
+          "cost": 5.321509250000003
+        }
+      ]
     },
     {
       "date": "2026-04-28",
@@ -1887,12 +2314,19 @@
       "claude_cache_create": 7141440,
       "claude_cache_read": 557348064,
       "claude_output": 1262977,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 553373743,
+          "cost": 369.8926785000007
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 12382052,
+          "cost": 2.0002012
+        }
+      ]
     },
     {
       "date": "2026-04-29",
@@ -1908,12 +2342,25 @@
       "claude_cache_create": 2665903,
       "claude_cache_read": 70279449,
       "claude_output": 180083,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 339521189,
+          "cost": 671.19885
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 68463751,
+          "cost": 61.9148975
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 4662128,
+          "cost": 0.73488065
+        }
+      ]
     },
     {
       "date": "2026-04-30",
@@ -1929,12 +2376,25 @@
       "claude_cache_create": 480914,
       "claude_cache_read": 10397898,
       "claude_output": 88886,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 97018915,
+          "cost": 182.728085
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 6724341,
+          "cost": 8.290700500000002
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 4243851,
+          "cost": 0.6712996999999999
+        }
+      ]
     },
     {
       "date": "2026-05-01",
@@ -1950,12 +2410,25 @@
       "claude_cache_create": 2766242,
       "claude_cache_read": 166276510,
       "claude_output": 601998,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 242333607,
+          "cost": 466.2648425
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 167997016,
+          "cost": 122.93700350000005
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 2024710,
+          "cost": 0.34794854999999997
+        }
+      ]
     },
     {
       "date": "2026-05-02",
@@ -1971,12 +2444,20 @@
       "claude_cache_create": 2830036,
       "claude_cache_read": 452621585,
       "claude_output": 606537,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 106317098,
+          "cost": 217.460475
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 456249489,
+          "cost": 270.7312325000003
+        }
+      ]
     },
     {
       "date": "2026-05-03",
@@ -1992,12 +2473,25 @@
       "claude_cache_create": 1697555,
       "claude_cache_read": 324794880,
       "claude_output": 661374,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 54645720,
+          "cost": 94.383525
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 324989212,
+          "cost": 193.10064100000028
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 2248059,
+          "cost": 0.5197963
+        }
+      ]
     },
     {
       "date": "2026-05-04",
@@ -2013,12 +2507,25 @@
       "claude_cache_create": 4213940,
       "claude_cache_read": 453315400,
       "claude_output": 593294,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 22412274,
+          "cost": 60.8973625
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 456615196,
+          "cost": 285.15160799999995
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 2353158,
+          "cost": 0.35776414999999995
+        }
+      ]
     },
     {
       "date": "2026-05-05",
@@ -2034,12 +2541,20 @@
       "claude_cache_create": 113351,
       "claude_cache_read": 39875870,
       "claude_output": 76312,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 38274815,
+          "cost": 86.75239750000001
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 40065626,
+          "cost": 22.979710000000008
+        }
+      ]
     },
     {
       "date": "2026-05-06",
@@ -2055,12 +2570,25 @@
       "claude_cache_create": 10186620,
       "claude_cache_read": 716549690,
       "claude_output": 962294,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 152674846,
+          "cost": 287.76672
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-7",
+          "tokens": 723672737,
+          "cost": 482.24293200000045
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 4410873,
+          "cost": 0.6511726
+        }
+      ]
     },
     {
       "date": "2026-05-07",
@@ -2076,12 +2604,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 560541988,
+          "cost": 1026.44073
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-08",
@@ -2097,12 +2627,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 737548526,
+          "cost": 1348.00909
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-09",
@@ -2118,12 +2650,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 938134858,
+          "cost": 1649.6972325000002
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-10",
@@ -2139,12 +2673,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 722847094,
+          "cost": 1247.956785
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-11",
@@ -2160,12 +2696,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 2952894216,
+          "cost": 4756.8711525
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-12",
@@ -2181,12 +2719,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 2551078211,
+          "cost": 4091.2745850000006
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-13",
@@ -2202,12 +2742,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 1739004060,
+          "cost": 2945.6639199999995
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-14",
@@ -2223,12 +2765,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 3257951150,
+          "cost": 5446.276750000001
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-15",
@@ -2244,12 +2788,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 1416430958,
+          "cost": 2352.964015
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-16",
@@ -2265,12 +2811,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 64742189,
+          "cost": 290.1267575
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-17",
@@ -2286,12 +2834,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 1292663834,
+          "cost": 2054.66599
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-18",
@@ -2307,12 +2857,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 1161255812,
+          "cost": 1936.9828
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-19",
@@ -2328,12 +2880,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 1718480890,
+          "cost": 2785.8482599999998
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-20",
@@ -2349,12 +2903,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 1410422636,
+          "cost": 2296.35062
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-21",
@@ -2370,12 +2926,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 1298713604,
+          "cost": 2083.0729149999997
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-22",
@@ -2391,12 +2949,30 @@
       "claude_cache_create": 742493,
       "claude_cache_read": 16585189,
       "claude_output": 63185,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 974982792,
+          "cost": 1661.9182326267585
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 12561297,
+          "cost": 21.411504573241537
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-opus-4-5-20251101",
+          "tokens": 17315460,
+          "cost": 14.02142200000001
+        },
+        {
+          "model": "claude-haiku-4-5-20251001",
+          "tokens": 79889,
+          "cost": 0.10275775000000001
+        }
+      ]
     },
     {
       "date": "2026-05-25",
@@ -2412,12 +2988,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 192552937,
+          "cost": 298.3837782902155
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 3428919,
+          "cost": 5.313519609784541
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-26",
@@ -2433,12 +3016,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 501333082,
+          "cost": 828.6982194488888
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 5117606,
+          "cost": 8.459347951111173
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-27",
@@ -2454,12 +3044,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 854624358,
+          "cost": 1377.745263298572
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 1475305,
+          "cost": 2.3783484014279637
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-28",
@@ -2475,12 +3072,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 215120291,
+          "cost": 369.2919475
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-29",
@@ -2496,12 +3095,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 378418533,
+          "cost": 598.6267449558887
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 75979958,
+          "cost": 120.19399414411117
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-30",
@@ -2517,12 +3123,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 271187140,
+          "cost": 259.6400182861024
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 88561724,
+          "cost": 84.79077451389752
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-05-31",
@@ -2538,12 +3151,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 114978994,
+          "cost": 134.16601795627227
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 113958217,
+          "cost": 132.97489964372775
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-01",
@@ -2559,12 +3179,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 258241658,
+          "cost": 353.08883924451936
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 122689703,
+          "cost": 167.7512650554808
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-02",
@@ -2580,12 +3207,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 275039965,
+          "cost": 354.3348296996904
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 207099860,
+          "cost": 266.8073842429762
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "tokens": 7779477,
+          "cost": 10.02232405733348
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-03",
@@ -2601,12 +3240,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 448416238,
+          "cost": 764.5475341724907
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "tokens": 2082524,
+          "cost": 3.5506934275092688
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-04",
@@ -2622,12 +3268,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 98920750,
+          "cost": 184.03152749999995
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-05",
@@ -2643,12 +3291,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 286282686,
+          "cost": 535.6739675
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-06",
@@ -2664,12 +3314,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 234679839,
+          "cost": 369.96685249999996
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-07",
@@ -2685,12 +3337,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 351561389,
+          "cost": 633.3829400000001
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-08",
@@ -2706,12 +3360,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 428966140,
+          "cost": 811.8618524999999
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-09",
@@ -2727,12 +3383,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 494276525,
+          "cost": 1017.3140496962718
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 19312457,
+          "cost": 39.74866870372837
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-10",
@@ -2748,12 +3411,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 235690435,
+          "cost": 295.5455317909596
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 105203177,
+          "cost": 131.92019817250306
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "tokens": 1687309,
+          "cost": 2.1158119365373156
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-11",
@@ -2769,12 +3444,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 69545183,
+          "cost": 95.26587631982231
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 52615906,
+          "cost": 72.07545048017771
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-12",
@@ -2790,12 +3472,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 95273840,
+          "cost": 198.1026092078131
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "tokens": 8958382,
+          "cost": 18.627136772069928
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 2871046,
+          "cost": 5.96975732011699
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-13",
@@ -2811,12 +3505,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 77986154,
+          "cost": 67.12365127780775
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 20678557,
+          "cost": 17.79829082219224
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-14",
@@ -2832,12 +3533,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 50181159,
+          "cost": 75.53733147399437
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 30314818,
+          "cost": 45.632673726005635
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-15",
@@ -2853,12 +3561,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 60927884,
+          "cost": 125.16064891455314
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 22391308,
+          "cost": 45.997176585446894
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-16",
@@ -2874,12 +3589,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 54629398,
+          "cost": 143.75144882537035
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 1345480,
+          "cost": 3.5404874746296726
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-17",
@@ -2895,12 +3617,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 23032159,
+          "cost": 52.45606999999999
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-18",
@@ -2916,12 +3640,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 43336266,
+          "cost": 86.63105250000001
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-19",
@@ -2937,12 +3663,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 322100248,
+          "cost": 509.7254375
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-20",
@@ -2958,12 +3686,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 89617980,
+          "cost": 143.367635
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-21",
@@ -2979,12 +3709,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 506463265,
+          "cost": 756.9811816992692
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 96877850,
+          "cost": 144.79768710073088
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-22",
@@ -3000,12 +3737,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 19671030,
+          "cost": 50.509715
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-23",
@@ -3021,12 +3760,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 28006226,
+          "cost": 61.27147
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-24",
@@ -3042,12 +3783,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 44828367,
+          "cost": 108.1318175
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-25",
@@ -3063,12 +3806,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 317903649,
+          "cost": 485.05367624065343
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 60468349,
+          "cost": 92.26190095934646
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-26",
@@ -3084,12 +3834,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 119498249,
+          "cost": 224.71861180717383
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 3840767,
+          "cost": 7.222631592826131
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-27",
@@ -3105,12 +3862,25 @@
       "claude_cache_create": 21502,
       "claude_cache_read": 10549,
       "claude_output": 1812,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 92747078,
+          "cost": 121.15648956075331
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 64918712,
+          "cost": 84.80400053924664
+        }
+      ],
+      "claude_models": [
+        {
+          "model": "claude-sonnet-4-6",
+          "tokens": 33866,
+          "cost": 0.1593657
+        }
+      ]
     },
     {
       "date": "2026-06-28",
@@ -3126,12 +3896,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 304553594,
+          "cost": 529.027735
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-29",
@@ -3147,12 +3919,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 643937955,
+          "cost": 1201.0877325
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-06-30",
@@ -3168,12 +3942,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 579968409,
+          "cost": 1111.2498275
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-01",
@@ -3189,12 +3965,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 145996557,
+          "cost": 285.85129545825316
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 20264526,
+          "cost": 39.676559009178916
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "tokens": 2571269,
+          "cost": 5.034369232567911
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-02",
@@ -3210,12 +3998,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 147215083,
+          "cost": 250.88449739472102
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 43436323,
+          "cost": 74.02434480527896
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-03",
@@ -3231,12 +4026,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 156438445,
+          "cost": 352.9493034715843
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 404529,
+          "cost": 0.9126799284156559
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-04",
@@ -3252,12 +4054,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 247589797,
+          "cost": 470.6222
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-05",
@@ -3273,12 +4077,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 56359040,
+          "cost": 130.1215168478179
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 7838886,
+          "cost": 18.098387352182083
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-06",
@@ -3294,12 +4105,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 193141265,
+          "cost": 398.83149000000003
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-07",
@@ -3315,12 +4128,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 143323363,
+          "cost": 285.7663925
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-08",
@@ -3336,12 +4151,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 619922931,
+          "cost": 1119.270115
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-09",
@@ -3357,12 +4174,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.5",
+          "tokens": 395947701,
+          "cost": 681.20259617106
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "tokens": 1033727,
+          "cost": 1.77846092894001
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-10",
@@ -3378,12 +4202,29 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 265632812,
+          "cost": 453.61888941807956
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 99102845,
+          "cost": 169.23708388507396
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 24369992,
+          "cost": 41.61642766544776
+        },
+        {
+          "model": "gpt-5.4-mini",
+          "tokens": 546466,
+          "cost": 0.9331953313988192
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-11",
@@ -3399,12 +4240,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 293400381,
+          "cost": 473.5905832767236
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 4226198,
+          "cost": 6.82169385411576
+        },
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 3954247,
+          "cost": 6.382725669160717
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-12",
@@ -3420,12 +4273,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 715811747,
+          "cost": 1106.6887807314843
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 314008,
+          "cost": 0.4854755906372851
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 128459,
+          "cost": 0.1986054778785095
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-13",
@@ -3441,12 +4306,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 398934414,
+          "cost": 634.338722
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-14",
@@ -3462,12 +4329,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 2912705,
+          "cost": 4.858095928093154
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 1290789,
+          "cost": 2.152904871906847
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-18",
@@ -3483,12 +4357,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 87295,
+          "cost": 0.5200760000000001
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-19",
@@ -3504,12 +4380,29 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 22515707,
+          "cost": 34.446536112562534
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 1322195,
+          "cost": 2.0228118004622115
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 887574,
+          "cost": 1.3578898430136606
+        },
+        {
+          "model": "gpt-5",
+          "tokens": 45436,
+          "cost": 0.06951204396159497
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-20",
@@ -3525,12 +4418,19 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 8357515,
+          "cost": 10.261093144138574
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 1115369,
+          "cost": 1.369414855861425
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-22",
@@ -3546,12 +4446,14 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 901977,
+          "cost": 2.306366
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-24",
@@ -3567,12 +4469,34 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 587805801,
+          "cost": 845.6660332282252
+        },
+        {
+          "model": "gpt-5",
+          "tokens": 156617470,
+          "cost": 225.32284363954508
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 147346007,
+          "cost": 211.98415027501284
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 6478400,
+          "cost": 9.320361963671287
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 587932,
+          "cost": 0.8458475935455031
+        }
+      ],
+      "claude_models": []
     },
     {
       "date": "2026-07-25",
@@ -3588,12 +4512,40 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "comate_tokens": 0,
-      "comate_cost": 0.0,
-      "comate_input": 0,
-      "comate_output": 0,
-      "comate_sessions": 0,
-      "comate_messages": 0
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 145934800,
+          "cost": 218.5703305325654
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 19170829,
+          "cost": 28.71264723090922
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 2675291,
+          "cost": 4.006852636525336
+        }
+      ],
+      "claude_models": []
     }
-  ]
+  ],
+  "model_breakdown_version": 2,
+  "legacy_comate": {
+    "available": false,
+    "session_files": 0,
+    "sessions_with_usage": 0,
+    "message_count": 0,
+    "total_tokens": 0,
+    "cost": 0.0,
+    "history": {
+      "first": "",
+      "last": ""
+    },
+    "daily_timeline": [],
+    "accounting_version": 1,
+    "note": "Comate tokens are positive contextUsed deltas from local chat sessions; not billable API tokens. Cost is always 0."
+  }
 }
