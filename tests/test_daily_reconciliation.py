@@ -63,6 +63,42 @@ def merge_local(existing, incoming, *, today: str, mutable_from: str):
 
 
 class LocalReconciliationTests(unittest.TestCase):
+    def test_machine_id_does_not_fall_back_to_hostname(self):
+        with mock.patch.dict(os.environ, {"AI_USAGE_MACHINE_ID": ""}):
+            with mock.patch.object(
+                machine_fragments.socket,
+                "gethostname",
+                return_value="unstable-hostname.local",
+            ):
+                with self.assertRaisesRegex(ValueError, "stable machine id is required"):
+                    machine_fragments.resolve_machine_id()
+
+    def test_merge_rejects_different_machine_ids_for_same_hostname(self):
+        fragments = [
+            {
+                "machine_id": "mac-m4-local",
+                "hostname": "same-mac.local",
+                "daily": [local_row("2026-07-28", codex_tokens=10, claude_tokens=20)],
+            },
+            {
+                "machine_id": "legacy-hostname",
+                "hostname": "SAME-MAC.LOCAL",
+                "daily": [local_row("2026-07-28", codex_tokens=10, claude_tokens=20)],
+            },
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"duplicate machine hostname.*same-mac\.local.*mac-m4-local.*legacy-hostname",
+        ):
+            machine_fragments.merge_local_fragments(
+                fragments,
+                usage_report.empty_daily_row,
+                usage_report.TOOL_TOKEN_FIELDS,
+                usage_report.safe_int,
+                usage_report.safe_float,
+            )
+
     def test_legacy_seeded_at_opens_that_date_for_next_day_reconciliation(self):
         fragment = {
             "seeded_at": "2026-07-19T15:03:00+08:00",

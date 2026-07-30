@@ -38,7 +38,9 @@ def resolve_machine_id(explicit: str | None = None) -> str:
     env = os.environ.get("AI_USAGE_MACHINE_ID", "").strip()
     if env:
         return sanitize_machine_id(env)
-    return sanitize_machine_id(socket.gethostname() or "machine")
+    raise ValueError(
+        "stable machine id is required; pass --machine-id or set AI_USAGE_MACHINE_ID"
+    )
 
 
 def fragment_path(machines_dir: Path, machine_id: str) -> Path:
@@ -829,6 +831,27 @@ def load_machine_fragments(machines_dir: Path) -> list[dict[str, Any]]:
     return fragments
 
 
+def validate_unique_fragment_hostnames(fragments: list[dict[str, Any]]) -> None:
+    """Reject active fragments that identify the same physical host twice."""
+    by_hostname: dict[str, tuple[str, str]] = {}
+    for fragment in fragments:
+        hostname = str(fragment.get("hostname") or "").strip()
+        if not hostname:
+            continue
+        machine_id = str(
+            fragment.get("machine_id")
+            or Path(str(fragment.get("_path") or "unknown")).stem
+        )
+        hostname_key = hostname.casefold()
+        previous = by_hostname.get(hostname_key)
+        if previous is not None and previous[0] != machine_id:
+            raise ValueError(
+                f"duplicate machine hostname {previous[1]}: "
+                f"{previous[0]}, {machine_id}"
+            )
+        by_hostname[hostname_key] = (machine_id, hostname)
+
+
 def merge_local_fragments(
     fragments: list[dict[str, Any]],
     empty_daily_row: Callable[[str], dict[str, Any]],
@@ -837,6 +860,7 @@ def merge_local_fragments(
     safe_float: SafeFloat,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """SUM machine-local tool columns across fragments. Cursor left at 0."""
+    validate_unique_fragment_hostnames(fragments)
     by_date: dict[str, dict[str, Any]] = {}
     machine_ids: list[str] = []
 

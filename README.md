@@ -201,9 +201,12 @@ boundary expands the recovery window across any missed days. Local source logs
 must still be retained until at least one later successful reconciliation; no
 collector can reconstruct records that were deleted before they were ever read.
 
+Required env:
+
+- `AI_USAGE_MACHINE_ID` (required; use one stable, unique value per Mac)
+
 Optional env:
 
-- `AI_USAGE_MACHINE_ID` (required for multi-Mac; default = hostname)
 - `AI_USAGE_TIMEZONE` (default `Asia/Shanghai`)
 - `GH_PUBLISH_ACCOUNT` (default `BrickerP`)
 - `PUBLISH_BRANCH` (default `main`)

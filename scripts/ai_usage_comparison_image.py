@@ -3157,7 +3157,7 @@ def main() -> int:
     parser.add_argument(
         "--machine-id",
         default=os.environ.get("AI_USAGE_MACHINE_ID", ""),
-        help="Stable id for this Mac (also AI_USAGE_MACHINE_ID). Default: hostname.",
+        help="Stable id for this Mac (required; also AI_USAGE_MACHINE_ID).",
     )
     parser.add_argument(
         "--machines-dir",
