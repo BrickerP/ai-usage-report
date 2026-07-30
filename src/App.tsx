@@ -71,6 +71,9 @@ function ReportApp() {
   const [pinnedModel, setPinnedModel] = useState<string | null>(null)
   const [isModelListOpen, setIsModelListOpen] = useState(false)
   const chartSectionRef = useRef<HTMLDivElement>(null)
+  const modelDetailsToggleRef = useRef<HTMLButtonElement>(null)
+  const modelDetailsPanelRef = useRef<HTMLDivElement>(null)
+  const wasModelListOpen = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +91,21 @@ function ReportApp() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    const wasOpen = wasModelListOpen.current
+    wasModelListOpen.current = isModelListOpen
+    if (wasOpen === isModelListOpen) return
+
+    const focusTarget = isModelListOpen
+      ? modelDetailsPanelRef.current
+      : modelDetailsToggleRef.current
+    if (!focusTarget) return
+
+    window.requestAnimationFrame(() => {
+      focusTarget.focus({ preventScroll: true })
+    })
+  }, [isModelListOpen])
 
   const daily = useMemo(() => payload?.daily ?? [], [payload])
   const visible = useMemo(() => {
@@ -196,7 +214,7 @@ function ReportApp() {
 
   if (error) {
     return (
-      <div className="page">
+      <div className="page" role="alert" aria-live="assertive">
         <EmptyState title="Could not load usage data" description={error} />
       </div>
     )
@@ -204,7 +222,12 @@ function ReportApp() {
 
   if (!payload) {
     return (
-      <div className="page">
+      <div
+        className="page"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
         <Text color="secondary">Loading usage report…</Text>
       </div>
     )
@@ -219,9 +242,22 @@ function ReportApp() {
     payload.timeline_meta?.span ||
     `${daily[0]?.date || '—'} — ${daily.at(-1)?.date || '—'}`
   const degradedSources = degradedSourceNotices(payload.source_status)
+  const selectionStatus = activeTool
+    ? pinnedModel
+      ? `Viewing ${activeTool.label} models. Focused on ${pinnedModel}.`
+      : `Viewing ${activeTool.label} models.`
+    : 'Viewing all tools.'
 
   return (
     <div className="page">
+      <div
+        className="selection-status visually-hidden"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {selectionStatus}
+      </div>
       <VStack gap={6}>
         <VStack gap={2}>
           <Badge label="Usage report" variant="neutral" />
@@ -429,6 +465,7 @@ function ReportApp() {
                 label="Reset 30d"
                 variant="secondary"
                 size="md"
+                isDisabled={preset === '30'}
                 onClick={() => applyPreset('30')}
               />
             </HStack>
@@ -482,6 +519,7 @@ function ReportApp() {
                       }
                       variant="secondary"
                       size="sm"
+                      ref={modelDetailsToggleRef}
                       aria-expanded={isModelListOpen}
                       aria-controls="model-details-panel"
                       onClick={() => setIsModelListOpen((open) => !open)}
@@ -541,6 +579,9 @@ function ReportApp() {
                           <span className="series-key-value">
                             {fmtCompact(series.tokens)}
                           </span>
+                          {isFocused ? (
+                            <span className="series-key-state">Focused</span>
+                          ) : null}
                         </button>
                       )
                     })
@@ -595,11 +636,15 @@ function ReportApp() {
                 <div
                   id="model-details-panel"
                   className="model-detail-panel"
+                  role="region"
                   aria-live="polite"
+                  aria-labelledby="model-details-heading"
+                  ref={modelDetailsPanelRef}
+                  tabIndex={-1}
                 >
                   <div className="model-detail-header">
                     <div>
-                      <Heading level={4}>
+                      <Heading level={4} id="model-details-heading">
                         {activeTool.label} model details
                       </Heading>
                       <Text size="sm" color="secondary">

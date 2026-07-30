@@ -45,8 +45,42 @@ const stylesheetSource = readFileSync(
 test('interaction controls expose explicit state semantics', () => {
   assert.match(appSource, /isDisabled=\{range\[0\] <= 0\}/)
   assert.match(appSource, /isDisabled=\{range\[1\] >= daily\.length - 1\}/)
+  assert.match(
+    appSource,
+    /label="Reset 30d"[\s\S]{0,180}isDisabled=\{preset === '30'\}/,
+  )
   assert.match(appSource, /aria-expanded=\{isModelListOpen\}/)
   assert.match(appSource, /aria-controls="model-details-panel"/)
+  assert.match(
+    appSource,
+    /const modelDetailsToggleRef = useRef<HTMLButtonElement>\(null\)/,
+  )
+  assert.match(
+    appSource,
+    /const modelDetailsPanelRef = useRef<HTMLDivElement>\(null\)/,
+  )
+  assert.match(appSource, /focusTarget\.focus\(\{ preventScroll: true \}\)/)
+  assert.match(appSource, /tabIndex=\{-1\}/)
+  assert.match(appSource, /role="region"/)
+  assert.match(appSource, /aria-labelledby="model-details-heading"/)
+  assert.match(appSource, /if \(wasOpen === isModelListOpen\) return/)
+  assert.match(
+    appSource,
+    /isFocused \? \([\s\S]*className="series-key-state"[\s\S]*Focused[\s\S]*\) : null/,
+  )
+  assert.match(stylesheetSource, /\.series-key-state/)
+  assert.match(appSource, /className="selection-status visually-hidden"/)
+  assert.match(appSource, /role="status"/)
+  assert.match(appSource, /aria-live="polite"/)
+  assert.match(appSource, /Viewing \$\{activeTool\.label\} models/)
+  assert.match(
+    appSource,
+    /className="page"[\s\S]*role="alert"[\s\S]*aria-live="assertive"/,
+  )
+  assert.match(
+    appSource,
+    /className="page"[\s\S]*role="status"[\s\S]*aria-live="polite"[\s\S]*aria-busy="true"/,
+  )
   assert.match(appSource, /aria-label="Back to all tools"/)
   assert.match(stylesheetSource, /\.chart-breadcrumb button:hover/)
   assert.match(stylesheetSource, /\.model-focus-note button:hover/)
