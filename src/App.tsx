@@ -416,11 +416,13 @@ function ReportApp() {
               <IconButton
                 label="Earlier"
                 icon={<Icon icon="chevronLeft" />}
+                isDisabled={range[0] <= 0}
                 onClick={() => nudge(-1)}
               />
               <IconButton
                 label="Later"
                 icon={<Icon icon="chevronRight" />}
+                isDisabled={range[1] >= daily.length - 1}
                 onClick={() => nudge(1)}
               />
               <Button
@@ -440,8 +442,12 @@ function ReportApp() {
                 <div>
                   {activeTool ? (
                     <div className="chart-breadcrumb">
-                      <button type="button" onClick={returnToTools}>
-                        All tools
+                      <button
+                        type="button"
+                        aria-label="Back to all tools"
+                        onClick={returnToTools}
+                      >
+                        <span aria-hidden="true">←</span> All tools
                       </button>
                       <span aria-hidden="true">/</span>
                       <span aria-current="page">{activeTool.label}</span>
@@ -469,9 +475,15 @@ function ReportApp() {
                       <Badge label="+ unattributed" variant="neutral" />
                     ) : null}
                     <Button
-                      label={`Show all ${modelSelection.modelCount} ${activeTool.label} models`}
+                      label={
+                        isModelListOpen
+                          ? 'Hide model details'
+                          : `Show all ${modelSelection.modelCount} ${activeTool.label} models`
+                      }
                       variant="secondary"
                       size="sm"
+                      aria-expanded={isModelListOpen}
+                      aria-controls="model-details-panel"
                       onClick={() => setIsModelListOpen((open) => !open)}
                     >
                       {isModelListOpen
@@ -559,7 +571,10 @@ function ReportApp() {
                     Focused: <strong>{pinnedModel}</strong>
                     {!pinnedModelUsage ? ' · No usage in this range' : ''}
                   </span>
-                  <button type="button" onClick={() => setPinnedModel(null)}>
+                  <button
+                    type="button"
+                    onClick={() => setPinnedModel(null)}
+                  >
                     Clear focus
                   </button>
                 </div>
@@ -577,7 +592,11 @@ function ReportApp() {
               activeToolSummary &&
               modelSelection &&
               isModelListOpen ? (
-                <div className="model-detail-panel" aria-live="polite">
+                <div
+                  id="model-details-panel"
+                  className="model-detail-panel"
+                  aria-live="polite"
+                >
                   <div className="model-detail-header">
                     <div>
                       <Heading level={4}>

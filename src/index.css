@@ -126,6 +126,21 @@ html[data-theme='light'] {
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    color 140ms ease,
+    transform 100ms ease;
+}
+
+.chart-breadcrumb button:hover,
+.chart-breadcrumb a:hover {
+  color: var(--color-text-accent, #0064e0);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.chart-breadcrumb button:active,
+.chart-breadcrumb a:active {
+  transform: translateY(1px);
 }
 
 .chart-series-key {
@@ -319,11 +334,32 @@ html[data-theme='light'] {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    color 140ms ease,
+    transform 100ms ease;
+}
+
+.model-focus-note button:hover {
+  color: var(--color-text-accent, #0064e0);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.model-focus-note button:active {
+  transform: translateY(1px);
 }
 
 .model-focus-note button:focus-visible {
   outline: 2px solid var(--color-border-focus, #2563eb);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-breadcrumb button,
+  .chart-breadcrumb a,
+  .model-focus-note button {
+    transition: none;
+  }
 }
 
 .model-detail-header {

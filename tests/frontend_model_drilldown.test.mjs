@@ -36,6 +36,22 @@ const rows = [
   },
 ]
 
+const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
+const stylesheetSource = readFileSync(
+  new URL('../src/index.css', import.meta.url),
+  'utf8',
+)
+
+test('interaction controls expose explicit state semantics', () => {
+  assert.match(appSource, /isDisabled=\{range\[0\] <= 0\}/)
+  assert.match(appSource, /isDisabled=\{range\[1\] >= daily\.length - 1\}/)
+  assert.match(appSource, /aria-expanded=\{isModelListOpen\}/)
+  assert.match(appSource, /aria-controls="model-details-panel"/)
+  assert.match(appSource, /aria-label="Back to all tools"/)
+  assert.match(stylesheetSource, /\.chart-breadcrumb button:hover/)
+  assert.match(stylesheetSource, /\.model-focus-note button:hover/)
+})
+
 test('fresh source status adds no page-level notice', () => {
   assert.deepEqual(
     degradedSourceNotices({
