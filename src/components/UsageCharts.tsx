@@ -2,32 +2,42 @@ import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
 import {
+  AriaComponent,
+  AxisPointerComponent,
   GridComponent,
   TooltipComponent,
-  LegendComponent,
-  DataZoomComponent,
-  AxisPointerComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import type { DailyRow } from '../lib/usage'
-import { num, TOOLS } from '../lib/usage'
-import { fmtCompact, fmtUsd } from '../lib/format'
+import type {
+  DailyRow,
+  ModelSeriesSelection,
+  ModelUsage,
+  ToolId,
+} from '../lib/usage'
+import {
+  modelSeriesPoint,
+  num,
+  TOOLS,
+} from '../lib/usage'
+import { modelSeriesColor } from '../lib/chart'
+import { fmtCompact } from '../lib/format'
 
 echarts.use([
+  AriaComponent,
   BarChart,
   LineChart,
   GridComponent,
   TooltipComponent,
-  LegendComponent,
-  DataZoomComponent,
   AxisPointerComponent,
   CanvasRenderer,
 ])
 
 type Props = {
   daily: DailyRow[]
-  range: [number, number]
-  onRangeChange: (next: [number, number]) => void
+  selectedTool: ToolId | null
+  modelSelection: ModelSeriesSelection | null
+  onSelectTool: (toolId: ToolId) => void
+  onOpenModelList: () => void
 }
 
 function mixChannel(c: number, t: number) {
@@ -35,14 +45,18 @@ function mixChannel(c: number, t: number) {
 }
 
 function stackSegStyle(hex: string, cap: 'top' | 'mid' | 'bot') {
-  const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
+  const value = hex.replace('#', '')
+  const r = parseInt(value.slice(0, 2), 16)
+  const g = parseInt(value.slice(2, 4), 16)
+  const b = parseInt(value.slice(4, 6), 16)
   const topRgb = `${mixChannel(r, 0.15)},${mixChannel(g, 0.15)},${mixChannel(b, 0.15)}`
-  const rad = 6
+  const radius = 6
   const borderRadius =
-    cap === 'top' ? [rad, rad, 0, 0] : cap === 'bot' ? [0, 0, rad, rad] : [0, 0, 0, 0]
+    cap === 'top'
+      ? [radius, radius, 0, 0]
+      : cap === 'bot'
+        ? [0, 0, radius, radius]
+        : [0, 0, 0, 0]
   return {
     color: {
       type: 'linear' as const,
@@ -61,87 +75,149 @@ function stackSegStyle(hex: string, cap: 'top' | 'mid' | 'bot') {
   }
 }
 
-export function UsageCharts({ daily, range, onRangeChange }: Props) {
+function capFor(index: number, count: number): 'top' | 'mid' | 'bot' {
+  if (count <= 1 || index === count - 1) return 'top'
+  if (index === 0) return 'bot'
+  return 'mid'
+}
+
+function escapeHtml(value: string) {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character] ?? character,
+  )
+}
+
+function fmtExact(value: number) {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
+}
+
+function fmtTooltipUsd(value: number) {
+  const digits = Math.abs(value) > 0 && Math.abs(value) < 0.01 ? 4 : 2
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`
+}
+
+function fmtAxisUsd(value: number) {
+  const absolute = Math.abs(value)
+  if (absolute >= 1000) return `$${fmtCompact(value)}`
+  const digits = absolute > 0 && absolute < 1 ? 2 : absolute < 10 ? 1 : 0
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  })}`
+}
+
+export function UsageCharts({
+  daily,
+  selectedTool,
+  modelSelection,
+  onSelectTool,
+  onOpenModelList,
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<echarts.EChartsType | null>(null)
-  const rangeRef = useRef(range)
-  rangeRef.current = range
+  const stateRef = useRef({ selectedTool, onSelectTool, onOpenModelList })
+  stateRef.current = { selectedTool, onSelectTool, onOpenModelList }
 
   useEffect(() => {
     if (!hostRef.current) return
     const chart = echarts.init(hostRef.current, undefined, { renderer: 'canvas' })
     chartRef.current = chart
 
-    const onZoom = () => {
-      const opt = chart.getOption() as {
-        dataZoom?: Array<{ startValue?: number | string; endValue?: number | string; start?: number; end?: number }>
+    const onClick = (rawParams: unknown) => {
+      const params = rawParams as { seriesId?: string }
+      const seriesId = String(params.seriesId || '')
+      const state = stateRef.current
+      if (!state.selectedTool && seriesId.startsWith('tool:')) {
+        const toolId = seriesId.slice('tool:'.length) as ToolId
+        if (TOOLS.some((tool) => tool.id === toolId)) state.onSelectTool(toolId)
+      } else if (state.selectedTool && seriesId === 'model:other') {
+        state.onOpenModelList()
       }
-      const dz = opt.dataZoom?.[1] || opt.dataZoom?.[0]
-      if (!dz) return
-      const dates = daily.map((r) => r.date)
-      let i0 = 0
-      let i1 = dates.length - 1
-      if (typeof dz.startValue === 'string' || typeof dz.endValue === 'string') {
-        i0 = Math.max(0, dates.indexOf(String(dz.startValue)))
-        i1 = Math.max(0, dates.indexOf(String(dz.endValue)))
-      } else if (dz.start != null && dz.end != null && dates.length > 1) {
-        i0 = Math.round((dz.start / 100) * (dates.length - 1))
-        i1 = Math.round((dz.end / 100) * (dates.length - 1))
-      }
-      if (i1 < i0) [i0, i1] = [i1, i0]
-      const cur = rangeRef.current
-      if (cur[0] !== i0 || cur[1] !== i1) onRangeChange([i0, i1])
     }
 
-    chart.on('dataZoom', onZoom)
+    chart.on('click', onClick)
     const onResize = () => chart.resize()
     window.addEventListener('resize', onResize)
 
     return () => {
       window.removeEventListener('resize', onResize)
-      chart.off('dataZoom', onZoom)
+      chart.off('click', onClick)
       chart.dispose()
       chartRef.current = null
     }
-  }, [daily, onRangeChange])
+  }, [])
 
   useEffect(() => {
     const chart = chartRef.current
-    if (!chart || !daily.length) return
-
-    const dates = daily.map((r) => r.date)
-    const rotate = dates.length > 36 ? 32 : 0
-    const xAxisCommon = {
-      type: 'category' as const,
-      boundaryGap: true,
-      data: dates,
-      axisLabel: { rotate, fontSize: 11, color: '#64748b' },
-      axisLine: { lineStyle: { color: '#e2e8f0' } },
-      axisTick: { alignWithLabel: true, lineStyle: { color: '#e2e8f0' } },
+    if (!chart) return
+    if (!daily.length) {
+      chart.clear()
+      return
     }
 
-    const stackBar = {
-      type: 'bar' as const,
-      barCategoryGap: '42%',
-      barMaxWidth: 34,
-      emphasis: {
-        focus: 'series' as const,
-        blurScope: 'coordinateSystem' as const,
-        itemStyle: {
-          shadowBlur: 10,
-          shadowColor: 'rgba(15,23,42,0.08)',
-          shadowOffsetY: 1,
-        },
-      },
-    }
-
-    const totalDaySpend = daily.map(
-      (r) =>
-        num(r, 'codex_cost') +
-        num(r, 'claude_cost') +
-        num(r, 'cursor_cost') +
-        num(r, 'oneapi_cost'),
+    const dates = daily.map((row) => row.date)
+    const activeTool = selectedTool
+      ? TOOLS.find((tool) => tool.id === selectedTool)
+      : undefined
+    const totalDaySpend = daily.map((row) =>
+      activeTool
+        ? num(row, activeTool.costKey)
+        : TOOLS.reduce((sum, tool) => sum + num(row, tool.costKey), 0),
     )
+    const specs = activeTool ? modelSelection?.series ?? [] : []
+    const bars = activeTool
+      ? specs.map((spec, index) => ({
+          id: spec.id,
+          name: spec.label,
+          type: 'bar' as const,
+          stack: 'tokens',
+          cursor: spec.kind === 'other' ? 'pointer' : 'default',
+          barCategoryGap: '42%',
+          barMaxWidth: 34,
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          emphasis: {
+            focus: 'series' as const,
+            blurScope: 'coordinateSystem' as const,
+          },
+          itemStyle: stackSegStyle(
+            modelSeriesColor(activeTool.hex, index, spec.kind),
+            capFor(index, specs.length),
+          ),
+          data: daily.map(
+            (row) => modelSeriesPoint(row, activeTool.id, spec).tokens,
+          ),
+        }))
+      : TOOLS.map((tool, index) => ({
+          id: `tool:${tool.id}`,
+          name: tool.label,
+          type: 'bar' as const,
+          stack: 'tokens',
+          cursor: 'pointer',
+          barCategoryGap: '42%',
+          barMaxWidth: 34,
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          emphasis: {
+            focus: 'series' as const,
+            blurScope: 'coordinateSystem' as const,
+          },
+          itemStyle: stackSegStyle(tool.hex, capFor(index, TOOLS.length)),
+          data: daily.map((row) => num(row, tool.tokenKey)),
+        }))
+    const lineColor = activeTool?.hex ?? '#334155'
+    const rotate = dates.length > 24 ? 32 : 0
 
     chart.setOption(
       {
@@ -149,9 +225,16 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
         textStyle: {
           fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
         },
-        axisPointer: { link: [{ xAxisIndex: [0, 1, 2] }], snap: true },
+        aria: {
+          enabled: true,
+          description: activeTool
+            ? `${activeTool.label} daily model tokens and spend`
+            : 'Daily tokens and spend by AI coding tool',
+        },
+        axisPointer: { link: [{ xAxisIndex: [0, 1] }], snap: true },
         tooltip: {
           trigger: 'axis',
+          confine: true,
           axisPointer: {
             type: 'shadow',
             shadowStyle: { color: 'rgba(15, 23, 42, 0.05)' },
@@ -162,70 +245,112 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
           borderColor: '#e2e8f0',
           borderWidth: 1,
           textStyle: { color: '#0f172a', fontSize: 12 },
-          extraCssText: 'box-shadow:0 12px 40px rgba(15,23,42,0.08);',
+          extraCssText:
+            'box-shadow:0 12px 40px rgba(15,23,42,0.08);max-height:60vh;overflow:auto;',
           formatter: (params: unknown) => {
             const list = params as Array<{ dataIndex: number }>
             if (!list?.length) return ''
-            const idx = list[0].dataIndex
-            const row = daily[idx]
+            const row = daily[list[0].dataIndex]
             if (!row) return ''
-            const lines = [`<strong>${row.date}</strong>`]
+            const lines = [`<strong>${escapeHtml(row.date)}</strong>`]
+
+            if (activeTool) {
+              const rawModels = row[activeTool.modelKey]
+              const models = (
+                Array.isArray(rawModels) ? (rawModels as ModelUsage[]) : []
+              )
+                .filter((model) => Number(model.tokens) || Number(model.cost))
+                .sort(
+                  (a, b) =>
+                    Number(b.tokens) - Number(a.tokens) ||
+                    a.model.localeCompare(b.model),
+                )
+              lines.push(
+                `<div style="margin-top:8px"><strong>${escapeHtml(activeTool.label)}</strong></div>`,
+              )
+              for (const model of models) {
+                const suffix =
+                  model.model === 'Legacy unknown' ? ' · unattributed' : ''
+                lines.push(
+                  `${escapeHtml(model.model)}${suffix}: ${fmtExact(Number(model.tokens) || 0)} · ${fmtTooltipUsd(Number(model.cost) || 0)}`,
+                )
+              }
+              lines.push(
+                `<div style="margin-top:8px">Tool total: <strong>${fmtExact(num(row, activeTool.tokenKey))}</strong> · ${fmtTooltipUsd(num(row, activeTool.costKey))}</div>`,
+              )
+              return lines.join('<br/>')
+            }
+
             for (const tool of TOOLS) {
               lines.push(
-                `<div style="margin-top:8px"><span style="color:#64748b">${tool.label}</span></div>`,
+                `<div style="margin-top:8px"><strong>${escapeHtml(tool.label)}</strong>: ${fmtExact(num(row, tool.tokenKey))} · ${fmtTooltipUsd(num(row, tool.costKey))}</div>`,
               )
-              lines.push(
-                `Total ${fmtCompact(num(row, tool.tokenKey))} · ${fmtUsd(num(row, tool.costKey))}`,
-              )
-              for (const part of tool.breakdown) {
-                const v = num(row, part.key)
-                if (v) lines.push(`${part.label}: ${fmtCompact(v)}`)
-              }
+              const parts = tool.breakdown
+                .map((part) => {
+                  const value = num(row, part.key)
+                  return value ? `${part.label} ${fmtExact(value)}` : ''
+                })
+                .filter(Boolean)
+              if (parts.length) lines.push(parts.join(' · '))
             }
+            const dayTokens = TOOLS.reduce(
+              (sum, tool) => sum + num(row, tool.tokenKey),
+              0,
+            )
             lines.push(
-              `<div style="margin-top:8px">Daily spend (all tools): <strong>${fmtUsd(totalDaySpend[idx] || 0)}</strong></div>`,
+              `<div style="margin-top:8px">All tools: <strong>${fmtExact(dayTokens)}</strong> · ${fmtTooltipUsd(totalDaySpend[list[0].dataIndex] || 0)}</div>`,
             )
             return lines.join('<br/>')
           },
         },
-        legend: {
-          data: [
-            'Codex',
-            'Claude',
-            'Cursor',
-            'One API',
-            'Codex cache',
-            'Claude cache',
-            'Cursor cache',
-            'One API cache',
-            'Daily spend (all tools)',
-          ],
-          type: 'scroll',
-          top: 6,
-          left: 'center',
-          itemGap: 14,
-          itemWidth: 10,
-          itemHeight: 10,
-          icon: 'circle',
-          textStyle: { color: '#64748b', fontSize: 11 },
-        },
         grid: [
-          { left: 56, right: 48, top: 88, height: '22%' },
-          { left: 56, right: 48, top: '40%', height: '22%' },
-          { left: 56, right: 48, top: '68%', height: '18%' },
+          { left: 58, right: 28, top: 28, height: '50%' },
+          { left: 58, right: 28, top: '68%', height: '22%' },
         ],
         xAxis: [
-          { ...xAxisCommon, gridIndex: 0, axisLabel: { ...xAxisCommon.axisLabel, margin: 10 } },
-          { ...xAxisCommon, gridIndex: 1, axisLabel: { show: false } },
-          { ...xAxisCommon, gridIndex: 2, axisLabel: { ...xAxisCommon.axisLabel, margin: 10 } },
+          {
+            type: 'category',
+            boundaryGap: true,
+            data: dates,
+            gridIndex: 0,
+            axisLabel: { show: false },
+            axisLine: { lineStyle: { color: '#e2e8f0' } },
+            axisTick: { show: false },
+          },
+          {
+            type: 'category',
+            boundaryGap: true,
+            data: dates,
+            gridIndex: 1,
+            axisLabel: {
+              rotate,
+              fontSize: 11,
+              color: '#64748b',
+              margin: 10,
+            },
+            axisLine: { lineStyle: { color: '#e2e8f0' } },
+            axisTick: {
+              alignWithLabel: true,
+              lineStyle: { color: '#e2e8f0' },
+            },
+          },
         ],
         yAxis: [
           {
             type: 'value',
             gridIndex: 0,
-            name: 'Total tokens / day',
-            nameTextStyle: { fontSize: 11, color: '#94a3b8', padding: [0, 0, 0, 8] },
-            axisLabel: { formatter: (v: number) => fmtCompact(v), color: '#64748b' },
+            name: activeTool
+              ? `${activeTool.label} model tokens / day`
+              : 'Tool tokens / day',
+            nameTextStyle: {
+              fontSize: 11,
+              color: '#94a3b8',
+              padding: [0, 0, 0, 8],
+            },
+            axisLabel: {
+              formatter: (value: number) => fmtCompact(value),
+              color: '#64748b',
+            },
             min: 0,
             splitLine: {
               show: true,
@@ -235,21 +360,18 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
           {
             type: 'value',
             gridIndex: 1,
-            name: 'Cache tokens / day',
-            nameTextStyle: { fontSize: 11, color: '#94a3b8', padding: [0, 0, 0, 8] },
-            axisLabel: { formatter: (v: number) => fmtCompact(v), color: '#64748b' },
-            min: 0,
-            splitLine: {
-              show: true,
-              lineStyle: { color: 'rgba(148,163,184,0.16)', type: [4, 4] },
+            name: activeTool
+              ? `${activeTool.label} spend / day`
+              : 'Total spend / day',
+            nameTextStyle: {
+              fontSize: 11,
+              color: '#94a3b8',
+              padding: [0, 0, 0, 8],
             },
-          },
-          {
-            type: 'value',
-            gridIndex: 2,
-            name: 'Total spend / day',
-            nameTextStyle: { fontSize: 11, color: '#94a3b8', padding: [0, 0, 0, 8] },
-            axisLabel: { formatter: (v: number) => `$${v}`, color: '#64748b' },
+            axisLabel: {
+              formatter: (value: number) => fmtAxisUsd(value),
+              color: '#64748b',
+            },
             min: 0,
             splitLine: {
               show: true,
@@ -257,119 +379,22 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
             },
           },
         ],
-        dataZoom: [
-          {
-            type: 'inside',
-            xAxisIndex: [0, 1, 2],
-            filterMode: 'none',
-            zoomOnMouseWheel: false,
-            moveOnMouseMove: false,
-            moveOnMouseWheel: false,
-          },
-          {
-            type: 'slider',
-            xAxisIndex: [0, 1, 2],
-            filterMode: 'none',
-            height: 36,
-            bottom: 20,
-            showDetail: true,
-            textStyle: { fontSize: 12, color: '#475569' },
-            borderColor: '#e2e8f0',
-            backgroundColor: '#f8fafc',
-            fillerColor: 'rgba(13, 148, 136, 0.14)',
-            handleStyle: { color: '#fff', borderColor: '#0f766e', borderWidth: 2 },
-          },
-        ],
         series: [
+          ...bars,
           {
-            name: 'Codex',
-            ...stackBar,
-            stack: 'tokens',
-            xAxisIndex: 0,
-            yAxisIndex: 0,
-            itemStyle: stackSegStyle(TOOLS[0].hex, 'bot'),
-            data: daily.map((r) => num(r, 'codex_tokens')),
-          },
-          {
-            name: 'Claude',
-            ...stackBar,
-            stack: 'tokens',
-            xAxisIndex: 0,
-            yAxisIndex: 0,
-            itemStyle: stackSegStyle(TOOLS[1].hex, 'mid'),
-            data: daily.map((r) => num(r, 'claude_tokens')),
-          },
-          {
-            name: 'Cursor',
-            ...stackBar,
-            stack: 'tokens',
-            xAxisIndex: 0,
-            yAxisIndex: 0,
-            itemStyle: stackSegStyle(TOOLS[2].hex, 'mid'),
-            data: daily.map((r) => num(r, 'cursor_tokens')),
-          },
-          {
-            name: 'One API',
-            ...stackBar,
-            stack: 'tokens',
-            xAxisIndex: 0,
-            yAxisIndex: 0,
-            itemStyle: stackSegStyle(TOOLS[3].hex, 'top'),
-            data: daily.map((r) => num(r, 'oneapi_tokens')),
-          },
-          {
-            name: 'Codex cache',
-            ...stackBar,
-            stack: 'cache',
-            xAxisIndex: 1,
-            yAxisIndex: 1,
-            itemStyle: stackSegStyle(TOOLS[0].hex, 'bot'),
-            data: daily.map((r) => num(r, 'codex_cache_read')),
-          },
-          {
-            name: 'Claude cache',
-            ...stackBar,
-            stack: 'cache',
-            xAxisIndex: 1,
-            yAxisIndex: 1,
-            itemStyle: stackSegStyle(TOOLS[1].hex, 'mid'),
-            data: daily.map(
-              (r) => num(r, 'claude_cache_create') + num(r, 'claude_cache_read'),
-            ),
-          },
-          {
-            name: 'Cursor cache',
-            ...stackBar,
-            stack: 'cache',
-            xAxisIndex: 1,
-            yAxisIndex: 1,
-            itemStyle: stackSegStyle(TOOLS[2].hex, 'mid'),
-            data: daily.map(
-              (r) => num(r, 'cursor_cache_write') + num(r, 'cursor_cache_read'),
-            ),
-          },
-          {
-            name: 'One API cache',
-            ...stackBar,
-            stack: 'cache',
-            xAxisIndex: 1,
-            yAxisIndex: 1,
-            itemStyle: stackSegStyle(TOOLS[3].hex, 'top'),
-            data: daily.map(
-              (r) => num(r, 'oneapi_cache_read') + num(r, 'oneapi_cache_write'),
-            ),
-          },
-          {
-            name: 'Daily spend (all tools)',
+            id: 'spend',
+            name: activeTool
+              ? `${activeTool.label} spend`
+              : 'Daily spend (all tools)',
             type: 'line',
-            xAxisIndex: 2,
-            yAxisIndex: 2,
+            xAxisIndex: 1,
+            yAxisIndex: 1,
             smooth: 0.35,
             symbol: 'circle',
             symbolSize: dates.length > 72 ? 0 : 5,
             showSymbol: dates.length <= 72,
-            lineStyle: { width: 2.4, color: '#334155' },
-            itemStyle: { color: '#334155', borderWidth: 0 },
+            lineStyle: { width: 2.4, color: lineColor },
+            itemStyle: { color: lineColor, borderWidth: 0 },
             areaStyle: {
               color: {
                 type: 'linear',
@@ -378,8 +403,8 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
                 x2: 0,
                 y2: 1,
                 colorStops: [
-                  { offset: 0, color: 'rgba(51,65,85,0.2)' },
-                  { offset: 1, color: 'rgba(51,65,85,0.02)' },
+                  { offset: 0, color: `${lineColor}33` },
+                  { offset: 1, color: `${lineColor}05` },
                 ],
               },
             },
@@ -389,25 +414,79 @@ export function UsageCharts({ daily, range, onRangeChange }: Props) {
       },
       { notMerge: true },
     )
+  }, [daily, modelSelection, selectedTool])
 
-    const n = dates.length
-    if (n > 0) {
-      const i0 = Math.max(0, Math.min(n - 1, range[0]))
-      const i1 = Math.max(i0, Math.min(n - 1, range[1]))
-      if (n === 1) {
-        chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100, xAxisIndex: [0, 1, 2] })
-      } else {
-        const start = (i0 / (n - 1)) * 100
-        const end = (i1 / (n - 1)) * 100
-        chart.dispatchAction({
-          type: 'dataZoom',
-          start,
-          end: Math.max(start, end),
-          xAxisIndex: [0, 1, 2],
-        })
-      }
-    }
-  }, [daily, range])
+  const label = selectedTool
+    ? `${TOOLS.find((tool) => tool.id === selectedTool)?.label ?? selectedTool} daily model usage`
+    : 'Daily usage by AI coding tool'
+  const activeTool = selectedTool
+    ? TOOLS.find((tool) => tool.id === selectedTool)
+    : undefined
+  const accessibleSeries = activeTool
+    ? modelSelection?.series ?? []
+    : TOOLS.map((tool) => ({
+        id: `tool:${tool.id}`,
+        label: tool.label,
+        kind: 'model' as const,
+        models: [],
+        tokens: 0,
+        cost: 0,
+      }))
 
-  return <div className="chart-host" ref={hostRef} />
+  return (
+    <>
+      <div className="chart-host" ref={hostRef} role="img" aria-label={label} />
+      <div className="visually-hidden">
+        <table>
+          <caption>{label}, exact daily data</caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              {accessibleSeries.map((series) => (
+                <th scope="col" key={series.id}>
+                  {series.kind === 'legacy'
+                    ? 'Unattributed legacy tokens'
+                    : `${series.label} tokens`}
+                </th>
+              ))}
+              <th scope="col">
+                {activeTool ? `${activeTool.label} spend` : 'All tools spend'}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {daily.map((row) => (
+              <tr key={row.date}>
+                <th scope="row">{row.date}</th>
+                {accessibleSeries.map((series) => (
+                  <td key={series.id}>
+                    {fmtExact(
+                      activeTool
+                        ? modelSeriesPoint(row, activeTool.id, series).tokens
+                        : num(
+                            row,
+                            TOOLS.find(
+                              (tool) => `tool:${tool.id}` === series.id,
+                            )?.tokenKey ?? 'total_tokens',
+                          ),
+                    )}
+                  </td>
+                ))}
+                <td>
+                  {fmtTooltipUsd(
+                    activeTool
+                      ? num(row, activeTool.costKey)
+                      : TOOLS.reduce(
+                          (sum, tool) => sum + num(row, tool.costKey),
+                          0,
+                        ),
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
 }

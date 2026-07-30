@@ -17,24 +17,58 @@ import { DateRangeInput } from '@astryxdesign/core/DateRangeInput'
 import type { DateRange } from '@astryxdesign/core/DateRangeInput'
 import type { ISODateString } from '@astryxdesign/core/Calendar'
 import { EmptyState } from '@astryxdesign/core/EmptyState'
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { UsageCharts } from './components/UsageCharts'
+import { modelSeriesColor } from './lib/chart'
 import { fmtCompact, fmtUsd } from './lib/format'
 import {
   indexForPreset,
   loadUsage,
+  selectModelSeries,
   summarizeRange,
+  TOOLS,
   type DailyRow,
+  type ModelSeriesSpec,
+  type ToolId,
   type UsagePayload,
 } from './lib/usage'
 
 type Preset = '7' | '30' | '90' | 'all'
+
+function fmtExactTokens(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+function fmtExactUsd(value: number) {
+  const digits = Math.abs(value) > 0 && Math.abs(value) < 0.01 ? 4 : 2
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`
+}
+
+function modelLabel(series: ModelSeriesSpec) {
+  return series.kind === 'legacy' ? 'Unattributed (legacy)' : series.label
+}
 
 function ReportApp() {
   const [payload, setPayload] = useState<UsagePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [preset, setPreset] = useState<Preset>('30')
   const [range, setRange] = useState<[number, number]>([0, -1])
+  const [selectedTool, setSelectedTool] = useState<ToolId | null>(null)
+  const [pinnedModel, setPinnedModel] = useState<string | null>(null)
+  const [isModelListOpen, setIsModelListOpen] = useState(false)
+  const chartSectionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -53,13 +87,29 @@ function ReportApp() {
     }
   }, [])
 
-  const daily = payload?.daily ?? []
+  const daily = useMemo(() => payload?.daily ?? [], [payload])
   const visible = useMemo(() => {
     if (!daily.length || range[1] < range[0]) return [] as DailyRow[]
     return daily.slice(range[0], range[1] + 1)
   }, [daily, range])
 
   const summary = useMemo(() => summarizeRange(visible), [visible])
+  const activeTool = selectedTool
+    ? TOOLS.find((tool) => tool.id === selectedTool) ?? null
+    : null
+  const activeToolSummary = selectedTool
+    ? summary.byTool.find((tool) => tool.id === selectedTool) ?? null
+    : null
+  const modelSelection = useMemo(
+    () =>
+      selectedTool
+        ? selectModelSeries(visible, selectedTool, pinnedModel)
+        : null,
+    [pinnedModel, selectedTool, visible],
+  )
+  const pinnedModelUsage = pinnedModel
+    ? modelSelection?.fullModels.find((model) => model.model === pinnedModel)
+    : undefined
 
   const dateRangeValue: DateRange | null = useMemo(() => {
     if (!visible.length) return null
@@ -76,11 +126,6 @@ function ReportApp() {
     },
     [daily],
   )
-
-  const onRangeChange = useCallback((next: [number, number]) => {
-    setRange(next)
-    setPreset('all')
-  }, [])
 
   const nudge = useCallback(
     (dir: -1 | 1) => {
@@ -121,6 +166,31 @@ function ReportApp() {
     },
     [daily],
   )
+
+  const selectTool = useCallback((toolId: ToolId, scrollToChart = false) => {
+    setSelectedTool(toolId)
+    setPinnedModel(null)
+    setIsModelListOpen(false)
+    if (scrollToChart) {
+      window.requestAnimationFrame(() => {
+        chartSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      })
+    }
+  }, [])
+
+  const returnToTools = useCallback(() => {
+    setSelectedTool(null)
+    setPinnedModel(null)
+    setIsModelListOpen(false)
+  }, [])
+
+  const toggleModelFocus = useCallback((model: string) => {
+    setPinnedModel((current) => (current === model ? null : model))
+    setIsModelListOpen(false)
+  }, [])
 
   if (error) {
     return (
@@ -229,13 +299,26 @@ function ReportApp() {
                 </div>
                 {tool.models.length ? (
                   <div className="model-list">
-                    <Text
-                      size="sm"
-                      color="secondary"
-                      weight="semibold"
-                    >
-                      Models · {tool.models.length}
-                    </Text>
+                    <HStack justify="between" align="center" gap={2}>
+                      <Text size="sm" color="secondary" weight="semibold">
+                        Models ·{' '}
+                        {
+                          tool.models.filter(
+                            (model) => model.model !== 'Legacy unknown',
+                          ).length
+                        }
+                      </Text>
+                      <Button
+                        label={`Explore ${tool.label} models`}
+                        variant="ghost"
+                        size="sm"
+                        className="model-drill-trigger"
+                        onClick={() => selectTool(tool.id, true)}
+                        endContent={<span aria-hidden="true">›</span>}
+                      >
+                        Explore
+                      </Button>
+                    </HStack>
                     {tool.models.map((model) => (
                       <div
                         className="model-row"
@@ -243,7 +326,9 @@ function ReportApp() {
                       >
                         <Text size="sm">
                           <span className="model-name" title={model.model}>
-                            {model.model}
+                            {model.model === 'Legacy unknown'
+                              ? 'Unattributed (legacy)'
+                              : model.model}
                           </span>
                         </Text>
                         <Text size="sm" justify="end">
@@ -309,11 +394,215 @@ function ReportApp() {
 
         <Card padding={3}>
           {daily.length ? (
-            <UsageCharts
-              daily={daily}
-              range={range}
-              onRangeChange={onRangeChange}
-            />
+            <div className="chart-panel" ref={chartSectionRef}>
+              <div className="chart-heading">
+                <div>
+                  {activeTool ? (
+                    <div className="chart-breadcrumb">
+                      <button type="button" onClick={returnToTools}>
+                        All tools
+                      </button>
+                      <span aria-hidden="true">/</span>
+                      <span>{activeTool.label}</span>
+                    </div>
+                  ) : null}
+                  <Heading level={3}>
+                    {activeTool
+                      ? `${activeTool.label} models over time`
+                      : 'Daily tokens by tool'}
+                  </Heading>
+                  <Text size="sm" color="secondary">
+                    {activeTool
+                      ? `Models and spend for ${spanLabel}.`
+                      : 'Select a tool below to view its model mix. Spend follows the current view.'}
+                  </Text>
+                </div>
+
+                {activeTool && modelSelection ? (
+                  <div className="chart-toolbar">
+                    <Badge
+                      label={`${modelSelection.modelCount} identified model${modelSelection.modelCount === 1 ? '' : 's'}`}
+                      variant="neutral"
+                    />
+                    {modelSelection.hasLegacy ? (
+                      <Badge label="+ unattributed" variant="neutral" />
+                    ) : null}
+                    <Button
+                      label={`Show all ${modelSelection.modelCount} ${activeTool.label} models`}
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setIsModelListOpen((open) => !open)}
+                    >
+                      {isModelListOpen
+                        ? 'Hide model details'
+                        : `All ${modelSelection.modelCount} models`}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div
+                className={`chart-series-key ${
+                  activeTool ? 'is-model' : 'is-tool'
+                }`}
+                aria-label={
+                  activeTool
+                    ? `${activeTool.label} model series`
+                    : 'Select a tool'
+                }
+              >
+                {activeTool && modelSelection
+                  ? modelSelection.series.map((series, index) => {
+                      const canFocus =
+                        series.kind === 'model' && series.models.length === 1
+                      const isFocused =
+                        canFocus && pinnedModel === series.models[0]
+                      return (
+                        <button
+                          type="button"
+                          className="series-key-button"
+                          key={series.id}
+                          aria-pressed={canFocus ? isFocused : undefined}
+                          onClick={() => {
+                            if (series.kind === 'other') {
+                              setIsModelListOpen(true)
+                            } else if (series.kind === 'legacy') {
+                              setIsModelListOpen(true)
+                            } else if (canFocus) {
+                              toggleModelFocus(series.models[0])
+                            }
+                          }}
+                        >
+                          <span
+                            className="series-swatch"
+                            style={{
+                              backgroundColor: modelSeriesColor(
+                                activeTool.hex,
+                                index,
+                                series.kind,
+                              ),
+                            }}
+                            aria-hidden="true"
+                          />
+                          <span>{modelLabel(series)}</span>
+                          <span className="series-key-value">
+                            {fmtCompact(series.tokens)}
+                          </span>
+                        </button>
+                      )
+                    })
+                  : summary.byTool.map((tool) => (
+                      <button
+                        type="button"
+                        className="series-key-button"
+                        key={tool.id}
+                        onClick={() => selectTool(tool.id)}
+                      >
+                        <span
+                          className="series-swatch"
+                          style={{ backgroundColor: tool.hex }}
+                          aria-hidden="true"
+                        />
+                        <span>{tool.label}</span>
+                        <span className="series-key-value">
+                          {fmtCompact(tool.tokens)}
+                        </span>
+                        <span aria-hidden="true">›</span>
+                      </button>
+                    ))}
+              </div>
+
+              {activeTool && pinnedModel ? (
+                <div className="model-focus-note" role="status">
+                  <span>
+                    Focused: <strong>{pinnedModel}</strong>
+                    {!pinnedModelUsage ? ' · No usage in this range' : ''}
+                  </span>
+                  <button type="button" onClick={() => setPinnedModel(null)}>
+                    Clear focus
+                  </button>
+                </div>
+              ) : null}
+
+              <UsageCharts
+                daily={visible}
+                selectedTool={selectedTool}
+                modelSelection={modelSelection}
+                onSelectTool={(toolId) => selectTool(toolId)}
+                onOpenModelList={() => setIsModelListOpen(true)}
+              />
+
+              {activeTool &&
+              activeToolSummary &&
+              modelSelection &&
+              isModelListOpen ? (
+                <div className="model-detail-panel" aria-live="polite">
+                  <div className="model-detail-header">
+                    <div>
+                      <Heading level={4}>
+                        {activeTool.label} model details
+                      </Heading>
+                      <Text size="sm" color="secondary">
+                        Exact totals for {spanLabel}. Select an identified model
+                        to keep it visible in the chart.
+                      </Text>
+                    </div>
+                    <Button
+                      label="Close model details"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsModelListOpen(false)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+
+                  <div className="model-detail-columns" aria-hidden="true">
+                    <span>Model</span>
+                    <span>Tokens</span>
+                    <span>Share</span>
+                    <span>Spend</span>
+                  </div>
+                  <div className="model-detail-list">
+                    {modelSelection.fullModels.map((model) => {
+                      const isLegacy = model.model === 'Legacy unknown'
+                      const total = activeToolSummary.tokens
+                      const share = total > 0 ? (model.tokens / total) * 100 : 0
+                      const isFocused = pinnedModel === model.model
+                      return (
+                        <button
+                          type="button"
+                          className="model-detail-row"
+                          key={model.model}
+                          aria-pressed={isLegacy ? undefined : isFocused}
+                          aria-label={`${isLegacy ? 'Unattributed legacy' : model.model}, ${fmtExactTokens(model.tokens)} tokens, ${share.toFixed(1)} percent, ${fmtExactUsd(model.cost)} spend${isLegacy ? '' : ', focus in chart'}`}
+                          onClick={() => {
+                            if (!isLegacy) toggleModelFocus(model.model)
+                          }}
+                          disabled={isLegacy}
+                        >
+                          <span className="model-detail-name">
+                            {isLegacy
+                              ? 'Unattributed (legacy)'
+                              : model.model}
+                            {!isLegacy && isFocused ? (
+                              <span className="model-focused-label">
+                                Focused
+                              </span>
+                            ) : null}
+                          </span>
+                          <span data-label="Tokens">
+                            {fmtExactTokens(model.tokens)}
+                          </span>
+                          <span data-label="Share">{share.toFixed(1)}%</span>
+                          <span data-label="Spend">{fmtExactUsd(model.cost)}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <EmptyState
               title="No daily rows"

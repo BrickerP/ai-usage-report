@@ -1,32 +1,79 @@
-# Brainstorm: model visibility without a new dashboard
+# 图表区优化 Brainstorm（方案 A）
 
-## Working hypothesis
+## Hypothesis
 
-The report already has the right information hierarchy. The missing piece is not
-another analytics surface, but a compact explanation of which models make up each
-existing tool total.
+用户并不需要更多统计口径，而是希望在保留现有页面气质和结构的前提下，能从「工具用量」自然看见「工具里的模型种类及对应数据」。
 
-## Approved direction
+当前置信度：88%。
 
-- Keep the combined summary, tool cards, date controls, and charts in place.
-- Keep Codex, Claude Code, and Cursor accounting unchanged.
-- Remove Comate as an independent card and series.
-- Fold the one-time local Comate history into One API, without double-counting
-  gateway-covered dates.
-- Add compact model rows inside each existing tool card.
-- Each model row shows only model name, tokens, and estimated cost.
-- Model rows follow the selected date range.
+## HMW
 
-## Explicit non-goals
+我们如何在不增加页面层级和常驻信息量的情况下，让同一张时间图既能回答「哪种工具用得多」，也能进一步回答「具体用了哪些模型、各用了多少」？
 
-- No model-first dashboard.
-- No additional KPI vocabulary.
-- No second leaderboard, drawer, or drill-down mode.
-- No invoice-grade reconciliation.
-- No redesign of the existing chart.
+## 已确认约束
 
-## MVP
+- 保留当前顶部汇总、四张工具卡、时间范围和整体视觉语言。
+- 不新增一套“更全面”的统计口径。
+- 模型是工具的下一层，不应与 Codex、Claude Code、Cursor、One API 平铺成更多一级卡片。
+- 默认状态仍应适合快速扫一眼，不把页面改成分析后台。
+- 不是为多人 BI、财务对账或重度数据分析用户设计；主要服务维护者本人快速理解近期使用结构。
 
-One implementation pass: normalized per-day model breakdowns in `usage.json`,
-four existing-style cards with inline model rows, migrated local Comate history,
-updated favicon, production build, publication, and launchd restart.
+## 当前图表的主要摩擦
+
+1. `Total tokens / day` 与 `Cache tokens / day` 视觉高度重复。全历史 cache 占 tokens 的 91.7%，两条柱状轨道看起来几乎是同一张图。
+2. 图例包含 9 个 series，已经分页为 `1/2`，部分信息默认不可见。
+3. All 视图有约 180 个日点，倾斜日期标签仍然密集；图表需要很高才能读完。
+4. 时间预设、日期选择、前后移动、Reset、底部缩放条同时存在，范围操作有重复。
+5. 图表只能回答工具级变化；模型虽已在卡片中列出，却没有时间维度。
+
+## 发散变体
+
+1. **模型下钻**：默认按四个工具堆叠；点一个工具后，同一张图原位切换为该工具的全部模型。
+2. **工具 / 模型切换**：增加一个二态切换，模型态展示当前范围的模型时间线。
+3. **替换 cache 轨**：保留工具柱和费用线，把中间 cache 图替换为当前范围的模型排行。
+4. **Hover 模型透镜**：不增加常驻区域，只在悬停某天时显示当天模型组成。
+5. **工具小多图**：每个工具一条小时间线，内部按模型拆分。
+6. **模型 × 日期热力图**：纵轴模型、横轴日期、颜色代表 tokens。
+7. **只做视觉减法**：不加入模型时间线，仅精简图例、日期轴和范围控件。
+
+## 收敛方向
+
+### A. 同图原位下钻（推荐）
+
+- **用户价值**：先看工具全局，再点进工具看模型；没有新增面板。
+- **可行性**：现有 daily row 已包含各工具的模型明细，可复用当前 ECharts 时间轴。
+- **差异点**：模型不是另一套 dashboard，而是工具的自然下一层。
+- **隐藏假设**：用户愿意通过一次点击进入模型层，并理解再次点击返回。
+- **配套减法**：删除独立 cache 轨；cache 留在工具卡、tooltip，并可用柱内浅色占比表达。
+
+### B. 工具 / 模型双视图
+
+- **用户价值**：状态明确，容易理解。
+- **可行性**：实现直接，两个视图共用日期范围。
+- **差异点**：完整展示模型时间线，但保持单图。
+- **隐藏假设**：增加一个切换控件不会被感知为页面复杂化。
+
+### C. 模型排行替换 cache 轨
+
+- **用户价值**：一屏同时看到时间走势和模型数据。
+- **可行性**：实现风险最低。
+- **差异点**：不需要学习下钻交互。
+- **隐藏假设**：当前范围汇总足够，不需要知道每个模型在哪一天使用。
+
+## 推荐
+
+选择 **A：同图原位下钻**。
+
+页面默认几乎不变，但图表从三轨缩成两轨：
+
+1. 主轨：默认四工具每日 tokens；选中工具后原位变为该工具的模型每日 tokens。
+2. 辅轨：每日费用，跟随当前工具层级。
+
+cache 不再占一整条时间轨，而保留在卡片、tooltip 和柱内弱编码中。这样是在现有设计上“加深一层”，不是增加一层页面。
+
+## 待验证假设
+
+- 最常见动作是先发现某天异常，再追问由哪个工具、哪个模型造成。
+- 模型时间分布比 cache 的独立时间分布更有决策价值。
+- 模型层默认展示全部非零模型；只有极小模型可进入 tooltip，而不做 Top N 截断。
+- `Legacy unknown` 必须保留，但应该用中性样式与已识别模型区分。

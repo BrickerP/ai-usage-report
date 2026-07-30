@@ -62,6 +62,22 @@ export type UsagePayload = {
 
 export type ToolId = 'codex' | 'claude' | 'cursor' | 'oneapi'
 
+export type ModelSeriesSpec = {
+  id: string
+  label: string
+  kind: 'model' | 'legacy' | 'other'
+  models: string[]
+  tokens: number
+  cost: number
+}
+
+export type ModelSeriesSelection = {
+  modelCount: number
+  hasLegacy: boolean
+  fullModels: ModelUsage[]
+  series: ModelSeriesSpec[]
+}
+
 export const TOOLS: Array<{
   id: ToolId
   label: string
@@ -193,6 +209,113 @@ export function summarizeRange(rows: DailyRow[]) {
   })
   for (const row of rows) cache += rowCache(row)
   return { tokens, cache, cost, byTool }
+}
+
+export function selectModelSeries(
+  rows: Array<Partial<DailyRow>>,
+  toolId: ToolId,
+  pinnedModel?: string | null,
+): ModelSeriesSelection {
+  const tool = TOOLS.find((candidate) => candidate.id === toolId)
+  if (!tool) {
+    return { modelCount: 0, hasLegacy: false, fullModels: [], series: [] }
+  }
+
+  const modelMap = new Map<string, ModelUsage>()
+  for (const row of rows) {
+    const models = row[tool.modelKey]
+    if (!Array.isArray(models)) continue
+    for (const model of models as ModelUsage[]) {
+      const name = String(model.model || '').trim()
+      if (!name) continue
+      const current = modelMap.get(name) ?? { model: name, tokens: 0, cost: 0 }
+      current.tokens += Number(model.tokens) || 0
+      current.cost += Number(model.cost) || 0
+      modelMap.set(name, current)
+    }
+  }
+
+  const fullModels = [...modelMap.values()]
+    .filter((model) => model.tokens || model.cost)
+    .sort((a, b) => b.tokens - a.tokens || a.model.localeCompare(b.model))
+  const legacy = fullModels.find((model) => model.model === 'Legacy unknown')
+  const identified = fullModels.filter((model) => model.model !== 'Legacy unknown')
+  let visible = identified.slice(0, 4)
+  const pinned = pinnedModel
+    ? identified.find((model) => model.model === pinnedModel)
+    : undefined
+  if (pinned && !visible.some((model) => model.model === pinned.model)) {
+    visible = [...visible.slice(0, 3), pinned]
+  }
+
+  const visibleNames = new Set(visible.map((model) => model.model))
+  const otherModels = identified.filter((model) => !visibleNames.has(model.model))
+  const series: ModelSeriesSpec[] = visible.map((model) => ({
+    id: `model:${model.model}`,
+    label: model.model,
+    kind: 'model',
+    models: [model.model],
+    tokens: model.tokens,
+    cost: model.cost,
+  }))
+  if (legacy) {
+    series.push({
+      id: 'model:legacy-unknown',
+      label: legacy.model,
+      kind: 'legacy',
+      models: [legacy.model],
+      tokens: legacy.tokens,
+      cost: legacy.cost,
+    })
+  }
+  if (otherModels.length === 1) {
+    const model = otherModels[0]
+    series.push({
+      id: `model:${model.model}`,
+      label: model.model,
+      kind: 'model',
+      models: [model.model],
+      tokens: model.tokens,
+      cost: model.cost,
+    })
+  } else if (otherModels.length > 1) {
+    series.push({
+      id: 'model:other',
+      label: `Other · ${otherModels.length}`,
+      kind: 'other',
+      models: otherModels.map((model) => model.model),
+      tokens: otherModels.reduce((sum, model) => sum + model.tokens, 0),
+      cost: otherModels.reduce((sum, model) => sum + model.cost, 0),
+    })
+  }
+
+  return {
+    modelCount: identified.length,
+    hasLegacy: Boolean(legacy),
+    fullModels,
+    series,
+  }
+}
+
+export function modelSeriesPoint(
+  row: Partial<DailyRow>,
+  toolId: ToolId,
+  series: ModelSeriesSpec,
+): Pick<ModelUsage, 'tokens' | 'cost'> {
+  const tool = TOOLS.find((candidate) => candidate.id === toolId)
+  if (!tool) return { tokens: 0, cost: 0 }
+  const models = row[tool.modelKey]
+  if (!Array.isArray(models)) return { tokens: 0, cost: 0 }
+
+  const members = new Set(series.models)
+  let tokens = 0
+  let cost = 0
+  for (const model of models as ModelUsage[]) {
+    if (!members.has(String(model.model || '').trim())) continue
+    tokens += Number(model.tokens) || 0
+    cost += Number(model.cost) || 0
+  }
+  return { tokens, cost }
 }
 
 export function indexForPreset(
