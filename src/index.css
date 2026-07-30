@@ -38,6 +38,44 @@ html[data-theme='light'] {
   padding: 40px 24px 64px;
 }
 
+.source-health-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, #a15c00 28%, transparent);
+  border-radius: 8px;
+  background: color-mix(
+    in srgb,
+    #f5a524 9%,
+    var(--color-background-primary, #fff)
+  );
+  color: var(--color-text-secondary, #556169);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.source-health-marker {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  place-items: center;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: #a15c00;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.source-health-title {
+  color: var(--color-text-primary, #0a1317);
+  font-weight: 600;
+}
+
 .chart-host {
   width: 100%;
   height: 520px;

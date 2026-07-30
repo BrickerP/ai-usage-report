@@ -29,6 +29,7 @@ import { UsageCharts } from './components/UsageCharts'
 import { modelSeriesColor } from './lib/chart'
 import { fmtCompact, fmtUsd } from './lib/format'
 import {
+  degradedSourceNotices,
   indexForPreset,
   loadUsage,
   selectModelSeries,
@@ -216,6 +217,7 @@ function ReportApp() {
   const fullSpan =
     payload.timeline_meta?.span ||
     `${daily[0]?.date || '—'} — ${daily.at(-1)?.date || '—'}`
+  const degradedSources = degradedSourceNotices(payload.source_status)
 
   return (
     <div className="page">
@@ -241,6 +243,24 @@ function ReportApp() {
               </Text>
             ) : null}
           </HStack>
+          {degradedSources.length ? (
+            <div
+              className="source-health-notice"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <span className="source-health-marker" aria-hidden="true">
+                !
+              </span>
+              <span>
+                <span className="source-health-title">
+                  Some usage sources are degraded.
+                </span>{' '}
+                {degradedSources.map((source) => source.message).join(' ')}
+              </span>
+            </div>
+          ) : null}
         </VStack>
 
         <Card variant="muted" padding={4}>

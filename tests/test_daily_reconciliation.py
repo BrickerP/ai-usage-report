@@ -690,6 +690,632 @@ printf '1' > "$TEST_COUNTER"
             self.assertIn("could not create lock root", result.stdout)
 
 
+class PublishCliSafetyTests(unittest.TestCase):
+    def git(self, cwd: Path, *args: str, check: bool = True):
+        return subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=check,
+        )
+
+    def test_invalid_auth_named_account_fails_after_capture_before_git_or_build(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp)
+            repo = sandbox / "repo"
+            remote = sandbox / "remote.git"
+            events = sandbox / "events.log"
+            git_trace = sandbox / "git-trace.log"
+            repo.mkdir()
+            (repo / "scripts").mkdir()
+            (repo / "public" / "machines").mkdir(parents=True)
+            (repo / "docs").mkdir()
+            (repo / "node_modules").mkdir()
+            (repo / "node_modules" / ".keep").write_text("", encoding="utf-8")
+            (repo / "scripts" / "publish.sh").write_bytes(
+                (ROOT / "scripts" / "publish.sh").read_bytes()
+            )
+            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+                """#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
+    if "--collect-local-only" in sys.argv:
+        handle.write("collect-local\\n")
+        (root / "public" / "machines" / "mac-test.json").write_text(
+            "captured\\n", encoding="utf-8"
+        )
+    elif "--merge-only" in sys.argv:
+        handle.write("merge\\n")
+        (root / "public" / "usage.json").write_text(
+            "merged\\n", encoding="utf-8"
+        )
+""",
+                encoding="utf-8",
+            )
+            (repo / "public" / "machines" / "mac-test.json").write_text(
+                "before\n", encoding="utf-8"
+            )
+            (repo / "public" / "usage.json").write_text("before\n", encoding="utf-8")
+            (repo / "docs" / "index.html").write_text("before\n", encoding="utf-8")
+
+            self.git(repo, "init")
+            self.git(repo, "checkout", "-b", "main")
+            self.git(repo, "add", "-A")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial",
+            )
+            self.git(sandbox, "init", "--bare", str(remote))
+            self.git(repo, "remote", "add", "origin", str(remote))
+            self.git(repo, "push", "-u", "origin", "main")
+            initial_head = self.git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            bash_env = sandbox / "bash-env.sh"
+            bash_env.write_text(
+                """gh() {
+  printf 'gh:%s\\n' "$*" >> "$TEST_EVENTS"
+  if [[ "${1:-} ${2:-}" == "auth status" ]]; then
+    printf 'X Failed to log in to github.com account BrickerP (default)\\n'
+    return 1
+  fi
+  return 99
+}
+npm() {
+  printf 'npm:%s\\n' "$*" >> "$TEST_EVENTS"
+  mkdir -p docs
+  printf 'built\\n' > docs/index.html
+}
+""",
+                encoding="utf-8",
+            )
+            env = {
+                **os.environ,
+                "AI_USAGE_MACHINE_ID": "mac-test",
+                "AI_USAGE_TIMEZONE": "Asia/Shanghai",
+                "BASH_ENV": str(bash_env),
+                "GIT_TRACE": str(git_trace),
+                "TEST_EVENTS": str(events),
+            }
+            result = subprocess.run(
+                ["bash", "scripts/publish.sh"],
+                cwd=repo,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+
+            event_lines = events.read_text(encoding="utf-8").splitlines()
+            trace = git_trace.read_text(encoding="utf-8")
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn("collect-local", event_lines)
+            self.assertEqual(
+                (repo / "public" / "machines" / "mac-test.json").read_text(
+                    encoding="utf-8"
+                ),
+                "captured\n",
+            )
+            self.assertNotIn("merge", event_lines)
+            self.assertFalse(any(line.startswith("npm:") for line in event_lines))
+            self.assertNotIn("git fetch", trace)
+            self.assertNotIn("git pull", trace)
+            self.assertEqual(
+                self.git(repo, "rev-parse", "HEAD").stdout.strip(), initial_head
+            )
+
+    def test_auth_preflight_requires_exact_authenticated_login(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp)
+            repo = sandbox / "repo"
+            events = sandbox / "events.log"
+            git_trace = sandbox / "git-trace.log"
+            repo.mkdir()
+            (repo / "scripts").mkdir()
+            (repo / "public" / "machines").mkdir(parents=True)
+            (repo / "scripts" / "publish.sh").write_bytes(
+                (ROOT / "scripts" / "publish.sh").read_bytes()
+            )
+            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+                """#!/usr/bin/env python3
+import os
+from pathlib import Path
+with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
+    handle.write("collector-ran\\n")
+""",
+                encoding="utf-8",
+            )
+            (repo / "public" / "usage.json").write_text("{}\n", encoding="utf-8")
+            self.git(repo, "init")
+            self.git(repo, "checkout", "-b", "main")
+            self.git(repo, "add", "-A")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial",
+            )
+
+            bash_env = sandbox / "bash-env.sh"
+            bash_env.write_text(
+                """gh() {
+  if [[ "${1:-} ${2:-}" == "auth status" ]]; then
+    printf 'Logged in to github.com account BrickerP (default)\\n'
+    return 0
+  fi
+  if [[ "${1:-} ${2:-}" == "api user" ]]; then
+    printf 'SomeOtherAccount\\n'
+    return 0
+  fi
+  return 99
+}
+""",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                ["bash", "scripts/publish.sh"],
+                cwd=repo,
+                env={
+                    **os.environ,
+                    "AI_USAGE_MACHINE_ID": "mac-test",
+                    "BASH_ENV": str(bash_env),
+                    "GIT_TRACE": str(git_trace),
+                    "TEST_EVENTS": str(events),
+                },
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(
+                events.read_text(encoding="utf-8").splitlines(), ["collector-ran"]
+            )
+            self.assertNotIn("git fetch", git_trace.read_text(encoding="utf-8"))
+
+    def test_publish_refuses_feature_branch_without_switching_or_collecting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp)
+            repo = sandbox / "repo"
+            events = sandbox / "events.log"
+            repo.mkdir()
+            (repo / "scripts").mkdir()
+            (repo / "public" / "machines").mkdir(parents=True)
+            (repo / "scripts" / "publish.sh").write_bytes(
+                (ROOT / "scripts" / "publish.sh").read_bytes()
+            )
+            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+                """#!/usr/bin/env python3
+import os
+from pathlib import Path
+with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
+    handle.write("collector-ran\\n")
+""",
+                encoding="utf-8",
+            )
+            (repo / "public" / "usage.json").write_text("{}\n", encoding="utf-8")
+
+            self.git(repo, "init")
+            self.git(repo, "checkout", "-b", "main")
+            self.git(repo, "add", "-A")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial",
+            )
+            self.git(repo, "checkout", "-b", "feature/wip")
+            initial_head = self.git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            bash_env = sandbox / "bash-env.sh"
+            bash_env.write_text(
+                """gh() {
+  printf 'X Failed to log in to github.com account BrickerP (default)\\n'
+  return 1
+}
+""",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                ["bash", "scripts/publish.sh"],
+                cwd=repo,
+                env={
+                    **os.environ,
+                    "AI_USAGE_MACHINE_ID": "mac-test",
+                    "BASH_ENV": str(bash_env),
+                    "TEST_EVENTS": str(events),
+                },
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(
+                self.git(repo, "branch", "--show-current").stdout.strip(),
+                "feature/wip",
+            )
+            self.assertEqual(
+                self.git(repo, "rev-parse", "HEAD").stdout.strip(), initial_head
+            )
+            self.assertFalse(events.exists(), result.stdout)
+
+    def test_publish_preserves_preexisting_merge_operation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp)
+            repo = sandbox / "repo"
+            events = sandbox / "events.log"
+            repo.mkdir()
+            (repo / "scripts").mkdir()
+            (repo / "public" / "machines").mkdir(parents=True)
+            (repo / "scripts" / "publish.sh").write_bytes(
+                (ROOT / "scripts" / "publish.sh").read_bytes()
+            )
+            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+                """#!/usr/bin/env python3
+import os
+from pathlib import Path
+Path(os.environ["TEST_EVENTS"]).write_text("collector-ran\\n", encoding="utf-8")
+""",
+                encoding="utf-8",
+            )
+            conflict = repo / "conflict.txt"
+            conflict.write_text("base\n", encoding="utf-8")
+            (repo / "public" / "usage.json").write_text("{}\n", encoding="utf-8")
+            self.git(repo, "init")
+            self.git(repo, "checkout", "-b", "main")
+            self.git(repo, "add", "-A")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial",
+            )
+            self.git(repo, "checkout", "-b", "incoming")
+            conflict.write_text("incoming\n", encoding="utf-8")
+            self.git(repo, "add", "conflict.txt")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "incoming",
+            )
+            self.git(repo, "checkout", "main")
+            conflict.write_text("main\n", encoding="utf-8")
+            self.git(repo, "add", "conflict.txt")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "main",
+            )
+            merge = self.git(repo, "merge", "incoming", check=False)
+            self.assertNotEqual(merge.returncode, 0, merge.stdout)
+            merge_head = repo / ".git" / "MERGE_HEAD"
+            self.assertTrue(merge_head.is_file())
+
+            result = subprocess.run(
+                ["bash", "scripts/publish.sh"],
+                cwd=repo,
+                env={
+                    **os.environ,
+                    "AI_USAGE_MACHINE_ID": "mac-test",
+                    "TEST_EVENTS": str(events),
+                },
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertTrue(merge_head.is_file(), result.stdout)
+            self.assertIn("UU conflict.txt", self.git(repo, "status", "--short").stdout)
+            self.assertFalse(events.exists(), result.stdout)
+
+    def test_publish_stages_only_report_artifacts_created_during_collection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp)
+            repo = sandbox / "repo"
+            remote = sandbox / "remote.git"
+            repo.mkdir()
+            (repo / "scripts").mkdir()
+            (repo / "public" / "machines").mkdir(parents=True)
+            (repo / "docs").mkdir()
+            (repo / "node_modules").mkdir()
+            (repo / "node_modules" / ".keep").write_text("", encoding="utf-8")
+            (repo / "scripts" / "publish.sh").write_bytes(
+                (ROOT / "scripts" / "publish.sh").read_bytes()
+            )
+            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+                """#!/usr/bin/env python3
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+if "--collect-local-only" in sys.argv:
+    (root / "public" / "machines" / "mac-test.json").write_text(
+        "captured\\n", encoding="utf-8"
+    )
+    (root / "scripts" / "unrelated-after-preflight.txt").write_text(
+        "do not publish\\n", encoding="utf-8"
+    )
+elif "--merge-only" in sys.argv:
+    (root / "public" / "usage.json").write_text("merged\\n", encoding="utf-8")
+""",
+                encoding="utf-8",
+            )
+            (repo / "public" / "machines" / "mac-test.json").write_text(
+                "before\n", encoding="utf-8"
+            )
+            (repo / "public" / "usage.json").write_text("before\n", encoding="utf-8")
+            (repo / "docs" / "index.html").write_text("before\n", encoding="utf-8")
+
+            self.git(repo, "init")
+            self.git(repo, "checkout", "-b", "main")
+            self.git(repo, "add", "-A")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial",
+            )
+            self.git(sandbox, "init", "--bare", str(remote))
+            self.git(repo, "remote", "add", "origin", str(remote))
+            self.git(repo, "push", "-u", "origin", "main")
+
+            bash_env = sandbox / "bash-env.sh"
+            bash_env.write_text(
+                """gh() {
+  case "${1:-} ${2:-}" in
+    "auth status")
+      printf 'Logged in to github.com account BrickerP (default)\\n'
+      return 0
+      ;;
+    "api user")
+      printf 'BrickerP\\n'
+      return 0
+      ;;
+    "auth token")
+      printf 'test-token\\n'
+      return 0
+      ;;
+  esac
+  return 99
+}
+npm() {
+  if [[ "${1:-} ${2:-}" == "run build" ]]; then
+    mkdir -p docs
+    printf 'built\\n' > docs/index.html
+    return 0
+  fi
+  return 99
+}
+""",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                ["bash", "scripts/publish.sh"],
+                cwd=repo,
+                env={
+                    **os.environ,
+                    "AI_USAGE_MACHINE_ID": "mac-test",
+                    "BASH_ENV": str(bash_env),
+                },
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            committed = self.git(
+                repo, "show", "--pretty=format:", "--name-only", "HEAD"
+            ).stdout.splitlines()
+            self.assertNotIn("scripts/unrelated-after-preflight.txt", committed)
+            self.assertEqual(
+                self.git(repo, "status", "--short").stdout.splitlines(),
+                ["?? scripts/unrelated-after-preflight.txt"],
+            )
+            self.assertEqual(
+                self.git(repo, "rev-parse", "HEAD").stdout.strip(),
+                self.git(repo, "rev-parse", "origin/main").stdout.strip(),
+            )
+
+    def run_publish_with_existing_ahead_commits(self, ahead_changes):
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp)
+            repo = sandbox / "repo"
+            remote = sandbox / "remote.git"
+            repo.mkdir()
+            (repo / "scripts").mkdir()
+            (repo / "public" / "machines").mkdir(parents=True)
+            (repo / "docs").mkdir()
+            (repo / "node_modules").mkdir()
+            (repo / "node_modules" / ".keep").write_text("", encoding="utf-8")
+            (repo / "scripts" / "publish.sh").write_bytes(
+                (ROOT / "scripts" / "publish.sh").read_bytes()
+            )
+            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+                "# no-op collector for retrying an existing local commit\n",
+                encoding="utf-8",
+            )
+            (repo / "public" / "machines" / "mac-test.json").write_text(
+                "stable\n", encoding="utf-8"
+            )
+            (repo / "public" / "usage.json").write_text("before\n", encoding="utf-8")
+            (repo / "docs" / "index.html").write_text("stable\n", encoding="utf-8")
+
+            self.git(repo, "init")
+            self.git(repo, "checkout", "-b", "main")
+            self.git(repo, "add", "-A")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial",
+            )
+            self.git(sandbox, "init", "--bare", str(remote))
+            self.git(repo, "remote", "add", "origin", str(remote))
+            self.git(repo, "push", "-u", "origin", "main")
+            remote_before = self.git(repo, "rev-parse", "origin/main").stdout.strip()
+
+            for index, (ahead_path, content) in enumerate(ahead_changes, start=1):
+                ahead_file = repo / ahead_path
+                if content is None:
+                    ahead_file.unlink()
+                else:
+                    ahead_file.parent.mkdir(parents=True, exist_ok=True)
+                    ahead_file.write_text(content, encoding="utf-8")
+                self.git(repo, "add", "-A", "--", ahead_path)
+                self.git(
+                    repo,
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.com",
+                    "commit",
+                    "-m",
+                    f"unpublished report {index}",
+                )
+            local_ahead = self.git(repo, "rev-parse", "HEAD").stdout.strip()
+            self.assertNotEqual(local_ahead, remote_before)
+
+            bash_env = sandbox / "bash-env.sh"
+            bash_env.write_text(
+                """gh() {
+  case "${1:-} ${2:-}" in
+    "auth status")
+      printf 'Logged in to github.com account BrickerP (default)\\n'
+      return 0
+      ;;
+    "api user")
+      printf 'BrickerP\\n'
+      return 0
+      ;;
+    "auth token")
+      printf 'test-token\\n'
+      return 0
+      ;;
+  esac
+  return 99
+}
+npm() {
+  [[ "${1:-} ${2:-}" == "run build" ]]
+}
+""",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                ["bash", "scripts/publish.sh"],
+                cwd=repo,
+                env={
+                    **os.environ,
+                    "AI_USAGE_MACHINE_ID": "mac-test",
+                    "BASH_ENV": str(bash_env),
+                },
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+
+            return (
+                result,
+                local_ahead,
+                remote_before,
+                self.git(repo, "rev-parse", "origin/main").stdout.strip(),
+            )
+
+    def test_publish_pushes_existing_generated_ahead_commits_when_report_has_no_new_diff(
+        self,
+    ):
+        result, local_ahead, _remote_before, remote_after = (
+            self.run_publish_with_existing_ahead_commits(
+                [
+                    ("public/usage.json", "first generated change\n"),
+                    ("docs/index.html", "second generated change\n"),
+                ]
+            )
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(remote_after, local_ahead, result.stdout)
+
+    def test_publish_rejects_existing_non_generated_ahead_commit(self):
+        result, local_ahead, remote_before, remote_after = (
+            self.run_publish_with_existing_ahead_commits(
+                [("README.md", "non-report change\n")]
+            )
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertNotEqual(local_ahead, remote_before)
+        self.assertEqual(remote_after, remote_before, result.stdout)
+        self.assertIn("README.md", result.stdout)
+        self.assertIn("report artifact allowlist", result.stdout)
+
+    def test_publish_rejects_non_generated_path_added_then_deleted_in_ahead_history(
+        self,
+    ):
+        result, local_ahead, remote_before, remote_after = (
+            self.run_publish_with_existing_ahead_commits(
+                [
+                    ("scratch.txt", "temporary non-report change\n"),
+                    ("scratch.txt", None),
+                ]
+            )
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertNotEqual(local_ahead, remote_before)
+        self.assertEqual(remote_after, remote_before, result.stdout)
+        self.assertIn("scratch.txt", result.stdout)
+        self.assertIn("report artifact allowlist", result.stdout)
+
+
 class PublishConflictTests(unittest.TestCase):
     def git(self, cwd: Path, *args: str):
         return subprocess.run(

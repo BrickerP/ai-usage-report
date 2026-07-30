@@ -58,6 +58,11 @@ What happens:
 6. Build + commit + push
 7. If push races the other Mac: pull → **re-merge** → rebuild → push again
 
+`usage.json.source_status` records refresh health separately from the aggregate
+`generated_at`. A failed account-level refresh keeps the last known good values,
+but the page shows the affected source as stale or failed instead of implying that
+every source was refreshed successfully.
+
 Same launchd schedule on both Macs is fine; a push collision just triggers re-merge.
 
 ### Merge rules
@@ -167,7 +172,9 @@ chrome-use state save /tmp/oneapi-chrome-state.json
 
 Use `ONEAPI_STATE_PATH` to choose another state file. Collection is complete-or-
 nothing: rate-limit or authentication failures retain the prior published One API
-series instead of writing a partial or zero snapshot.
+series instead of writing a partial or zero snapshot. Set `CHROME_USE_BIN` when
+the executable is outside the LaunchAgent `PATH`; otherwise the collector also
+checks `~/.local/bin/chrome-use`.
 
 Each published daily row also carries compact model breakdowns. The existing
 tool cards aggregate those rows for the selected date range and show every
@@ -201,6 +208,12 @@ boundary expands the recovery window across any missed days. Local source logs
 must still be retained until at least one later successful reconciliation; no
 collector can reconstruct records that were deleted before they were ever read.
 
+Run the LaunchAgent from a dedicated publisher clone. The publisher refuses to
+switch branches or abort an in-progress Git operation, validates GitHub
+authentication after the local snapshot is durable but before pull/build/commit,
+and stages only generated report artifacts. Source-code releases should be
+committed separately from scheduled data refreshes.
+
 Required env:
 
 - `AI_USAGE_MACHINE_ID` (required; use one stable, unique value per Mac)
@@ -211,5 +224,6 @@ Optional env:
 - `GH_PUBLISH_ACCOUNT` (default `BrickerP`)
 - `PUBLISH_BRANCH` (default `main`)
 - `ONEAPI_STATE_PATH` (default `/tmp/oneapi-chrome-state.json`)
+- `CHROME_USE_BIN` (optional explicit path to the `chrome-use` executable)
 - `AI_USAGE_RETRY_ATTEMPTS` / `AI_USAGE_RETRY_DELAY_SECONDS`
 - `AI_USAGE_JOB_RETRY_ATTEMPTS` / `AI_USAGE_JOB_RETRY_DELAY_SECONDS`

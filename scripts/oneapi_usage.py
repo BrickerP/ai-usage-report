@@ -222,11 +222,28 @@ def aggregate_records(
 
 
 def chrome_use_path() -> str:
-    e = os.environ.get("CHROME_USE_BIN", "").strip()
-    if e:
-        return e
-    f = shutil.which("chrome-use")
-    return f if f else "chrome-use"
+    explicit = os.environ.get("CHROME_USE_BIN", "").strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.is_file() or not os.access(path, os.X_OK):
+            raise RuntimeError(f"CHROME_USE_BIN is not executable: {path}")
+        return str(path)
+
+    path_candidate = shutil.which("chrome-use")
+    if path_candidate:
+        path = Path(path_candidate).expanduser()
+        if path.is_file() and os.access(path, os.X_OK):
+            return str(path)
+
+    fallback = Path.home() / ".local" / "bin" / "chrome-use"
+    if fallback.is_file() and os.access(fallback, os.X_OK):
+        return str(fallback)
+
+    raise RuntimeError(
+        "chrome-use executable not found or not executable; set CHROME_USE_BIN, "
+        "add chrome-use to PATH, or install it at "
+        f"{fallback}"
+    )
 
 
 FETCH_BATCH_JS = r"""

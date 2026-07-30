@@ -42,7 +42,7 @@
 ## Components
 - Existing components to reuse: Tool cards, usage charts, range controls, methodology copy.
 - New/changed components: Existing tool cards gain compact model rows. Comate is removed as a card and series; its local pre-gateway history is retained under One API.
-- Variants and states: Fresh One API data, stale prior data, missing session, incomplete pagination, and zero residual traffic.
+- Variants and states: Fresh source data, stale prior data, missing session, incomplete pagination, and zero residual traffic. Source degradation appears as one compact page-level notice; healthy reports add no new UI.
 - Token/component ownership: Existing CSS and `src/lib/usage.ts` own visual tokens; Python owns collection, per-day model persistence, and merge semantics.
 
 ## Accessibility
@@ -60,7 +60,7 @@
 ## Interaction states
 - Loading: Static JSON loads through the existing application flow.
 - Empty: A source may show zero without removing the card.
-- Error: A failed One API refresh keeps prior daily values and records stale/error metadata in `usage.json`.
+- Error: A failed account-level refresh keeps prior daily values and records stale/error metadata in `usage.json.source_status`.
 - Success: Only a complete fetched window replaces the same dates in prior One API history.
 - Disabled: Not applicable.
 - Offline/slow network, if applicable: Build uses the last successfully persisted One API series when authentication or pagination fails.
@@ -75,6 +75,7 @@
 - Design-token constraints: Extend existing tool metadata and colors; do not add another design-system layer.
 - Performance constraints: Fetch all One API pages in one browser evaluation, with bounded retry for rate limits.
 - Compatibility constraints: UUAP requires a saved `chrome-use` browser state with httpOnly cookies; the current Cursor account must not use a custom OpenAI key for the non-overlap assumption.
+- Publication constraints: Scheduled refreshes run from an isolated publisher clone, never abort or switch a developer's Git state, and stage generated report artifacts only.
 - Test/screenshot expectations: Unit-test classification, quota conversion, browser-state use, incomplete-fetch rejection, and durable history reconciliation; run lint and production build.
 
 ## Open questions

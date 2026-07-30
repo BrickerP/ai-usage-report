@@ -46,6 +46,27 @@ AI_USAGE_MACHINE_ID="${AI_USAGE_MACHINE_ID:-}"
 log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
 
+require_publish_auth() {
+  command -v gh >/dev/null || die "gh not found (needed to push)"
+
+  local status_output
+  if ! status_output="$(gh auth status --hostname github.com 2>&1)"; then
+    printf '%s\n' "$status_output" >&2
+    die "gh authentication check failed for $GH_PUBLISH_ACCOUNT"
+  fi
+
+  local authenticated_login expected_login
+  if ! authenticated_login="$(gh api user --jq .login 2>&1)"; then
+    printf '%s\n' "$authenticated_login" >&2
+    die "could not verify the authenticated GitHub account"
+  fi
+  authenticated_login="$(printf '%s' "$authenticated_login" | tr '[:upper:]' '[:lower:]')"
+  expected_login="$(printf '%s' "$GH_PUBLISH_ACCOUNT" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$authenticated_login" != "$expected_login" ]]; then
+    die "gh is not logged in as $GH_PUBLISH_ACCOUNT"
+  fi
+}
+
 if (( BACKFILL_CODEX_CACHE == 1 && SKIP_COLLECT == 1 )); then
   die "--backfill-codex-cache cannot be combined with --skip-collect"
 fi
@@ -72,39 +93,39 @@ require_backfill_at_remote_tip() {
   fi
 }
 
-abort_in_progress_git_ops() {
+reject_in_progress_git_ops() {
   if [ -d "$ROOT/.git/rebase-merge" ] || [ -d "$ROOT/.git/rebase-apply" ]; then
-    log "aborting in-progress rebase"
-    git rebase --abort || die "failed to abort in-progress rebase"
+    die "refusing to publish during an in-progress rebase"
   fi
   if [ -f "$ROOT/.git/MERGE_HEAD" ]; then
-    log "aborting in-progress merge"
-    git merge --abort || die "failed to abort in-progress merge"
+    die "refusing to publish during an in-progress merge"
   fi
   if [ -d "$ROOT/.git/cherry-pick-head" ] || [ -f "$ROOT/.git/CHERRY_PICK_HEAD" ]; then
-    log "aborting in-progress cherry-pick"
-    git cherry-pick --abort || die "failed to abort in-progress cherry-pick"
+    die "refusing to publish during an in-progress cherry-pick"
+  fi
+}
+
+abort_publish_rebase() {
+  if [ -d "$ROOT/.git/rebase-merge" ] || [ -d "$ROOT/.git/rebase-apply" ]; then
+    git rebase --abort || die "failed to abort publish-owned rebase"
   fi
 }
 
 ensure_on_publish_branch() {
-  abort_in_progress_git_ops
+  reject_in_progress_git_ops
 
   local current
   current="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
   if [[ "$current" == "HEAD" || -z "$current" ]]; then
-    log "detached HEAD detected; checking out ${PUBLISH_BRANCH}"
-    git checkout "$PUBLISH_BRANCH" || die "could not checkout ${PUBLISH_BRANCH} from detached HEAD"
-    current="$(git rev-parse --abbrev-ref HEAD)"
+    die "refusing to publish from detached HEAD"
   fi
 
   if [[ "$current" != "$PUBLISH_BRANCH" ]]; then
-    log "on branch ${current}; switching to ${PUBLISH_BRANCH}"
-    git checkout "$PUBLISH_BRANCH" || die "could not checkout ${PUBLISH_BRANCH}"
+    die "refusing to publish from branch ${current}; expected ${PUBLISH_BRANCH}"
   fi
 
   if ! git symbolic-ref -q HEAD >/dev/null; then
-    die "still in detached HEAD after checkout ${PUBLISH_BRANCH}"
+    die "refusing to publish without a symbolic branch"
   fi
 }
 
@@ -178,7 +199,7 @@ pull_latest() {
       log "rebase stopped; resolving generated usage/docs conflicts"
       if ! resolve_generated_rebase_conflicts "$remote_tip"; then
         log "ERROR: pull --rebase has a non-generated or unresolvable conflict"
-        abort_in_progress_git_ops
+        abort_publish_rebase
         if (( stashed )); then
           git stash pop || log "WARN: stash pop failed after pull error"
         fi
@@ -271,9 +292,7 @@ build_site() {
 stage_and_commit() {
   local msg="$1"
   ensure_on_publish_branch
-  git add public/usage.json public/machines docs package.json package-lock.json \
-    src scripts vite.config.ts index.html README.md .gitignore 2>/dev/null || true
-  git add -A
+  git add -A -- public/usage.json public/machines docs 2>/dev/null || true
   if git diff --staged --quiet; then
     log "nothing to commit"
     return 1
@@ -284,9 +303,47 @@ stage_and_commit() {
   return 0
 }
 
+has_unpublished_commits() {
+  local ahead
+  ahead="$(git rev-list --count "${REMOTE_NAME}/${PUBLISH_BRANCH}..HEAD")" || \
+    die "could not compare HEAD with ${REMOTE_NAME}/${PUBLISH_BRANCH}"
+  (( ahead > 0 ))
+}
+
+validate_unpublished_paths() {
+  local upstream="${REMOTE_NAME}/${PUBLISH_BRANCH}"
+  local commits commit path invalid=0
+
+  commits="$(git rev-list "$upstream..HEAD")" || \
+    die "could not inspect unpublished commits against $upstream"
+  while IFS= read -r commit; do
+    [[ -n "$commit" ]] || continue
+    git diff-tree --root -m --no-commit-id --name-only --no-renames -r \
+      "$commit" >/dev/null || \
+      die "could not inspect unpublished commit $commit"
+    while IFS= read -r -d '' path; do
+      case "$path" in
+        public/usage.json|public/machines/*|docs/*) ;;
+        *)
+          log "ERROR: refusing to push unpublished non-report path: $path"
+          invalid=1
+          ;;
+      esac
+    done < <(
+      git diff-tree --root -m --no-commit-id --name-only --no-renames -r -z \
+        "$commit"
+    )
+  done <<< "$commits"
+
+  if (( invalid )); then
+    die "unpublished commits contain paths outside the report artifact allowlist"
+  fi
+}
+
 push_branch() {
   local tok="$1"
   local git_extraheader="Authorization: Basic $(printf 'x-access-token:%s' "$tok" | base64)"
+  validate_unpublished_paths
   # Always push the current commit to refs/heads/<branch> — never bare HEAD.
   git -c "http.https://github.com/.extraheader=$git_extraheader" \
     push "$REMOTE_NAME" "HEAD:refs/heads/${PUBLISH_BRANCH}"
@@ -305,7 +362,7 @@ reconcile_backfill_push() {
     local conflicts path unexpected=0
     conflicts="$(git diff --name-only --diff-filter=U)"
     if [[ -z "$conflicts" ]]; then
-      abort_in_progress_git_ops
+      abort_publish_rebase
       die "cache migration rebase failed without resolvable generated-file conflicts"
     fi
 
@@ -319,26 +376,26 @@ reconcile_backfill_push() {
       esac
     done <<< "$conflicts"
     if (( unexpected == 1 )); then
-      abort_in_progress_git_ops
+      abort_publish_rebase
       die "cache migration touched a non-generated conflict; local commit remains recoverable via reflog"
     fi
 
     while IFS= read -r path; do
       if git cat-file -e "${remote_tip}:${path}" 2>/dev/null; then
         git checkout "$remote_tip" -- "$path" || {
-          abort_in_progress_git_ops
+          abort_publish_rebase
           die "could not restore remote generated file during reconciliation: $path"
         }
       else
         git rm -f -- "$path" || {
-          abort_in_progress_git_ops
+          abort_publish_rebase
           die "could not remove remote-absent generated file during reconciliation: $path"
         }
       fi
     done <<< "$conflicts"
 
     GIT_EDITOR=true git rebase --continue || {
-      abort_in_progress_git_ops
+      abort_publish_rebase
       die "could not finish cache migration rebase after generated-file resolution"
     }
   fi
@@ -359,11 +416,6 @@ reconcile_backfill_push() {
 }
 
 push_with_remmerge() {
-  command -v gh >/dev/null || die "gh not found (needed to push)"
-  if ! gh auth status 2>&1 | grep -q "account $GH_PUBLISH_ACCOUNT"; then
-    die "gh not logged in as $GH_PUBLISH_ACCOUNT"
-  fi
-
   local tok
   tok=$(gh auth token -u "$GH_PUBLISH_ACCOUNT") || die "could not read token"
 
@@ -411,6 +463,7 @@ if (( BACKFILL_CODEX_CACHE == 1 )); then
 fi
 require_clean_backfill_worktree
 ensure_on_publish_branch
+require_backfill_at_remote_tip
 
 if (( SKIP_COLLECT == 0 && BACKFILL_CODEX_CACHE == 0 )); then
   log "capturing local usage → public/machines/ (network-independent)"
@@ -418,6 +471,12 @@ if (( SKIP_COLLECT == 0 && BACKFILL_CODEX_CACHE == 0 )); then
 
   log "checking One API chrome session state"
   require_oneapi_state
+fi
+
+if (( SKIP_PUSH == 0 )); then
+  # Preserve the network-independent local snapshot, then fail before any Git
+  # synchronization, build, or commit if publication credentials are invalid.
+  require_publish_auth
 fi
 
 # Pull after local capture; pull_latest safely stashes and restores the fragment.
@@ -448,9 +507,12 @@ if (( BACKFILL_CODEX_CACHE == 1 )); then
   commit_message="Backfill Codex cache history $(date -u '+%Y-%m-%dT%H:%MZ')"
 fi
 if stage_and_commit "$commit_message"; then
+  log "created a new report commit"
+fi
+if has_unpublished_commits; then
   push_with_remmerge
 else
-  log "no local changes to push"
+  log "no unpublished commits to push"
 fi
 
 ensure_on_publish_branch

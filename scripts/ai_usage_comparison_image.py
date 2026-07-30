@@ -1372,6 +1372,276 @@ def load_usage_payload(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+SOURCE_STATUS_NAMES = ("codex", "claude", "cursor", "oneapi")
+SOURCE_STATUS_ERRORS = {
+    "codex": {
+        "codex_unavailable",
+        "local_fragments_stale",
+        "local_fragments_unavailable",
+        "local_fragment_timestamp_invalid",
+    },
+    "claude": {
+        "claude_unavailable",
+        "local_fragments_stale",
+        "local_fragments_unavailable",
+        "local_fragment_timestamp_invalid",
+    },
+    "cursor": {"cursor_incomplete", "cursor_unavailable"},
+    "oneapi": {
+        "oneapi_incomplete",
+        "oneapi_refresh_failed",
+        "oneapi_state_unavailable",
+        "oneapi_unavailable",
+    },
+}
+SOURCE_STATUS_DEFAULT_ERROR = {
+    "codex": "codex_unavailable",
+    "claude": "claude_unavailable",
+    "cursor": "cursor_unavailable",
+    "oneapi": "oneapi_unavailable",
+}
+PUBLIC_ONEAPI_FIELDS = {
+    "accounting_version",
+    "available",
+    "complete",
+    "daily_timeline",
+    "excluded",
+    "history",
+    "included_request_count",
+    "legacy_comate",
+    "legacy_history_discarded",
+    "ownership_rule",
+    "pages",
+    "rate_limit_retries",
+    "raw_totals",
+    "request_count",
+    "stale",
+    "timezone",
+    "totals",
+    "unclassified",
+    "window",
+}
+
+
+def public_source_error(source: str, value: Any) -> str:
+    raw = str(value or "")
+    if not raw:
+        return ""
+    if raw in SOURCE_STATUS_ERRORS.get(source, set()):
+        return raw
+    return SOURCE_STATUS_DEFAULT_ERROR.get(source, "source_unavailable")
+
+
+def public_iso_timestamp(value: Any) -> str:
+    raw = str(value or "")
+    if not raw:
+        return ""
+    try:
+        dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    return raw
+
+
+def public_iso_date(value: Any) -> str:
+    raw = str(value or "")
+    if not raw:
+        return ""
+    try:
+        dt.date.fromisoformat(raw)
+    except ValueError:
+        return ""
+    return raw
+
+
+def public_source_status(value: Any) -> dict[str, dict[str, Any]]:
+    source_status = value if isinstance(value, dict) else {}
+    result: dict[str, dict[str, Any]] = {}
+    for source in SOURCE_STATUS_NAMES:
+        raw = (
+            source_status.get(source)
+            if isinstance(source_status.get(source), dict)
+            else {}
+        )
+        status = str(raw.get("status") or "")
+        if status not in {"fresh", "stale", "failed"}:
+            status = "failed"
+        lag_days = raw.get("lag_days")
+        if isinstance(lag_days, bool) or not isinstance(lag_days, int) or lag_days < 0:
+            lag_days = None
+        result[source] = {
+            "status": status,
+            "attempted_at": public_iso_timestamp(raw.get("attempted_at")),
+            "last_success_at": public_iso_timestamp(raw.get("last_success_at")),
+            "window_end": public_iso_date(raw.get("window_end")),
+            "lag_days": lag_days,
+            "error": public_source_error(source, raw.get("error")),
+        }
+    return result
+
+
+def public_oneapi_payload(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return {
+        key: copy.deepcopy(item)
+        for key, item in value.items()
+        if key in PUBLIC_ONEAPI_FIELDS
+    }
+
+
+def source_lag_days(today: str, window_end: str) -> int | None:
+    try:
+        today_date = dt.date.fromisoformat(today)
+        window_date = dt.date.fromisoformat(window_end)
+    except (TypeError, ValueError):
+        return None
+    return max(0, (today_date - window_date).days)
+
+
+def local_fragment_source_attempt(
+    fragments: list[dict[str, Any]],
+    timezone: str,
+    today: str,
+    *,
+    attempted: bool,
+) -> dict[str, Any]:
+    if not fragments:
+        return {
+            "attempted": attempted,
+            "fresh": False,
+            "has_data": False,
+            "attempted_at": "",
+            "last_success_at": "",
+            "window_end": "",
+            "error": "local_fragments_unavailable",
+        }
+
+    tz = resolve_tz(timezone)
+    collected: list[tuple[dt.datetime, str, str]] = []
+    missing: list[str] = []
+    for fragment in fragments:
+        machine_id = str(fragment.get("machine_id") or "unknown")
+        raw = str(fragment.get("collected_at") or "").strip()
+        if not raw:
+            missing.append(machine_id)
+            continue
+        try:
+            parsed = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            missing.append(machine_id)
+            continue
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=tz)
+        collected.append((parsed.astimezone(tz), raw, machine_id))
+
+    if missing or len(collected) != len(fragments):
+        return {
+            "attempted": attempted,
+            "fresh": False,
+            "has_data": True,
+            "attempted_at": "",
+            "last_success_at": "",
+            "window_end": "",
+            "error": "local_fragment_timestamp_invalid",
+        }
+
+    oldest_time, oldest_raw, _oldest_machine = min(collected, key=lambda item: item[0])
+    window_end = oldest_time.date().isoformat()
+    fresh = all(item[0].date().isoformat() == today for item in collected)
+    return {
+        "attempted": attempted,
+        "fresh": fresh,
+        "has_data": True,
+        "attempted_at": oldest_raw,
+        "last_success_at": oldest_raw,
+        "window_end": window_end,
+        "error": "" if fresh else "local_fragments_stale",
+    }
+
+
+def reconcile_source_status(
+    prior_payload: dict[str, Any],
+    attempts: dict[str, dict[str, Any]],
+    *,
+    attempted_at: str,
+    today: str,
+) -> dict[str, dict[str, Any]]:
+    prior_status = (
+        prior_payload.get("source_status")
+        if isinstance(prior_payload.get("source_status"), dict)
+        else {}
+    )
+    result: dict[str, dict[str, Any]] = {}
+    for source in SOURCE_STATUS_NAMES:
+        prior = (
+            prior_status.get(source)
+            if isinstance(prior_status.get(source), dict)
+            else {}
+        )
+        attempt = attempts.get(source) if isinstance(attempts.get(source), dict) else {}
+        attempted = bool(attempt.get("attempted"))
+        fresh = bool(attempt.get("fresh"))
+        prior_last_success = str(prior.get("last_success_at") or "")
+        observed_last_success = str(attempt.get("last_success_at") or "")
+
+        if fresh:
+            status = "fresh"
+        elif attempted:
+            status = (
+                "stale"
+                if bool(attempt.get("has_data")) or bool(prior_last_success)
+                else "failed"
+            )
+        else:
+            if observed_last_success or prior_last_success:
+                status = "stale"
+            else:
+                prior_value = str(prior.get("status") or "")
+                status = (
+                    prior_value
+                    if prior_value in {"fresh", "stale", "failed"}
+                    else "failed"
+                )
+
+        effective_attempted_at = (
+            attempted_at
+            if attempted
+            else str(
+                attempt.get("attempted_at")
+                or prior.get("attempted_at")
+                or ""
+            )
+        )
+        last_success_at = (
+            observed_last_success or attempted_at
+            if fresh
+            else observed_last_success or prior_last_success
+        )
+        window_end = (
+            str(attempt.get("window_end") or "")
+            if fresh or observed_last_success
+            else str(prior.get("window_end") or "")
+        )
+        error = (
+            ""
+            if fresh
+            else public_source_error(
+                source,
+                attempt.get("error") or prior.get("error") or "",
+            )
+        )
+        result[source] = {
+            "status": status,
+            "attempted_at": effective_attempted_at,
+            "last_success_at": last_success_at,
+            "window_end": window_end,
+            "lag_days": source_lag_days(today, window_end),
+            "error": error,
+        }
+    return result
+
+
 def cursor_mutable_from(payload: dict[str, Any], today: str) -> str:
     raw = str(payload.get("cursor_mutable_from") or "").strip()
     if not raw:
@@ -1705,16 +1975,31 @@ def collect_usage(
     prior_payload = load_usage_payload(prior_usage)
     cursor_fallback_note = ""
     today = local_today(timezone)
+    attempted_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     prior_cursor_mutable_from = cursor_mutable_from(prior_payload, today)
     next_cursor_mutable_from = prior_cursor_mutable_from
     cursor_reconciliation_stats: dict[str, Any] = {}
     fragment_meta: dict[str, Any] = {}
+    cursor_refresh_error = ""
+    cursor_status_error = ""
+    status_fragments: list[dict[str, Any]] = []
 
     if merge_only:
         cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
         cursor_api_complete = bool(
             cursor_usage.get("available") and cursor_usage.get("complete")
         )
+        cursor_refresh_error = str(cursor_usage.get("error") or "")
+        if not cursor_api_complete and not cursor_refresh_error:
+            cursor_refresh_error = "Cursor API response was incomplete"
+        if not cursor_api_complete:
+            if cursor_refresh_error:
+                print(f"WARN: Cursor refresh failed: {cursor_refresh_error}", file=sys.stderr)
+            cursor_status_error = (
+                "cursor_unavailable"
+                if not cursor_usage.get("available")
+                else "cursor_incomplete"
+            )
         cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
         if not cursor_usage.get("available") and cursor_pts:
             cursor_fallback_note = "Cursor API unavailable; kept prior usage.json Cursor series."
@@ -1731,6 +2016,7 @@ def collect_usage(
                 "error": cursor_fallback_note,
             }
         fragments = machine_fragments.load_machine_fragments_strict(machines_path)
+        status_fragments = fragments
         validate_fragment_timezones(fragments, timezone)
         local_merged, machine_ids = machine_fragments.merge_local_fragments(
             fragments,
@@ -1835,6 +2121,17 @@ def collect_usage(
         cursor_api_complete = bool(
             cursor_usage.get("available") and cursor_usage.get("complete")
         )
+        cursor_refresh_error = str(cursor_usage.get("error") or "")
+        if not cursor_api_complete and not cursor_refresh_error:
+            cursor_refresh_error = "Cursor API response was incomplete"
+        if not cursor_api_complete:
+            if cursor_refresh_error:
+                print(f"WARN: Cursor refresh failed: {cursor_refresh_error}", file=sys.stderr)
+            cursor_status_error = (
+                "cursor_unavailable"
+                if not cursor_usage.get("available")
+                else "cursor_incomplete"
+            )
         cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
         if not cursor_usage.get("available") and cursor_pts:
             cursor_fallback_note = "Cursor API unavailable; kept prior usage.json Cursor series."
@@ -1854,6 +2151,7 @@ def collect_usage(
         # Base rows for cursor freeze: merged fragments + prior cursor columns
         if merge:
             fragments = machine_fragments.load_machine_fragments_strict(machines_path)
+            status_fragments = fragments
             validate_fragment_timezones(fragments, timezone)
             local_merged, machine_ids = machine_fragments.merge_local_fragments(
                 fragments,
@@ -1865,6 +2163,7 @@ def collect_usage(
         else:
             machine_ids = [mid]
             seeded = machine_fragments.load_machine_fragment(machines_path, mid) or {}
+            status_fragments = [seeded] if seeded else []
             local_merged = [r for r in (seeded.get("daily") or []) if isinstance(r, dict)]
 
         prior_by: dict[str, dict[str, Any]] = {
@@ -1946,12 +2245,20 @@ def collect_usage(
     )
     durable_oneapi_rows = prior_rows if prior_oneapi_compatible else []
     oneapi_data: dict[str, Any]
+    oneapi_refresh_complete = False
+    oneapi_refresh_error = ""
+    oneapi_status_error = ""
     if Path(oneapi_state_path).exists():
         try:
             oneapi_data = oneapi_usage.collect_oneapi(
                 timezone=timezone,
                 state_path=oneapi_state_path,
             )
+            oneapi_refresh_complete = bool(
+                oneapi_data.get("available") and oneapi_data.get("complete")
+            )
+            if not oneapi_refresh_complete:
+                oneapi_status_error = "oneapi_incomplete"
             oneapi_data["stale"] = False
             oneapi_data["state_path"] = oneapi_state_path
             oneapi_data["legacy_history_discarded"] = bool(
@@ -1962,6 +2269,8 @@ def collect_usage(
             if legacy_oneapi_present and not prior_oneapi_compatible:
                 note += " Legacy pre-v2 One API values were not retained."
             print(f"WARN: {note}", file=sys.stderr)
+            oneapi_refresh_error = note
+            oneapi_status_error = "oneapi_refresh_failed"
             oneapi_data = {
                 **prior_oneapi,
                 "available": False,
@@ -1980,6 +2289,8 @@ def collect_usage(
         if legacy_oneapi_present and not prior_oneapi_compatible:
             note += " Legacy pre-v2 One API values were not retained."
         print(f"WARN: {note}", file=sys.stderr)
+        oneapi_refresh_error = note
+        oneapi_status_error = "oneapi_state_unavailable"
         oneapi_data = {
             **prior_oneapi,
             "available": False,
@@ -2003,6 +2314,68 @@ def collect_usage(
             ],
         }
     oneapi_data = reconcile_oneapi_payload(prior_oneapi, oneapi_data, comate)
+
+    prior_status_map = (
+        prior_payload.get("source_status")
+        if isinstance(prior_payload.get("source_status"), dict)
+        else {}
+    )
+    prior_oneapi_status = (
+        prior_status_map.get("oneapi")
+        if isinstance(prior_status_map.get("oneapi"), dict)
+        else {}
+    )
+    prior_oneapi_last_success = str(
+        prior_oneapi_status.get("last_success_at") or ""
+    )
+    prior_oneapi_has_durable_data = prior_oneapi_compatible and (
+        bool(prior_oneapi.get("daily_timeline"))
+        or any(
+            safe_int(row.get("oneapi_tokens"))
+            or safe_float(row.get("oneapi_cost"))
+            or safe_int(row.get("oneapi_requests"))
+            for row in durable_oneapi_rows
+        )
+    )
+    local_source_attempt = local_fragment_source_attempt(
+        status_fragments,
+        timezone,
+        today,
+        attempted=not merge_only,
+    )
+    source_status = reconcile_source_status(
+        prior_payload,
+        {
+            "codex": dict(local_source_attempt),
+            "claude": dict(local_source_attempt),
+            "cursor": {
+                "attempted": True,
+                "fresh": cursor_api_complete,
+                "has_data": bool(cursor_pts),
+                "window_end": today if cursor_api_complete else "",
+                "error": cursor_status_error,
+            },
+            "oneapi": {
+                "attempted": True,
+                "fresh": oneapi_refresh_complete,
+                "has_data": prior_oneapi_has_durable_data
+                or bool(prior_oneapi_last_success),
+                "window_end": str(
+                    (
+                        oneapi_data.get("window")
+                        if isinstance(oneapi_data.get("window"), dict)
+                        else {}
+                    ).get("end")
+                    or ""
+                )
+                if oneapi_refresh_complete
+                else "",
+                "error": oneapi_status_error,
+            },
+        },
+        attempted_at=attempted_at,
+        today=today,
+    )
 
     daily_rows = reconcile_oneapi_rows(
         daily_rows,
@@ -2095,6 +2468,7 @@ def collect_usage(
         "cursor_fallback_note": cursor_fallback_note,
         "cursor_mutable_from": next_cursor_mutable_from,
         "cursor_reconciliation": cursor_reconciliation_stats,
+        "source_status": source_status,
     }
 
 
@@ -3330,7 +3704,8 @@ def main() -> int:
                 "machines": machines,
                 "tools": data.get("tools"),
                 "timeline_meta": data.get("timeline_meta"),
-                "oneapi": data.get("oneapi"),
+                "source_status": public_source_status(data.get("source_status")),
+                "oneapi": public_oneapi_payload(data.get("oneapi")),
                 "daily": data.get("daily_timeline_rows") or [],
                 "notes": {
                     "token_breakdown": (

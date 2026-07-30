@@ -4,6 +4,21 @@ export type ModelUsage = {
   cost: number
 }
 
+export type SourceStatus = {
+  status: 'fresh' | 'stale' | 'failed'
+  last_success_at?: string | null
+  attempted_at?: string | null
+  window_end?: string | null
+  lag_days?: number | null
+  error?: string | null
+}
+
+export type DegradedSourceNotice = {
+  id: string
+  status: 'stale' | 'failed'
+  message: string
+}
+
 export type DailyRow = {
   date: string
   codex_tokens: number
@@ -44,6 +59,7 @@ export type UsagePayload = {
   timezone?: string
   machine_id?: string
   machines?: string[]
+  source_status?: Record<string, SourceStatus>
   tools?: Array<{
     tool: string
     history?: string
@@ -154,6 +170,79 @@ export const TOOLS: Array<{
     cacheKeys: ['oneapi_cache_read', 'oneapi_cache_write'],
   },
 ]
+
+const SOURCE_LABELS: Record<string, string> = {
+  claude: 'Claude Code',
+  claudecode: 'Claude Code',
+  cursor: 'Cursor',
+  oneapi: 'One API',
+  codex: 'Codex',
+}
+
+function normalizedSourceId(id: string): string {
+  return id.toLowerCase().replace(/[\s_-]+/g, '')
+}
+
+function sourceLabel(id: string): string {
+  return SOURCE_LABELS[normalizedSourceId(id)] ?? 'Data source'
+}
+
+function boundedDate(value?: string | null): string | null {
+  if (!value || value.length > 64) return null
+  const match = /^(\d{4}-\d{2}-\d{2})(?:T.*)?$/.exec(value)
+  return match?.[1] ?? null
+}
+
+function statusDetails(source: SourceStatus): string[] {
+  const details: string[] = []
+  const lagDays = Number(source.lag_days)
+  if (Number.isFinite(lagDays) && lagDays > 0) {
+    const days = Math.trunc(lagDays)
+    details.push(
+      days > 999
+        ? '999+ days behind'
+        : `${days} ${days === 1 ? 'day' : 'days'} behind`,
+    )
+  }
+  const windowEnd = boundedDate(source.window_end)
+  if (windowEnd) details.push(`data through ${windowEnd}`)
+  const lastSuccess = boundedDate(source.last_success_at)
+  if (lastSuccess) {
+    details.push(`last successful refresh ${lastSuccess}`)
+  }
+  const attempted = boundedDate(source.attempted_at)
+  if (attempted) details.push(`last attempted ${attempted}`)
+  return details
+}
+
+export function degradedSourceNotices(
+  sourceStatus?: Record<string, SourceStatus>,
+): DegradedSourceNotice[] {
+  if (!sourceStatus) return []
+
+  return Object.entries(sourceStatus).flatMap(([id, source]) => {
+    if (!source || source.status === 'fresh') return []
+
+    const label = sourceLabel(id)
+    const retained =
+      normalizedSourceId(id) === 'oneapi'
+        ? '; previously saved data is retained and still shown'
+        : ''
+    const summary =
+      source.status === 'stale'
+        ? `${label} is stale${retained}`
+        : `${label} refresh failed${retained}`
+    const details = statusDetails(source)
+
+    return [
+      {
+        id,
+        status: source.status,
+        message: `${summary}.${details.length ? ` ${details.join('; ')}.` : ''}`,
+      },
+    ]
+  })
+}
 
 export function num(row: DailyRow, key: keyof DailyRow): number {
   return Number(row[key]) || 0

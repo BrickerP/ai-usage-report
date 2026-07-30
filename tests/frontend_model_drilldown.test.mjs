@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import {
+  degradedSourceNotices,
   modelSeriesPoint,
   selectModelSeries,
   TOOLS,
@@ -34,6 +35,88 @@ const rows = [
     ],
   },
 ]
+
+test('fresh source status adds no page-level notice', () => {
+  assert.deepEqual(
+    degradedSourceNotices({
+      cursor: { status: 'fresh' },
+      oneapi: { status: 'fresh' },
+    }),
+    [],
+  )
+})
+
+test('a stale One API notice says retained data is still shown', () => {
+  const notices = degradedSourceNotices({
+    oneapi: {
+      status: 'stale',
+      last_success_at: '2026-07-29T15:03:00+08:00',
+      attempted_at: '2026-07-30T15:03:00+08:00',
+      window_end: '2026-07-29',
+      lag_days: 1,
+      error: 'SECRET_SESSION_COOKIE at /Users/example/private/state.json',
+    },
+  })
+
+  assert.equal(notices.length, 1)
+  assert.equal(notices[0].status, 'stale')
+  assert.match(notices[0].message, /One API is stale/)
+  assert.match(notices[0].message, /previously saved data is retained and still shown/)
+  assert.match(notices[0].message, /1 day behind/)
+  assert.match(notices[0].message, /last successful refresh/)
+  assert.doesNotMatch(notices[0].message, /SECRET_SESSION_COOKIE/)
+  assert.doesNotMatch(notices[0].message, /\/Users\/example/)
+})
+
+test('a failed source notice identifies the failed refresh without diagnostics', () => {
+  const notices = degradedSourceNotices({
+    cursor: {
+      status: 'failed',
+      attempted_at: '2026-07-30T15:03:00+08:00',
+      error: 'PRIVATE_TOKEN request timed out at /tmp/cursor-debug.log',
+    },
+  })
+
+  assert.deepEqual(notices, [
+    {
+      id: 'cursor',
+      status: 'failed',
+      message: 'Cursor refresh failed. last attempted 2026-07-30.',
+    },
+  ])
+  assert.doesNotMatch(notices[0].message, /PRIVATE_TOKEN/)
+  assert.doesNotMatch(notices[0].message, /\/tmp\/cursor-debug\.log/)
+})
+
+test('source freshness details are bounded before rendering', () => {
+  const notices = degradedSourceNotices({
+    cursor: {
+      status: 'stale',
+      lag_days: Number.MAX_VALUE,
+      window_end: `2026-07-29T${'/private/'.repeat(20)}`,
+      last_success_at: '/Users/example/private/state.json',
+      attempted_at: '2026-07-30T15:03:00+08:00',
+    },
+  })
+
+  assert.equal(
+    notices[0].message,
+    'Cursor is stale. 999+ days behind; last attempted 2026-07-30.',
+  )
+  assert.doesNotMatch(notices[0].message, /private/)
+})
+
+test('an unknown internal source id is not rendered', () => {
+  const notices = degradedSourceNotices({
+    '/Users/example/private/collector': {
+      status: 'failed',
+      error: 'PRIVATE_TOKEN',
+    },
+  })
+
+  assert.equal(notices[0].message, 'Data source refresh failed.')
+  assert.doesNotMatch(notices[0].message, /Users|PRIVATE_TOKEN/)
+})
 
 test('model drilldown keeps the top four, legacy, and a conserving other group', () => {
   const result = selectModelSeries(rows, 'oneapi')
