@@ -75,7 +75,7 @@
 - Design-token constraints: Extend existing tool metadata and colors; do not add another design-system layer.
 - Performance constraints: Fetch all One API pages in one browser evaluation, with bounded retry for rate limits.
 - Compatibility constraints: UUAP requires a saved `chrome-use` browser state with httpOnly cookies; the current Cursor account must not use a custom OpenAI key for the non-overlap assumption.
-- Publication constraints: Scheduled refreshes run from an isolated publisher clone, never abort or switch a developer's Git state, and stage generated report artifacts only.
+- Publication constraints: Scheduled refreshes run from an isolated publisher clone, never abort or switch a developer's Git state, and stage generated report artifacts only. After local capture and before synchronization/build/commit, require a noninteractive stored Git credential and prove repository write access with a no-mutation dry-run push to a unique probe ref; do not infer authentication identity from its username. Actual pushes use the ordinary Git credential helper, while `GH_PUBLISH_ACCOUNT` is only a commit author/config label.
 - Test/screenshot expectations: Unit-test classification, quota conversion, browser-state use, incomplete-fetch rejection, and durable history reconciliation; run lint and production build.
 
 ## Open questions

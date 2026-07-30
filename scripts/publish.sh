@@ -47,23 +47,23 @@ log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
 
 require_publish_auth() {
-  command -v gh >/dev/null || die "gh not found (needed to push)"
+  local remote_url
+  remote_url="$(git remote get-url --push "$REMOTE_NAME")" || \
+    die "could not resolve Git remote $REMOTE_NAME"
 
-  local status_output
-  if ! status_output="$(gh auth status --hostname github.com 2>&1)"; then
-    printf '%s\n' "$status_output" >&2
-    die "gh authentication check failed for $GH_PUBLISH_ACCOUNT"
+  if ! printf 'url=%s\n\n' "$remote_url" |
+    GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false GCM_INTERACTIVE=Never \
+      git credential fill >/dev/null 2>&1; then
+    die "could not read a stored Git credential for $REMOTE_NAME"
   fi
 
-  local authenticated_login expected_login
-  if ! authenticated_login="$(gh api user --jq .login 2>&1)"; then
-    printf '%s\n' "$authenticated_login" >&2
-    die "could not verify the authenticated GitHub account"
-  fi
-  authenticated_login="$(printf '%s' "$authenticated_login" | tr '[:upper:]' '[:lower:]')"
-  expected_login="$(printf '%s' "$GH_PUBLISH_ACCOUNT" | tr '[:upper:]' '[:lower:]')"
-  if [[ "$authenticated_login" != "$expected_login" ]]; then
-    die "gh is not logged in as $GH_PUBLISH_ACCOUNT"
+  local probe_ref
+  probe_ref="refs/heads/ai-usage-auth-probe/$(date -u '+%Y%m%dT%H%M%SZ')-$$"
+  log "verifying Git push access with an isolated dry-run probe"
+  if ! GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false GCM_INTERACTIVE=Never \
+    git push --dry-run --no-verify "$REMOTE_NAME" "HEAD:${probe_ref}" \
+      >/dev/null 2>&1; then
+    die "Git credential dry-run push probe failed for $REMOTE_NAME"
   fi
 }
 
@@ -341,12 +341,10 @@ validate_unpublished_paths() {
 }
 
 push_branch() {
-  local tok="$1"
-  local git_extraheader="Authorization: Basic $(printf 'x-access-token:%s' "$tok" | base64)"
   validate_unpublished_paths
   # Always push the current commit to refs/heads/<branch> — never bare HEAD.
-  git -c "http.https://github.com/.extraheader=$git_extraheader" \
-    push "$REMOTE_NAME" "HEAD:refs/heads/${PUBLISH_BRANCH}"
+  GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/false GCM_INTERACTIVE=Never \
+    git push "$REMOTE_NAME" "HEAD:refs/heads/${PUBLISH_BRANCH}"
 }
 
 reconcile_backfill_push() {
@@ -416,14 +414,11 @@ reconcile_backfill_push() {
 }
 
 push_with_remmerge() {
-  local tok
-  tok=$(gh auth token -u "$GH_PUBLISH_ACCOUNT") || die "could not read token"
-
   local attempt=1
   while (( attempt <= RETRY_ATTEMPTS )); do
     ensure_on_publish_branch
     log "attempt ${attempt}/${RETRY_ATTEMPTS}: git push ${REMOTE_NAME} HEAD:refs/heads/${PUBLISH_BRANCH}"
-    if push_branch "$tok"; then
+    if push_branch; then
       log "pushed"
       return 0
     fi

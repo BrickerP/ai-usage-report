@@ -701,7 +701,30 @@ class PublishCliSafetyTests(unittest.TestCase):
             check=check,
         )
 
-    def test_invalid_auth_named_account_fails_after_capture_before_git_or_build(self):
+    def configure_credential(
+        self,
+        repo: Path,
+        sandbox: Path,
+        username: str | None,
+        password: str = "test-secret",
+    ):
+        self.git(repo, "config", "--add", "credential.helper", "")
+        if username is None:
+            return
+
+        helper = sandbox / "git-credential-test"
+        helper.write_text(
+            f"""#!/bin/sh
+if [ "${{1:-}}" = get ]; then
+  printf '%s\\n' 'username={username}' 'password={password}'
+fi
+""",
+            encoding="utf-8",
+        )
+        helper.chmod(0o700)
+        self.git(repo, "config", "--add", "credential.helper", str(helper))
+
+    def test_missing_git_credential_fails_after_capture_before_git_or_build(self):
         with tempfile.TemporaryDirectory() as tmp:
             sandbox = Path(tmp)
             repo = sandbox / "repo"
@@ -758,21 +781,14 @@ with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
                 "initial",
             )
             self.git(sandbox, "init", "--bare", str(remote))
-            self.git(repo, "remote", "add", "origin", str(remote))
+            self.git(repo, "remote", "add", "origin", remote.as_uri())
             self.git(repo, "push", "-u", "origin", "main")
+            self.configure_credential(repo, sandbox, username=None)
             initial_head = self.git(repo, "rev-parse", "HEAD").stdout.strip()
 
             bash_env = sandbox / "bash-env.sh"
             bash_env.write_text(
-                """gh() {
-  printf 'gh:%s\\n' "$*" >> "$TEST_EVENTS"
-  if [[ "${1:-} ${2:-}" == "auth status" ]]; then
-    printf 'X Failed to log in to github.com account BrickerP (default)\\n'
-    return 1
-  fi
-  return 99
-}
-npm() {
+                """npm() {
   printf 'npm:%s\\n' "$*" >> "$TEST_EVENTS"
   mkdir -p docs
   printf 'built\\n' > docs/index.html
@@ -812,19 +828,26 @@ npm() {
             self.assertFalse(any(line.startswith("npm:") for line in event_lines))
             self.assertNotIn("git fetch", trace)
             self.assertNotIn("git pull", trace)
+            self.assertIn("stored Git credential", result.stdout)
             self.assertEqual(
                 self.git(repo, "rev-parse", "HEAD").stdout.strip(), initial_head
             )
 
-    def test_auth_preflight_requires_exact_authenticated_login(self):
+    def test_auth_preflight_accepts_different_credential_username_with_write_access(
+        self,
+    ):
         with tempfile.TemporaryDirectory() as tmp:
             sandbox = Path(tmp)
             repo = sandbox / "repo"
+            remote = sandbox / "remote.git"
             events = sandbox / "events.log"
             git_trace = sandbox / "git-trace.log"
             repo.mkdir()
             (repo / "scripts").mkdir()
             (repo / "public" / "machines").mkdir(parents=True)
+            (repo / "docs").mkdir()
+            (repo / "node_modules").mkdir()
+            (repo / "node_modules" / ".keep").write_text("", encoding="utf-8")
             (repo / "scripts" / "publish.sh").write_bytes(
                 (ROOT / "scripts" / "publish.sh").read_bytes()
             )
@@ -851,19 +874,19 @@ with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
                 "-m",
                 "initial",
             )
-
+            self.git(sandbox, "init", "--bare", str(remote))
+            self.git(repo, "remote", "add", "origin", remote.as_uri())
+            self.git(repo, "push", "-u", "origin", "main")
+            self.configure_credential(
+                repo,
+                sandbox,
+                username="CredentialAlias",
+                password="valid-write-secret",
+            )
             bash_env = sandbox / "bash-env.sh"
             bash_env.write_text(
-                """gh() {
-  if [[ "${1:-} ${2:-}" == "auth status" ]]; then
-    printf 'Logged in to github.com account BrickerP (default)\\n'
-    return 0
-  fi
-  if [[ "${1:-} ${2:-}" == "api user" ]]; then
-    printf 'SomeOtherAccount\\n'
-    return 0
-  fi
-  return 99
+                """npm() {
+  [[ "${1:-} ${2:-}" == "run build" ]]
 }
 """,
                 encoding="utf-8",
@@ -884,11 +907,88 @@ with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
                 check=False,
             )
 
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(
+                events.read_text(encoding="utf-8").splitlines(),
+                ["collector-ran", "collector-ran"],
+            )
+            trace = git_trace.read_text(encoding="utf-8")
+            self.assertIn(
+                "push --dry-run --no-verify origin HEAD:refs/heads/", trace
+            )
+            self.assertNotIn("valid-write-secret", result.stdout)
+            self.assertNotIn("valid-write-secret", trace)
+
+    def test_auth_preflight_rejects_failed_dry_run_without_leaking_secret(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sandbox = Path(tmp)
+            repo = sandbox / "repo"
+            missing_remote = sandbox / "missing-remote.git"
+            events = sandbox / "events.log"
+            git_trace = sandbox / "git-trace.log"
+            secret = "never-print-this-token"
+            repo.mkdir()
+            (repo / "scripts").mkdir()
+            (repo / "public" / "machines").mkdir(parents=True)
+            (repo / "scripts" / "publish.sh").write_bytes(
+                (ROOT / "scripts" / "publish.sh").read_bytes()
+            )
+            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+                """#!/usr/bin/env python3
+import os
+from pathlib import Path
+Path(os.environ["TEST_EVENTS"]).write_text("collector-ran\\n", encoding="utf-8")
+""",
+                encoding="utf-8",
+            )
+            (repo / "public" / "usage.json").write_text("{}\n", encoding="utf-8")
+            self.git(repo, "init")
+            self.git(repo, "checkout", "-b", "main")
+            self.git(repo, "add", "-A")
+            self.git(
+                repo,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "initial",
+            )
+            self.git(
+                repo, "remote", "add", "origin", missing_remote.resolve().as_uri()
+            )
+            self.configure_credential(
+                repo, sandbox, username="BrickerP", password=secret
+            )
+
+            result = subprocess.run(
+                ["bash", "scripts/publish.sh"],
+                cwd=repo,
+                env={
+                    **os.environ,
+                    "AI_USAGE_MACHINE_ID": "mac-test",
+                    "GIT_TRACE": str(git_trace),
+                    "TEST_EVENTS": str(events),
+                },
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+
             self.assertNotEqual(result.returncode, 0, result.stdout)
             self.assertEqual(
                 events.read_text(encoding="utf-8").splitlines(), ["collector-ran"]
             )
-            self.assertNotIn("git fetch", git_trace.read_text(encoding="utf-8"))
+            self.assertIn("dry-run push probe failed", result.stdout)
+            self.assertNotIn(secret, result.stdout)
+            trace = git_trace.read_text(encoding="utf-8")
+            self.assertIn(
+                "push --dry-run --no-verify origin HEAD:refs/heads/", trace
+            )
+            self.assertNotIn("git fetch", trace)
+            self.assertNotIn(secret, trace)
 
     def test_publish_refuses_feature_branch_without_switching_or_collecting(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1052,6 +1152,10 @@ Path(os.environ["TEST_EVENTS"]).write_text("collector-ran\\n", encoding="utf-8")
             sandbox = Path(tmp)
             repo = sandbox / "repo"
             remote = sandbox / "remote.git"
+            remote_writer = sandbox / "remote-writer"
+            git_trace = sandbox / "git-trace.log"
+            pre_push_events = sandbox / "pre-push-events.log"
+            secret = "ordinary-helper-secret"
             repo.mkdir()
             (repo / "scripts").mkdir()
             (repo / "public" / "machines").mkdir(parents=True)
@@ -1099,29 +1203,52 @@ elif "--merge-only" in sys.argv:
                 "initial",
             )
             self.git(sandbox, "init", "--bare", str(remote))
-            self.git(repo, "remote", "add", "origin", str(remote))
+            self.git(repo, "remote", "add", "origin", remote.as_uri())
             self.git(repo, "push", "-u", "origin", "main")
+            self.configure_credential(
+                repo, sandbox, username="BrickerP", password=secret
+            )
+            pre_push_hook = repo / ".git" / "hooks" / "pre-push"
+            pre_push_hook.write_text(
+                """#!/bin/sh
+while read -r _local_ref _local_oid remote_ref _remote_oid; do
+  printf '%s\\n' "$remote_ref" >> "$TEST_PRE_PUSH_EVENTS"
+  case "$remote_ref" in
+    refs/heads/ai-usage-auth-probe/*) exit 91 ;;
+  esac
+done
+""",
+                encoding="utf-8",
+            )
+            pre_push_hook.chmod(0o700)
+
+            self.git(
+                sandbox,
+                "clone",
+                "--branch",
+                "main",
+                remote.as_uri(),
+                str(remote_writer),
+            )
+            (remote_writer / "docs" / "remote-only.html").write_text(
+                "remote\n", encoding="utf-8"
+            )
+            self.git(remote_writer, "add", "docs/remote-only.html")
+            self.git(
+                remote_writer,
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-m",
+                "advance remote main",
+            )
+            self.git(remote_writer, "push", "origin", "main")
 
             bash_env = sandbox / "bash-env.sh"
             bash_env.write_text(
-                """gh() {
-  case "${1:-} ${2:-}" in
-    "auth status")
-      printf 'Logged in to github.com account BrickerP (default)\\n'
-      return 0
-      ;;
-    "api user")
-      printf 'BrickerP\\n'
-      return 0
-      ;;
-    "auth token")
-      printf 'test-token\\n'
-      return 0
-      ;;
-  esac
-  return 99
-}
-npm() {
+                """npm() {
   if [[ "${1:-} ${2:-}" == "run build" ]]; then
     mkdir -p docs
     printf 'built\\n' > docs/index.html
@@ -1139,6 +1266,8 @@ npm() {
                     **os.environ,
                     "AI_USAGE_MACHINE_ID": "mac-test",
                     "BASH_ENV": str(bash_env),
+                    "GIT_TRACE": str(git_trace),
+                    "TEST_PRE_PUSH_EVENTS": str(pre_push_events),
                 },
                 text=True,
                 stdout=subprocess.PIPE,
@@ -1158,6 +1287,22 @@ npm() {
             self.assertEqual(
                 self.git(repo, "rev-parse", "HEAD").stdout.strip(),
                 self.git(repo, "rev-parse", "origin/main").stdout.strip(),
+            )
+            remote_refs = self.git(
+                remote, "for-each-ref", "--format=%(refname)", "refs/heads"
+            ).stdout.splitlines()
+            self.assertEqual(remote_refs, ["refs/heads/main"])
+            trace = git_trace.read_text(encoding="utf-8")
+            self.assertIn(
+                "push --dry-run --no-verify origin HEAD:refs/heads/", trace
+            )
+            self.assertIn("push origin HEAD:refs/heads/main", trace)
+            self.assertNotIn("extraheader", trace)
+            self.assertNotIn(secret, result.stdout)
+            self.assertNotIn(secret, trace)
+            self.assertEqual(
+                pre_push_events.read_text(encoding="utf-8").splitlines(),
+                ["refs/heads/main"],
             )
 
     def run_publish_with_existing_ahead_commits(self, ahead_changes):
@@ -1198,8 +1343,9 @@ npm() {
                 "initial",
             )
             self.git(sandbox, "init", "--bare", str(remote))
-            self.git(repo, "remote", "add", "origin", str(remote))
+            self.git(repo, "remote", "add", "origin", remote.as_uri())
             self.git(repo, "push", "-u", "origin", "main")
+            self.configure_credential(repo, sandbox, username="BrickerP")
             remote_before = self.git(repo, "rev-parse", "origin/main").stdout.strip()
 
             for index, (ahead_path, content) in enumerate(ahead_changes, start=1):
@@ -1225,24 +1371,7 @@ npm() {
 
             bash_env = sandbox / "bash-env.sh"
             bash_env.write_text(
-                """gh() {
-  case "${1:-} ${2:-}" in
-    "auth status")
-      printf 'Logged in to github.com account BrickerP (default)\\n'
-      return 0
-      ;;
-    "api user")
-      printf 'BrickerP\\n'
-      return 0
-      ;;
-    "auth token")
-      printf 'test-token\\n'
-      return 0
-      ;;
-  esac
-  return 99
-}
-npm() {
+                """npm() {
   [[ "${1:-} ${2:-}" == "run build" ]]
 }
 """,

@@ -209,9 +209,14 @@ must still be retained until at least one later successful reconciliation; no
 collector can reconstruct records that were deleted before they were ever read.
 
 Run the LaunchAgent from a dedicated publisher clone. The publisher refuses to
-switch branches or abort an in-progress Git operation, validates GitHub
-authentication after the local snapshot is durable but before pull/build/commit,
-and stages only generated report artifacts. Source-code releases should be
+switch branches or abort an in-progress Git operation. After the local snapshot
+is durable but before pull/build/commit, it non-interactively reads the configured
+Git credential for `origin` and verifies repository write access with a
+no-mutation dry run to a unique probe ref. It does not infer authentication
+identity from the credential username. The real push uses the ordinary Git
+credential helper; the publisher does not invoke `gh` directly or print the
+stored password.
+Only generated report artifacts are staged. Source-code releases should be
 committed separately from scheduled data refreshes.
 
 Required env:
@@ -221,7 +226,7 @@ Required env:
 Optional env:
 
 - `AI_USAGE_TIMEZONE` (default `Asia/Shanghai`)
-- `GH_PUBLISH_ACCOUNT` (default `BrickerP`)
+- `GH_PUBLISH_ACCOUNT` (default `BrickerP`; commit author/config label only, not authentication identity)
 - `PUBLISH_BRANCH` (default `main`)
 - `ONEAPI_STATE_PATH` (default `/tmp/oneapi-chrome-state.json`)
 - `CHROME_USE_BIN` (optional explicit path to the `chrome-use` executable)
