@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-07-30T22:42:51+08:00",
+  "generated_at": "2026-07-31T00:36:58+08:00",
   "timezone": "Asia/Shanghai",
-  "cursor_mutable_from": "2026-07-29",
+  "cursor_mutable_from": "2026-07-30",
   "cursor_reconciliation": {
     "regression_dates": [],
     "regression_kept": 0
@@ -15,8 +15,8 @@
     {
       "tool": "Codex",
       "history": "2026-01-08 to 2026-07-30",
-      "cost": 87703.5987213,
-      "total_tokens": 61450539224,
+      "cost": 87704.0227783,
+      "total_tokens": 61451214928,
       "models": [
         {
           "model": "Legacy unknown",
@@ -25,18 +25,18 @@
         },
         {
           "model": "gpt-5.6-sol",
-          "tokens": 5594890040,
-          "cost": 6580.424602241695
+          "tokens": 5595565744,
+          "cost": 6580.895252531753
         },
         {
           "model": "gpt-5.5",
           "tokens": 634166598,
-          "cost": 711.7021806429624
+          "cost": 711.6715943447153
         },
         {
           "model": "gpt-5.6-luna",
           "tokens": 97855396,
-          "cost": 109.37441441805369
+          "cost": 109.358407426243
         },
         {
           "model": "gpt-5.6-terra",
@@ -101,8 +101,8 @@
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-07-30",
-      "cost": 3558.5226269,
-      "total_tokens": 3474105152,
+      "cost": 3559.0110469,
+      "total_tokens": 3474707082,
       "models": [
         {
           "model": "Legacy unknown",
@@ -111,8 +111,8 @@
         },
         {
           "model": "cursor-grok-4.5-high",
-          "tokens": 155263044,
-          "cost": 94.05655499999999
+          "tokens": 155864974,
+          "cost": 94.544975
         },
         {
           "model": "claude-sonnet-5-thinking-high",
@@ -216,36 +216,36 @@
   },
   "source_status": {
     "codex": {
-      "status": "fresh",
-      "attempted_at": "2026-07-30T22:34:32+08:00",
+      "status": "stale",
+      "attempted_at": "2026-07-30T03:35:09+08:00",
       "last_success_at": "2026-07-30T03:35:09+08:00",
       "window_end": "2026-07-30",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "local_fragments_stale"
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-07-30T22:34:32+08:00",
+      "status": "stale",
+      "attempted_at": "2026-07-30T03:35:09+08:00",
       "last_success_at": "2026-07-30T03:35:09+08:00",
       "window_end": "2026-07-30",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "local_fragments_stale"
     },
     "cursor": {
       "status": "fresh",
-      "attempted_at": "2026-07-30T22:34:32+08:00",
-      "last_success_at": "2026-07-30T22:34:32+08:00",
-      "window_end": "2026-07-30",
+      "attempted_at": "2026-07-31T00:36:45+08:00",
+      "last_success_at": "2026-07-31T00:36:45+08:00",
+      "window_end": "2026-07-31",
       "lag_days": 0,
       "error": ""
     },
     "oneapi": {
-      "status": "stale",
-      "attempted_at": "2026-07-30T22:34:32+08:00",
-      "last_success_at": "2026-07-30T15:32:18+08:00",
+      "status": "fresh",
+      "attempted_at": "2026-07-31T00:36:45+08:00",
+      "last_success_at": "2026-07-31T00:36:45+08:00",
       "window_end": "2026-07-30",
-      "lag_days": 0,
-      "error": "oneapi_refresh_failed"
+      "lag_days": 1,
+      "error": ""
     }
   },
   "oneapi": {
@@ -8638,24 +8638,24 @@
     },
     {
       "date": "2026-07-30",
-      "codex_tokens": 742067072,
-      "codex_cost": 821.9692142,
-      "codex_input": 31652329,
-      "codex_cache_read": 708306688,
-      "codex_output": 2108055,
-      "codex_reasoning": 906363,
+      "codex_tokens": 742742776,
+      "codex_cost": 822.3932712,
+      "codex_input": 31662616,
+      "codex_cache_read": 708970752,
+      "codex_output": 2109408,
+      "codex_reasoning": 906888,
       "claude_tokens": 237678098,
       "claude_cost": 1201.8763700000002,
       "claude_input": 237003804,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 674294,
-      "cursor_tokens": 32595531,
-      "cursor_cost": 19.8598125,
-      "cursor_input": 1902764,
+      "cursor_tokens": 33197461,
+      "cursor_cost": 20.3482325,
+      "cursor_input": 2021618,
       "cursor_cache_write": 0,
-      "cursor_cache_read": 30561664,
-      "cursor_output": 131103,
+      "cursor_cache_read": 31043072,
+      "cursor_output": 132771,
       "oneapi_tokens": 80950894,
       "oneapi_cost": 0.545818,
       "oneapi_input": 1520508,
@@ -8666,18 +8666,18 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 635388721,
-          "cost": 703.8042616610173
+          "tokens": 636064425,
+          "cost": 704.274911951075
         },
         {
           "model": "gpt-5.5",
           "tokens": 70029308,
-          "cost": 77.56972036582938
+          "cost": 77.5391340675824
         },
         {
           "model": "gpt-5.6-luna",
           "tokens": 36649043,
-          "cost": 40.59523217315322
+          "cost": 40.57922518134254
         }
       ],
       "claude_models": [
@@ -8690,8 +8690,8 @@
       "cursor_models": [
         {
           "model": "cursor-grok-4.5-high",
-          "tokens": 32595531,
-          "cost": 19.8598125
+          "tokens": 33197461,
+          "cost": 20.3482325
         }
       ],
       "oneapi_models": [
@@ -8701,13 +8701,13 @@
           "cost": 0.545818
         }
       ],
-      "total_tokens": 1093291595,
-      "total_cost": 2044.2512147000002
+      "total_tokens": 1094569229,
+      "total_cost": 2045.1636917
     }
   ],
   "notes": {
     "token_breakdown": "Cards and tooltips show input, cache, and output tokens per tool. Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read. Ducc is counted under Claude Code. One API includes only non-GPT/Codex and non-Claude model families from the gateway, such as Grok and DeepSeek. Historical local Comate context deltas are retained under One API only on dates without gateway coverage.",
     "cost": "Codex/Claude costs come from ccusage using LiteLLM official model pricing (Codex reads service_tier from ~/.codex/config.toml): collect offline first for launchd reliability, auto-retry online when any model has tokens but $0 cost, then reprice remaining unpriced models from the LiteLLM JSON table (cached under ~/.cache/ai-usage-report); Cursor costs come from the authenticated Dashboard API; One API quota uses 250,000 units/CNY and is estimated at ~0.14 USD/CNY. Codex/Claude daily totals are SUMMED across public/machines/*.json; Cursor is account-level and replaced from the API on each publish (if API unavailable, prior usage.json Cursor series is kept); One API is account-level, excludes GPT/Codex and Claude traffic, and keeps its prior series when authentication or pagination fails.",
-    "merge": "Merged machine fragments: mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected. Fragment mode=append."
+    "merge": "Merged machine fragments: mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected."
   }
 }
