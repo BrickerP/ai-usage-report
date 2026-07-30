@@ -53,6 +53,38 @@ const chartsSource = readFileSync(
   'utf8',
 )
 
+test('chronicle hero and skyline are dynamic, all-time, and separate from Explore', () => {
+  assert.match(appSource, /summarizeLifetime\(daily\)/)
+  assert.match(appSource, /\{fmtHeroTokens\(lifetime\.recordedTokens\)\}/)
+  assert.match(appSource, /recorded tokens/)
+  assert.match(appSource, /lifetime\.cacheRatio/)
+  assert.match(appSource, /className="skyline-desktop"/)
+  assert.match(appSource, /className="skyline-compact"/)
+  assert.match(appSource, /className="skyline-weekly-label"[\s\S]{0,120}Weekly Skyline/)
+  assert.match(appSource, /Natural-week totals on small screens/)
+  assert.match(stylesheetSource, /\.skyline-weekly-label/)
+  assert.match(appSource, /<UsageSkyline[\s\S]{0,240}daily=\{daily\}/)
+  assert.match(appSource, /compact/)
+  assert.match(appSource, /id="explore"/)
+  assert.match(appSource, /id="explore-heading"[\s\S]{0,80}Explore/)
+  assert.doesNotMatch(appSource, /75\.2B|68\.8B|91\.5%/)
+})
+
+test('all time is the default view and the URL omits only the default preset', () => {
+  assert.match(
+    appSource,
+    /const \[preset, setPreset\] = useState<ViewPreset>\('all'\)/,
+  )
+  assert.match(appSource, /setRange\(indexForPreset\(data\.daily, 'all'\)\)/)
+  assert.match(appSource, /const nextPreset = savedView\.preset \?\? 'all'/)
+  assert.match(appSource, /label="Reset all time"/)
+  assert.match(
+    appSource,
+    /isDisabled=\{\s*preset === 'all' &&\s*range\[0\] === 0 &&\s*range\[1\] === daily\.length - 1\s*\}/,
+  )
+  assert.match(appSource, /onClick=\{\(\) => applyPreset\('all'\)\}/)
+})
+
 test('core interaction and data-state semantics remain explicit', () => {
   assert.match(appSource, /className="selection-status visually-hidden"/)
   assert.match(appSource, /Viewing \$\{activeTool\.label\} models/)
@@ -90,8 +122,13 @@ test('report context is concise by default and fully disclosed on demand', () =>
   assert.match(appSource, /payload\.notes\?\.cost/)
   assert.match(appSource, /className="source-health-notice"/)
   assert.match(appSource, /aria-live="polite"/)
-  assert.match(appSource, /source\.label/)
-  assert.match(appSource, /source\.retained/)
+  assert.match(appSource, /degradedSources[\s\S]{0,220}\.map\(\(source\) => source\.message\)/)
+  const quietSourceStart = appSource.indexOf('className="source-health-notice"')
+  const quietSourceMarkup = appSource.slice(
+    quietSourceStart,
+    appSource.indexOf('</button>', quietSourceStart),
+  )
+  assert.doesNotMatch(quietSourceMarkup, /role="status"|aria-live=/)
   assert.doesNotMatch(
     appSource,
     /<Text size="sm" color="secondary">\s*<Text weight="semibold">Token breakdown:/,
@@ -122,9 +159,12 @@ test('advanced time controls are disclosed without losing capability', () => {
   assert.match(appSource, /onChange=\{onDatesChange\}/)
   assert.match(appSource, /isDisabled=\{range\[0\] <= 0\}/)
   assert.match(appSource, /isDisabled=\{range\[1\] >= daily\.length - 1\}/)
-  assert.match(appSource, /label="Reset 30d"/)
-  assert.match(appSource, /isDisabled=\{preset === '30'\}/)
-  assert.match(appSource, /onClick=\{\(\) => applyPreset\('30'\)\}/)
+  assert.match(appSource, /label="Reset all time"/)
+  assert.match(
+    appSource,
+    /isDisabled=\{\s*preset === 'all' &&\s*range\[0\] === 0 &&\s*range\[1\] === daily\.length - 1\s*\}/,
+  )
+  assert.match(appSource, /onClick=\{\(\) => applyPreset\('all'\)\}/)
 })
 
 test('model details and focus preserve keyboard and accessible state', () => {
@@ -280,11 +320,24 @@ test('invalid report view values safely collapse to defaults', () => {
     buildReportViewSearch('?tool=oneapi&model=old&range=7', {
       tool: null,
       model: null,
-      preset: '30',
+      preset: 'all',
       from: null,
       to: null,
     }),
     '',
+  )
+})
+
+test('non-default 30-day range remains durable in the URL', () => {
+  assert.equal(
+    buildReportViewSearch('', {
+      tool: null,
+      model: null,
+      preset: '30',
+      from: null,
+      to: null,
+    }),
+    '?range=30',
   )
 })
 

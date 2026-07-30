@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run generate:readme-cards && tsc -b && vite build",
+    "generate:readme-cards": "node scripts/generate_readme_cards.mjs",
     "lint": "oxlint",
-    "test:frontend": "node --test tests/frontend_model_drilldown.test.mjs",
+    "test:frontend": "node --test tests/*.test.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "collect": "python3 scripts/ai_usage_comparison_image.py --json-out public/usage.json --machines-dir public/machines",
     "collect:backfill-codex-cache": "python3 scripts/ai_usage_comparison_image.py --json-out public/usage.json --machines-dir public/machines --backfill-codex-cache",

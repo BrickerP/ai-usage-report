@@ -691,6 +691,20 @@ printf '1' > "$TEST_COUNTER"
 
 
 class PublishCliSafetyTests(unittest.TestCase):
+    def setUp(self):
+        self._previous_oneapi_state_path = os.environ.get("ONEAPI_STATE_PATH")
+        self._oneapi_state_dir = tempfile.TemporaryDirectory()
+        os.environ["ONEAPI_STATE_PATH"] = str(
+            Path(self._oneapi_state_dir.name) / "missing-oneapi-state.json"
+        )
+
+    def tearDown(self):
+        if self._previous_oneapi_state_path is None:
+            os.environ.pop("ONEAPI_STATE_PATH", None)
+        else:
+            os.environ["ONEAPI_STATE_PATH"] = self._previous_oneapi_state_path
+        self._oneapi_state_dir.cleanup()
+
     def git(self, cwd: Path, *args: str, check: bool = True):
         return subprocess.run(
             ["git", *args],

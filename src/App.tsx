@@ -26,8 +26,10 @@ import {
   useState,
 } from 'react'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { UsageSkyline } from './components/UsageSkyline'
 import { UsageCharts } from './components/UsageCharts'
 import { modelSeriesColor } from './lib/chart'
+import { summarizeLifetime } from './lib/chronicle'
 import { fmtCompact, fmtUsd } from './lib/format'
 import {
   buildReportViewSearch,
@@ -73,11 +75,22 @@ function compactTimestamp(value?: string | null) {
   return value.slice(0, 16).replace('T', ' ')
 }
 
+function fmtHeroTokens(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value)
+}
+
+function fmtRatio(value: number) {
+  return `${(value * 100).toFixed(1)}%`
+}
+
 function ReportApp() {
   const [payload, setPayload] = useState<UsagePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
-  const [preset, setPreset] = useState<ViewPreset>('30')
+  const [preset, setPreset] = useState<ViewPreset>('all')
   const [range, setRange] = useState<[number, number]>([0, -1])
   const [selectedTool, setSelectedTool] = useState<ToolId | null>(null)
   const [pinnedModel, setPinnedModel] = useState<string | null>(null)
@@ -96,8 +109,8 @@ function ReportApp() {
       .then((data) => {
         if (cancelled) return
         setPayload(data)
-        setRange(indexForPreset(data.daily, '30'))
-        setPreset('30')
+        setRange(indexForPreset(data.daily, 'all'))
+        setPreset('all')
       })
       .catch((err: Error) => {
         if (!cancelled) setError(err.message || String(err))
@@ -110,7 +123,7 @@ function ReportApp() {
   useEffect(() => {
     if (!payload || isViewHydrated) return
     const savedView = parseReportView(window.location.search)
-    const nextPreset = savedView.preset ?? '30'
+    const nextPreset = savedView.preset ?? 'all'
     let nextRange = indexForPreset(payload.daily, nextPreset)
 
     if (savedView.from && savedView.to) {
@@ -162,6 +175,7 @@ function ReportApp() {
   }, [daily, range])
 
   const summary = useMemo(() => summarizeRange(visible), [visible])
+  const lifetime = useMemo(() => summarizeLifetime(daily), [daily])
   const activeTool = selectedTool
     ? TOOLS.find((tool) => tool.id === selectedTool) ?? null
     : null
@@ -392,22 +406,29 @@ function ReportApp() {
 
   if (!payload) {
     return (
-      <div className="page report-state-page">
-        <Card variant="muted" padding={4}>
-          <div
-            className="report-state-card"
-            role="status"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            <Badge label="Loading report" variant="neutral" />
-            <Heading level={1}>Loading usage data</Heading>
-            <Text color="secondary">
-              Fetching the latest published daily report…
-            </Text>
-            <span className="report-loading-bar" aria-hidden="true" />
+      <div className="page">
+        <div
+          className="report-state-card chronicle-loading-state"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <span className="visually-hidden">
+            Loading the latest published usage chronicle.
+          </span>
+          <div className="loading-meta skeleton-block" aria-hidden="true" />
+          <div className="loading-hero skeleton-block" aria-hidden="true" />
+          <div className="loading-copy skeleton-block" aria-hidden="true" />
+          <div className="loading-skyline" aria-hidden="true">
+            {Array.from({ length: 36 }, (_, index) => (
+              <span
+                key={index}
+                style={{ height: `${24 + ((index * 37) % 68)}%` }}
+              />
+            ))}
           </div>
-        </Card>
+          <div className="loading-legend skeleton-block" aria-hidden="true" />
+        </div>
       </div>
     )
   }
@@ -421,14 +442,6 @@ function ReportApp() {
     payload.timeline_meta?.span ||
     `${daily[0]?.date || '—'} — ${daily.at(-1)?.date || '—'}`
   const degradedSources = degradedSourceNotices(payload.source_status)
-  const sourceHealthSummary = degradedSources
-    .map((source) => {
-      const status =
-        source.status === 'stale' ? 'is stale' : 'refresh failed'
-      const retained = source.retained ? '; retained data is shown' : ''
-      return `${source.label} ${status}${retained}.`
-    })
-    .join(' ')
   const selectionStatus = activeTool
     ? pinnedModel
       ? `Viewing ${activeTool.label} models. Focused on ${pinnedModel}.`
@@ -446,45 +459,53 @@ function ReportApp() {
         {selectionStatus}
       </div>
       <VStack gap={6}>
-        <VStack gap={2}>
-          <Badge label="Usage report" variant="neutral" />
-          <Heading level={1} type="display-2">
-            AI coding spend & tokens
-          </Heading>
-          <Text size="sm" color="secondary">
-            Updated {compactTimestamp(payload.generated_at)}
-          </Text>
-          {degradedSources.length ? (
-            <div
-              className="source-health-notice"
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <span className="source-health-marker" aria-hidden="true">
-                !
-              </span>
-              <span>
-                <span className="source-health-title">Data freshness</span>{' '}
-                {sourceHealthSummary}
-              </span>
+        <header className="chronicle-header">
+          <div className="chronicle-topline">
+            <p className="chronicle-kicker">BRICKERP / AI USAGE CHRONICLE</p>
+            <div className="chronicle-update">
+              <span>Updated {compactTimestamp(payload.generated_at)}</span>
+              {degradedSources.length ? (
+                <button
+                  type="button"
+                  className="source-health-notice"
+                  aria-expanded={isReportDetailsOpen}
+                  aria-controls="report-details-panel"
+                  onClick={() => setIsReportDetailsOpen(true)}
+                >
+                  <span className="source-health-marker" aria-hidden="true" />
+                  {degradedSources.length}{' '}
+                  {degradedSources.length === 1 ? 'source' : 'sources'} delayed
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="report-details-trigger"
+                aria-expanded={isReportDetailsOpen}
+                aria-controls="report-details-panel"
+                onClick={() => setIsReportDetailsOpen((open) => !open)}
+              >
+                {isReportDetailsOpen ? 'Hide details' : 'Report details'}
+              </button>
             </div>
-          ) : null}
-          <Button
-            label={
-              isReportDetailsOpen
-                ? 'Hide report details'
-                : 'Show report details and methodology'
-            }
-            variant="ghost"
-            size="sm"
-            className="report-details-trigger"
-            aria-expanded={isReportDetailsOpen}
-            aria-controls="report-details-panel"
-            onClick={() => setIsReportDetailsOpen((open) => !open)}
-          >
-            {isReportDetailsOpen ? 'Hide report details' : 'Report details'}
-          </Button>
+          </div>
+
+          <div className="lifetime-hero">
+            <Heading level={1} type="display-2">
+              {fmtHeroTokens(lifetime.recordedTokens)}
+            </Heading>
+            <p className="hero-label">recorded tokens</p>
+            <p className="hero-span">
+              {lifetime.firstDate || '—'} — {lifetime.lastDate || '—'}
+              <span aria-hidden="true"> · </span>
+              <span>{lifetime.recordedDays} recorded days</span>
+            </p>
+            <p className="hero-disclosure">
+              Includes {fmtCompact(lifetime.cacheTokens)} cached context (
+              {fmtRatio(lifetime.cacheRatio)} of recorded traffic). This is
+              usage activity, not a measure of output or productivity.
+            </p>
+          </div>
+
           {isReportDetailsOpen ? (
             <div id="report-details-panel" className="report-details-panel">
               <dl className="report-meta">
@@ -533,32 +554,69 @@ function ReportApp() {
               </div>
             </div>
           ) : null}
-        </VStack>
+        </header>
 
-        <Card variant="muted" padding={4}>
-          <VStack gap={2}>
-            <Text size="sm" color="secondary">
-              All tools combined
-            </Text>
-            <HStack gap={3} wrap="wrap" align="center">
-              <Heading level={2}>{fmtCompact(summary.tokens)}</Heading>
-              <Text color="secondary">tokens total</Text>
-              <Text color="secondary">·</Text>
-              <Heading level={2}>{fmtCompact(summary.cache)}</Heading>
-              <Text color="secondary">cache tokens</Text>
-              <Text color="secondary">·</Text>
-              <Heading level={2}>{fmtUsd(summary.cost)}</Heading>
-              <Text color="secondary">spend total</Text>
-            </HStack>
-            <Text size="sm" color="secondary">
-              Totals for visible range: {spanLabel}
-            </Text>
-          </VStack>
-        </Card>
+        <section className="skyline-section" aria-labelledby="skyline-heading">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">ALL TIME</p>
+              <Heading level={2} id="skyline-heading">
+                <span className="skyline-daily-label">Daily Skyline</span>
+                <span className="skyline-weekly-label">Weekly Skyline</span>
+              </Heading>
+            </div>
+            <p>
+              <span className="skyline-daily-label">
+                Daily recorded token traffic, stacked by tool.
+              </span>
+              <span className="skyline-weekly-label">
+                Natural-week totals on small screens, stacked by tool.
+              </span>{' '}
+              Select a tool to continue into its model history.
+            </p>
+          </div>
+          <div className="skyline-desktop">
+            <UsageSkyline
+              daily={daily}
+              selectedTool={selectedTool}
+              onSelectTool={(toolId) => selectTool(toolId, true)}
+            />
+          </div>
+          <div className="skyline-compact">
+            <UsageSkyline
+              daily={daily}
+              selectedTool={selectedTool}
+              compact
+              onSelectTool={(toolId) => selectTool(toolId, true)}
+            />
+          </div>
+        </section>
 
-        <div className="tool-grid">
+        <section
+          id="explore"
+          className="explore-section"
+          aria-labelledby="explore-heading"
+        >
+          <div className="explore-heading">
+            <div>
+              <p className="section-kicker">DETAILS</p>
+              <Heading level={2} id="explore-heading">
+                Explore
+              </Heading>
+              <Text color="secondary">
+                Choose a tool, inspect its models, then focus one series. The
+                chart, URL, and accessible status stay in sync.
+              </Text>
+            </div>
+            <div className="explore-range-summary" aria-live="polite">
+              <span>{spanLabel}</span>
+              <strong>{fmtCompact(summary.tokens)} recorded tokens</strong>
+            </div>
+          </div>
+
+          <div className="tool-grid" aria-label="Explore tools">
           {summary.byTool.map((tool) => (
-            <Card key={tool.id} variant={tool.color} padding={4}>
+            <Card key={tool.id} variant={tool.color} padding={3}>
               <VStack gap={2}>
                 <HStack justify="between" align="center">
                   <Heading level={3}>{tool.label}</Heading>
@@ -566,7 +624,7 @@ function ReportApp() {
                 </HStack>
                 <Heading level={2}>{fmtCompact(tool.tokens)}</Heading>
                 <Text size="sm" color="secondary">
-                  tokens in visible range
+                  recorded tokens in range
                 </Text>
                 <div className="breakdown-grid">
                   {tool.parts.map((part) => (
@@ -627,9 +685,9 @@ function ReportApp() {
               </VStack>
             </Card>
           ))}
-        </div>
+          </div>
 
-        <VStack gap={3}>
+          <div className="explore-time-controls">
           <Heading level={3}>Time range</Heading>
           <div className="controls-row">
             <SegmentedControl
@@ -686,20 +744,25 @@ function ReportApp() {
                   onClick={() => nudge(1)}
                 />
                 <Button
-                  label="Reset 30d"
+                  label="Reset all time"
                   variant="secondary"
                   size="md"
-                  isDisabled={preset === '30'}
-                  onClick={() => applyPreset('30')}
+                  isDisabled={
+                    preset === 'all' &&
+                    range[0] === 0 &&
+                    range[1] === daily.length - 1
+                  }
+                  onClick={() => applyPreset('all')}
                 />
               </HStack>
             </div>
           ) : null}
-        </VStack>
+          </div>
 
-        <Card padding={3}>
+          <Card padding={3}>
           {daily.length ? (
             <div
+              id="usage-explorer-chart"
               className="chart-panel"
               ref={chartSectionRef}
               role="region"
@@ -962,7 +1025,8 @@ function ReportApp() {
               </Button>
             </div>
           )}
-        </Card>
+          </Card>
+        </section>
       </VStack>
     </div>
   )

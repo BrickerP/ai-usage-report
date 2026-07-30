@@ -1,83 +1,132 @@
 # Design
 
 ## Source of truth
+
 - Status: Active
-- Last refreshed: 2026-07-30
-- Primary product surfaces: Static usage dashboard, daily stacked charts, tool summary cards.
-- Evidence reviewed: `README.md`, `src/lib/usage.ts`, `src/components/UsageCharts.tsx`, `src/index.css`, `scripts/ai_usage_comparison_image.py`, and the published GitHub Pages report.
+- Last refreshed: 2026-07-31
+- Product: BrickerP AI Usage Chronicle
+- Primary surfaces: GitHub Pages Chronicle and fixed light/dark README SVG cards.
+- Data source: The existing `public/usage.json`; the presentation layer does not alter the Codex, Claude Code, Cursor, or One API collection and reconciliation rules.
 
-## Brand
-- Personality: Calm, precise, personal engineering telemetry.
-- Trust signals: Explicit source boundaries, visible date ranges, stable totals, and honest cost-estimate language.
-- Avoid: Decorative complexity, unexplained double counting, and presenting estimates as billed amounts.
+## Product intent
 
-## Product goals
-- Goals: Show a readable daily and historical view of AI usage across Codex, Claude Code, Cursor, and the residual One API source, including the models that compose each existing card.
-- Non-goals: Reconcile provider invoices, attribute every request to an editor process, or claim exact USD settlement for One API.
-- Success signals: Existing Codex/Claude/Cursor series remain stable; Comate is no longer independent; model rows reconcile to each card; combined totals contain mutually exclusive Codex, Claude, Cursor, and residual One API traffic.
+This is a personal, public record of token traffic over time. It is not a cost-management dashboard and does not claim that token volume measures output, productivity, quality, or contribution.
 
-## Personas and jobs
-- Primary personas: The repository owner using multiple Macs and publishing a private-operations-style public report.
-- User jobs: Compare tools, inspect daily token composition, estimate spend, and detect collection gaps.
-- Key contexts of use: Desktop overview, mobile spot checks, scheduled multi-Mac publishing, and local debugging.
+The zero-interaction reading path is:
+
+1. Identify the owner and Chronicle.
+2. Read one lifetime headline: recorded tokens.
+3. Understand the date span and cache share.
+4. Read the all-time stacked Skyline.
+5. Optionally enter Explore for tool, model, cost, and date detail.
+
+The interactive path is:
+
+`Select tool → view models → focus model → chart, URL, keyboard state, and accessible status update together`
+
+## Dynamic data rules
+
+- Never hardcode the current lifetime total, cache total, cache percentage, recorded-day count, date span, per-tool totals, or Skyline geometry.
+- The lifetime hero and Skyline always derive from every published daily row.
+- Explore range controls affect only the Explore summary, tool cards, model series, spend line, and detailed table.
+- Recorded tokens are the sum of the four existing mutually exclusive tool token series.
+- Cached context is the sum of the existing cache read/create/write fields; disclose its share beside the hero in secondary text.
+- “Recorded days” means valid dates represented in the published daily ledger.
+- Use “recorded tokens”, “recorded token traffic”, and “usage activity”. Do not use productivity, impact, contribution score, rank, streak, or achievement language.
 
 ## Information architecture
-- Primary navigation: Single-page report with date controls.
-- Core routes/screens: One dashboard route backed by `public/usage.json`; no model-specific route or secondary dashboard.
-- Content hierarchy: Overall range and totals, tool cards, daily token/spend chart, then methodology notes.
 
-## Design principles
-- Principle 1: Source ownership must be understandable before values are combined.
-- Principle 2: Preserve last known good account-level history when a refresh is incomplete.
-- Tradeoffs: Model-family filtering is intentionally conservative; empty or unknown model names are omitted rather than guessed.
+### Chronicle
+
+- `BRICKERP / AI USAGE CHRONICLE`
+- One dynamic lifetime token number with the label `recorded tokens`
+- Dynamic first/last dates and recorded-day count
+- Dynamic cached-context total and percentage, plus the non-productivity clarification
+- All-time Skyline stacked by Codex, Claude Code, Cursor, and One API
+- Updated timestamp; degraded sources appear as a quiet inline state
+
+### Explore
+
+- Dynamic visible-range summary
+- Four compact tool cards with token total, cost estimate, cache/input/output breakdown, model count, and explicit selected state
+- 7/30/90/All presets and progressive custom-date controls
+- Existing daily token/spend chart
+- Existing tool/model drilldown, Focused state, Escape unwind behavior, URL state, live-region status, and exact accessible table
+
+### Report details
+
+- Generated time, timezone, full span, machines, source freshness reasons, token methodology, and cost-estimate methodology
+- Closed by default; the quiet source indicator opens the complete explanation
+
+## Signature visual: AI Usage Skyline
+
+- Desktop uses the all-time daily series.
+- Viewports below 500px use natural Monday-to-Sunday weekly totals and explicitly label the weekly aggregation.
+- Height is a linear recorded-token scale; segments are stacked in stable tool order.
+- Selecting a tool keeps its layer saturated and mutes the other layers, then moves focus to Explore.
+- Color never carries meaning alone; labels and accessible summaries identify every tool and aggregation unit.
+- No gradients, glow, glass, 3D, particles, contribution heatmap, badges, milestones, or decorative animation.
 
 ## Visual language
-- Color: Keep existing tool colors; One API remains purple (`#7c3aed`).
-- Typography: Reuse the current Astryx/React typography and tabular number treatment.
-- Spacing/layout rhythm: Reuse current card, chart, and control spacing.
-- Shape/radius/elevation: Reuse existing cards and subtle elevation.
-- Motion: Reuse chart interactions; do not add decorative motion.
-- Imagery/iconography: Data-first interface; no additional imagery required.
 
-## Components
-- Existing components to reuse: Tool cards, usage charts, range controls, methodology copy.
-- New/changed components: Existing tool cards gain compact model rows. Comate is removed as a card and series; its local pre-gateway history is retained under One API.
-- Variants and states: Fresh source data, stale prior data, missing session, incomplete pagination, and zero residual traffic. Source degradation appears as one compact page-level notice; healthy reports add no new UI.
-- Token/component ownership: Existing CSS and `src/lib/usage.ts` own visual tokens; Python owns collection, per-day model persistence, and merge semantics.
+- Canvas: `#F4F5F7`
+- Ink: `#17191F`
+- Tool categories retain stable blue/orange/teal/purple colors across the hero Skyline, Explore, detailed chart, and README cards.
+- System sans for interface copy; system monospace with tabular numerals for the hero, dates, and compact metadata.
+- Flat surfaces, thin neutral rules, compact controls, and no ornamental elevation.
+- The lifetime number is the only Hero-scale number. Cache and cost figures remain supporting or Explore-level information.
 
-## Accessibility
-- Target standard: Preserve current semantic HTML and aim for WCAG 2.1 AA readability.
-- Keyboard/focus behavior: Existing range controls must remain keyboard operable.
-- Contrast/readability: Preserve existing high-contrast text and distinguish One API with both label and color.
-- Screen-reader semantics: Tool names and numeric labels must not rely on color alone.
-- Reduced motion and sensory considerations: No new animation; respect existing chart behavior.
+## States and accessibility
 
-## Responsive behavior
-- Supported breakpoints/devices: Current desktop and mobile breakpoints.
-- Layout adaptations: Tool grid wraps using the existing responsive rules.
-- Touch/hover differences: Essential values remain visible without hover; tooltips are supplementary.
+- Loading: render a stable Hero + Skyline skeleton matching the final layout; one polite busy status; decoration is hidden from assistive technology.
+- Full load error: retain a prominent assertive alert and Retry action.
+- Empty data: retain a readable status and Reload action.
+- Degraded source: quiet inline metadata near Updated, without a live alert; complete sanitized reasons remain in Report details.
+- Selected tool and Focused model use visible labels plus `aria-pressed`; focus is restored when details open/close.
+- Tool/model series support arrow-key movement; Escape closes model details, clears model focus, then clears tool selection one layer at a time.
+- Respect `prefers-reduced-motion`.
+- Target WCAG 2.1 AA contrast and no horizontal overflow at 390px.
 
-## Interaction states
-- Loading: Static JSON loads through the existing application flow.
-- Empty: A source may show zero without removing the card.
-- Error: A failed account-level refresh keeps prior daily values and records stale/error metadata in `usage.json.source_status`.
-- Success: Only a complete fetched window replaces the same dates in prior One API history.
-- Disabled: Not applicable.
-- Offline/slow network, if applicable: Build uses the last successfully persisted One API series when authentication or pagination fails.
+## README cards
 
-## Content voice
-- Tone: Direct, technical, and evidence-based.
-- Terminology: “One API” means residual gateway traffic; “cost” for One API is a USD estimate derived from quota.
-- Microcopy rules: State exclusions and staleness plainly; never describe overlapping sources as a combined total.
+- Build two deterministic static assets:
+  - `ai-usage-card-light.svg`
+  - `ai-usage-card-dark.svg`
+- Fixed 560×160 viewport.
+- Derive the recorded-token total, first/last dates, cache total/share, and weekly stacked Skyline from `public/usage.json`.
+- Include owner identity and an accessible SVG title/description.
+- Exclude spend, models, machines, ranking, controls, configurable themes, and dynamic endpoints.
+- Link the image to the complete GitHub Pages Chronicle with a `<picture>` element.
 
 ## Implementation constraints
-- Framework/styling system: Existing Astryx + React + TypeScript + CSS frontend; Python collection and merge scripts.
-- Design-token constraints: Extend existing tool metadata and colors; do not add another design-system layer.
-- Performance constraints: Fetch all One API pages in one browser evaluation, with bounded retry for rate limits.
-- Compatibility constraints: UUAP requires a saved `chrome-use` browser state with httpOnly cookies; the current Cursor account must not use a custom OpenAI key for the non-overlap assumption.
-- Publication constraints: Scheduled refreshes run from an isolated publisher clone, never abort or switch a developer's Git state, and stage generated report artifacts only. After local capture and before synchronization/build/commit, require a noninteractive stored Git credential and prove repository write access with a no-mutation dry-run push to a unique probe ref; do not infer authentication identity from its username. Actual pushes use the ordinary Git credential helper, while `GH_PUBLISH_ACCOUNT` is only a commit author/config label.
-- Test/screenshot expectations: Unit-test classification, quota conversion, browser-state use, incomplete-fetch rejection, and durable history reconciliation; run lint and production build.
+
+- Framework: existing Astryx + React + TypeScript + CSS frontend; Python collection and merge scripts remain authoritative for data.
+- The SVG generator runs before each production build; Vite copies the generated public assets into `docs/`.
+- Scheduled publication continues to use the isolated publisher clone and stages generated report artifacts only.
+- Collection ownership remains unchanged:
+  - Codex / Claude Code: per-machine durable fragments, summed across machines.
+  - Cursor: account-level series, never summed across machines.
+  - One API: residual non-GPT/Codex and non-Claude gateway series with complete-window replacement and retained prior history on incomplete refresh.
+  - Historical local Comate data remains under One API only where gateway coverage is absent.
+- Do not infer authentication identity from Git credential usernames; publication still requires a non-mutating write-access probe and uses the ordinary credential helper.
+
+## Verification contract
+
+- Pure tests cover lifetime derivation, cache ratio, natural-week aggregation, tool emphasis, URL default semantics, deterministic SVG output, XML safety, and model-series conservation.
+- Production verification runs the frontend tests, lint, TypeScript/Vite build, and `git diff --check`.
+- Visual QA covers desktop and 390px mobile layouts, all-time default, daily/weekly labels, no overflow, source/loading/error hierarchy, and the complete tool → model → Focused synchronization.
+- The generated light/dark SVGs must parse as XML and be present in `docs/`.
+
+## Non-goals
+
+- Productivity or contribution scoring
+- Rankings, streaks, achievements, milestones, heatmaps, Wrapped, or Recap
+- Budgets, forecasting, billing reconciliation, or provider-efficiency comparisons
+- A dynamic README card service or theme/configuration API
+- Team/multi-user dashboards
+- Changing collection or token-accounting semantics for storytelling
 
 ## Open questions
-- [ ] If Cursor later enables a custom OpenAI-compatible key, identify its gateway and add request-level ownership evidence before treating One API as non-overlapping.
-- [ ] If One API exposes a stable client/application field in future, prefer it over model-family ownership rules.
+
+- If Cursor later enables a custom OpenAI-compatible key, identify its gateway and add request-level ownership evidence before treating One API as non-overlapping.
+- If One API exposes a stable client/application field, prefer it over model-family ownership rules.

@@ -71,7 +71,7 @@ export function buildReportViewSearch(
   } else {
     params.delete('from')
     params.delete('to')
-    if (view.preset && view.preset !== '30') {
+    if (view.preset && view.preset !== 'all') {
       params.set('range', view.preset)
     } else {
       params.delete('range')

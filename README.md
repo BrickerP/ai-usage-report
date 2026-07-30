@@ -1,6 +1,14 @@
-# AI usage report
+# AI Usage Chronicle
 
-Local collector + Astryx web UI for **Codex / Claude Code / Cursor / Comate / One API** token spend.
+<a href="https://brickerp.github.io/ai-usage-report/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./public/ai-usage-card-dark.svg">
+    <img alt="BrickerP AI Usage Chronicle with recorded token history and a weekly skyline" src="./public/ai-usage-card-light.svg" width="560">
+  </picture>
+</a>
+
+A personal, all-time token timeline for **Codex / Claude Code / Cursor / One API**, backed by the existing multi-Mac collector. The headline, cache disclosure, Skyline, and README cards are derived from `public/usage.json` on every build.
+
 Live site: https://brickerp.github.io/ai-usage-report/
 
 Supports **multiple Macs**: each machine writes `public/machines/<id>.json`; publish merges them (SUM for local tools; Cursor from account API).
@@ -20,10 +28,25 @@ export AI_USAGE_MACHINE_ID=mac-home          # unique per Mac
 export AI_USAGE_TIMEZONE=Asia/Shanghai
 npm run collect
 
-# Build static site into docs/ (GitHub Pages)
+# Build the static site and both README SVG cards into docs/
 npm run build
 npm run preview
 ```
+
+## GitHub Profile card
+
+The build emits fixed light and dark SVG files instead of running a dynamic card service. A GitHub Profile README can link the card to the full Chronicle:
+
+```html
+<a href="https://brickerp.github.io/ai-usage-report/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://brickerp.github.io/ai-usage-report/ai-usage-card-dark.svg">
+    <img alt="BrickerP AI Usage Chronicle with recorded token history and a weekly skyline" src="https://brickerp.github.io/ai-usage-report/ai-usage-card-light.svg" width="560">
+  </picture>
+</a>
+```
+
+The cards intentionally show only the dynamically computed recorded-token total, date span, cache disclosure, and a weekly stacked Skyline. Spend, models, machines, rankings, and runtime theme endpoints stay on the full page or out of the public card.
 
 ## Two Macs (recommended)
 
@@ -141,7 +164,9 @@ Do not use `--force-reseed` for this migration.
 |------|------|
 | `src/` | Astryx + React report UI |
 | `public/usage.json` | Merged daily series for the UI |
+| `public/ai-usage-card-{light,dark}.svg` | Generated static GitHub README cards |
 | `public/machines/<id>.json` | Per-Mac Codex/Claude fragment plus one-time local Comate history |
+| `scripts/generate_readme_cards.mjs` | Dynamic summary + weekly Skyline SVG generator |
 | `scripts/ai_usage_comparison_image.py` | Collect + merge |
 | `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, and aggregation |
 | `scripts/comate_usage.py` | Local Comate session parser |
@@ -176,9 +201,10 @@ series instead of writing a partial or zero snapshot. Set `CHROME_USE_BIN` when
 the executable is outside the LaunchAgent `PATH`; otherwise the collector also
 checks `~/.local/bin/chrome-use`.
 
-Each published daily row also carries compact model breakdowns. The existing
-tool cards aggregate those rows for the selected date range and show every
-non-zero model with tokens and estimated cost; no separate model dashboard is
+Each published daily row also carries compact model breakdowns. The Explore
+section aggregates those rows for the selected date range; selecting a tool
+reveals its model series, and focusing a model updates the chart, URL, keyboard
+state, and accessible status together. No separate model dashboard is
 introduced.
 
 ## launchd

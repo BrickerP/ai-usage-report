@@ -156,7 +156,7 @@ resolve_generated_rebase_conflicts() {
       unexpected=0
       while IFS= read -r path; do
         case "$path" in
-          public/usage.json|docs/*) ;;
+          public/usage.json|public/ai-usage-card-light.svg|public/ai-usage-card-dark.svg|docs/*) ;;
           *)
             log "ERROR: refusing to auto-resolve unexpected conflict: $path"
             unexpected=1
@@ -299,28 +299,31 @@ require_oneapi_state() {
   fi
 }
 
+ONEAPI_CACHE_ARG=""
+ONEAPI_CACHE_READY=0
 collect_oneapi_cache() {
   local state_path="${ONEAPI_STATE_PATH:-/tmp/oneapi-chrome-state.json}"
   local cache_path="${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
+  ONEAPI_CACHE_READY=0
   if [[ ! -f "$state_path" ]]; then
     log "One API state not found; skipping One API pre-collection"
     return 0
   fi
   log "pre-collecting One API snapshot → ${cache_path}"
-  python3 "$ROOT/scripts/oneapi_usage.py" \
-    --state-path "$state_path" \
-    --days 2 \
-    > "$cache_path" 2> >(while IFS= read -r line; do log "oneapi: $line"; done >&2)
-  local rc=$?
-  if (( rc != 0 )); then
+  if python3 "$ROOT/scripts/oneapi_usage.py" \
+      --state-path "$state_path" \
+      --days 2 \
+      > "$cache_path" \
+      2> >(while IFS= read -r line; do log "oneapi: $line"; done >&2); then
+    ONEAPI_CACHE_READY=1
+    log "One API snapshot saved (${cache_path})"
+  else
+    local rc=$?
     log "WARN: One API pre-collection failed (exit ${rc}); merge will fall back to prior series"
     rm -f "$cache_path"
-  else
-    log "One API snapshot saved (${cache_path})"
   fi
 }
 
-ONEAPI_CACHE_ARG=""
 remerge_usage() {
   local extra_args=()
   if [[ -n "${AI_USAGE_MACHINE_ID:-}" ]]; then
@@ -350,14 +353,21 @@ build_site() {
 stage_and_commit() {
   local msg="$1"
   ensure_on_publish_branch
-  git add -A -- public/usage.json public/machines docs 2>/dev/null || true
+  git add -A -- public/usage.json public/machines docs || \
+    die "could not stage required report artifacts"
+  local card
+  for card in public/ai-usage-card-light.svg public/ai-usage-card-dark.svg; do
+    if [[ -e "$card" ]] || git ls-files --error-unmatch -- "$card" >/dev/null 2>&1; then
+      git add -A -- "$card" || die "could not stage README card: $card"
+    fi
+  done
   if git diff --staged --quiet; then
     log "nothing to commit"
     return 1
   fi
   git -c user.email="${GH_PUBLISH_ACCOUNT}@users.noreply.github.com" \
     -c user.name="$GH_PUBLISH_ACCOUNT" \
-    commit -m "$msg"
+    commit -m "$msg" || die "could not commit report artifacts"
   return 0
 }
 
@@ -381,7 +391,7 @@ validate_unpublished_paths() {
       die "could not inspect unpublished commit $commit"
     while IFS= read -r -d '' path; do
       case "$path" in
-        public/usage.json|public/machines/*|docs/*) ;;
+        public/usage.json|public/machines/*|public/ai-usage-card-light.svg|public/ai-usage-card-dark.svg|docs/*) ;;
         *)
           log "ERROR: refusing to push unpublished non-report path: $path"
           invalid=1
@@ -424,7 +434,7 @@ reconcile_backfill_push() {
 
     while IFS= read -r path; do
       case "$path" in
-        public/usage.json|docs/*) ;;
+        public/usage.json|public/ai-usage-card-light.svg|public/ai-usage-card-dark.svg|docs/*) ;;
         *)
           log "ERROR: refusing to auto-resolve unexpected conflict: $path"
           unexpected=1
@@ -459,11 +469,29 @@ reconcile_backfill_push() {
   # Discard every stale aggregate/build artifact from the local migration commit.
   # The machine-specific fragment remains, then the aggregate and site are regenerated
   # from the newly fetched set of fragments.
-  git restore --source="$remote_tip" --staged --worktree -- public/usage.json docs || \
+  git restore --source="$remote_tip" --staged --worktree -- \
+    public/usage.json docs || \
     die "could not restore remote aggregate/build artifacts"
+  local card
+  for card in public/ai-usage-card-light.svg public/ai-usage-card-dark.svg; do
+    if git cat-file -e "${remote_tip}:${card}" 2>/dev/null; then
+      git restore --source="$remote_tip" --staged --worktree -- "$card" || \
+        die "could not restore remote README card: $card"
+    else
+      git rm -f --ignore-unmatch -- "$card" >/dev/null || \
+        die "could not clear remote-absent README card: $card"
+      rm -f -- "$card"
+    fi
+  done
   backfill_codex_cache
   build_site
-  git add public/usage.json public/machines docs
+  git add public/usage.json public/machines docs || \
+    die "could not stage reconciled report artifacts"
+  for card in public/ai-usage-card-light.svg public/ai-usage-card-dark.svg; do
+    if [[ -e "$card" ]] || git ls-files --error-unmatch -- "$card" >/dev/null 2>&1; then
+      git add -A -- "$card" || die "could not stage reconciled README card: $card"
+    fi
+  done
   if ! git diff --staged --quiet; then
     git -c user.email="${GH_PUBLISH_ACCOUNT}@users.noreply.github.com" \
       -c user.name="$GH_PUBLISH_ACCOUNT" \
@@ -497,8 +525,9 @@ push_with_remmerge() {
         backfill_codex_cache
       else
         # Re-collect One API snapshot to avoid a live chrome-use fetch inside merge
+        ONEAPI_CACHE_ARG=""
         collect_oneapi_cache
-        if [[ -f "${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}" ]]; then
+        if (( ONEAPI_CACHE_READY == 1 )); then
           ONEAPI_CACHE_ARG="--oneapi-cache-path ${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
         fi
         remerge_usage
@@ -546,8 +575,8 @@ fi
 pull_latest
 require_backfill_at_remote_tip
 
-# Wire One API cache arg if a snapshot was collected
-if [[ -f "${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}" ]]; then
+# Wire One API cache arg only when this invocation collected the snapshot.
+if (( ONEAPI_CACHE_READY == 1 )); then
   ONEAPI_CACHE_ARG="--oneapi-cache-path ${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
 fi
 
