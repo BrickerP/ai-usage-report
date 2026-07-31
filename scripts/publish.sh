@@ -342,6 +342,10 @@ collect_oneapi_cache() {
     local rc=$?
     rm -f -- "$temp_path"
     log "WARN: One API collection failed (exit ${rc}); merge will keep the prior published series"
+    if [[ -s "$cache_path" ]]; then
+      ONEAPI_CACHE_READY_PATH="$cache_path"
+      log "WARN: passing the existing One API cache to the strict snapshot validator"
+    fi
   fi
 }
 

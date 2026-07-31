@@ -678,14 +678,20 @@ def collect_oneapi(
                 f"One API incomplete fetch exceeded {max_pages} pages"
             )
     finally:
-        subprocess.run(
-            [cu, "--session", session_name, "close"],
-            text=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=30,
-            check=False,
-        )
+        try:
+            subprocess.run(
+                [cu, "--session", session_name, "close"],
+                text=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=30,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            print(
+                f"warning: chrome-use close timed out for session {session_name}",
+                file=sys.stderr,
+            )
 
     result = aggregate_records(
         records,
