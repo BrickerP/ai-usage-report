@@ -44,6 +44,8 @@ PULL_RETRY_ATTEMPTS="${AI_USAGE_PULL_RETRY_ATTEMPTS:-3}"
 PULL_RETRY_DELAY_SECONDS="${AI_USAGE_PULL_RETRY_DELAY_SECONDS:-60}"
 AI_USAGE_TIMEZONE="${AI_USAGE_TIMEZONE:-Asia/Shanghai}"
 AI_USAGE_MACHINE_ID="${AI_USAGE_MACHINE_ID:-}"
+ONEAPI_STATE_PATH="${ONEAPI_STATE_PATH:-${HOME}/Library/Application Support/ai-usage-report/oneapi-chrome-state.json}"
+export ONEAPI_STATE_PATH
 
 log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -287,7 +289,7 @@ recover_codex_cache_transaction() {
 }
 
 require_oneapi_state() {
-  local state_path="${ONEAPI_STATE_PATH:-/tmp/oneapi-chrome-state.json}"
+  local state_path="$ONEAPI_STATE_PATH"
   if [[ -f "$HOME/Projects/ai-usage-report/scripts/oneapi_usage.py" ]]; then
     log "One API usage script found"
   fi
@@ -302,7 +304,7 @@ require_oneapi_state() {
 ONEAPI_CACHE_ARG=""
 ONEAPI_CACHE_READY=0
 collect_oneapi_cache() {
-  local state_path="${ONEAPI_STATE_PATH:-/tmp/oneapi-chrome-state.json}"
+  local state_path="$ONEAPI_STATE_PATH"
   local cache_path="${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
   ONEAPI_CACHE_READY=0
   if [[ ! -f "$state_path" ]]; then

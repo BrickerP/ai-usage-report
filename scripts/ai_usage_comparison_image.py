@@ -36,6 +36,13 @@ LITELLM_PRICES_URL = (
 LITELLM_PRICES_CACHE = (
     Path.home() / ".cache" / "ai-usage-report" / "litellm_model_prices.json"
 )
+DEFAULT_ONEAPI_STATE_PATH = (
+    Path.home()
+    / "Library"
+    / "Application Support"
+    / "ai-usage-report"
+    / "oneapi-chrome-state.json"
+)
 
 
 def load_module(name: str, path: Path):
@@ -2226,7 +2233,10 @@ def collect_usage(
 
     # One API is the residual gateway source. Historical local Comate records are
     # retained under it only when no gateway record exists for the same date.
-    oneapi_state_path = os.environ.get("ONEAPI_STATE_PATH", "/tmp/oneapi-chrome-state.json")
+    oneapi_state_path = os.environ.get(
+        "ONEAPI_STATE_PATH",
+        str(DEFAULT_ONEAPI_STATE_PATH),
+    )
     prior_rows = [
         row for row in (prior_payload.get("daily") or []) if isinstance(row, dict)
     ]

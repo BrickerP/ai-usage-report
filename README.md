@@ -192,14 +192,17 @@ Save or refresh the One API browser state after logging in manually:
 
 ```bash
 chrome-use open https://oneapi-comate.baidu-int.com/log
-chrome-use state save /tmp/oneapi-chrome-state.json
+install -d -m 700 "$HOME/Library/Application Support/ai-usage-report"
+chrome-use state save "$HOME/Library/Application Support/ai-usage-report/oneapi-chrome-state.json"
+chmod 600 "$HOME/Library/Application Support/ai-usage-report/oneapi-chrome-state.json"
 ```
 
-Use `ONEAPI_STATE_PATH` to choose another state file. Collection is complete-or-
-nothing: rate-limit or authentication failures retain the prior published One API
-series instead of writing a partial or zero snapshot. Set `CHROME_USE_BIN` when
-the executable is outside the LaunchAgent `PATH`; otherwise the collector also
-checks `~/.local/bin/chrome-use`.
+The default state location is persistent across reboots. Use
+`ONEAPI_STATE_PATH` to choose another state file. Collection is complete-or-
+nothing: rate-limit or authentication failures retain the prior published One
+API series instead of writing a partial or zero snapshot. Set `CHROME_USE_BIN`
+when the executable is outside the LaunchAgent `PATH`; otherwise the collector
+also checks `~/.local/bin/chrome-use`.
 
 Each published daily row also carries compact model breakdowns. The Explore
 section aggregates those rows for the selected date range; selecting a tool
@@ -254,7 +257,8 @@ Optional env:
 - `AI_USAGE_TIMEZONE` (default `Asia/Shanghai`)
 - `GH_PUBLISH_ACCOUNT` (default `BrickerP`; commit author/config label only, not authentication identity)
 - `PUBLISH_BRANCH` (default `main`)
-- `ONEAPI_STATE_PATH` (default `/tmp/oneapi-chrome-state.json`)
+- `ONEAPI_STATE_PATH` (default
+  `~/Library/Application Support/ai-usage-report/oneapi-chrome-state.json`)
 - `CHROME_USE_BIN` (optional explicit path to the `chrome-use` executable)
 - `AI_USAGE_RETRY_ATTEMPTS` / `AI_USAGE_RETRY_DELAY_SECONDS`
 - `AI_USAGE_JOB_RETRY_ATTEMPTS` / `AI_USAGE_JOB_RETRY_DELAY_SECONDS`

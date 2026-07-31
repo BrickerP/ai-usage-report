@@ -21,6 +21,13 @@ from zoneinfo import ZoneInfo
 ONEAPI_BASE = "https://oneapi-comate.baidu-int.com"
 PAGE_SIZE = 20
 DEFAULT_TZ = "Asia/Shanghai"
+DEFAULT_STATE_PATH = str(
+    Path.home()
+    / "Library"
+    / "Application Support"
+    / "ai-usage-report"
+    / "oneapi-chrome-state.json"
+)
 QUOTA_PER_CNY = 250_000
 USD_PER_CNY = 0.14
 ACCOUNTING_VERSION = 2
@@ -366,7 +373,7 @@ FETCH_BATCH_JS = r"""
 
 def collect_oneapi(
     timezone: str = DEFAULT_TZ,
-    state_path: str = "/tmp/oneapi-chrome-state.json",
+    state_path: str = DEFAULT_STATE_PATH,
     since: str = "",
     until: str = "",
     days: int = 2,
@@ -542,7 +549,7 @@ def collect_oneapi(
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--timezone", default=DEFAULT_TZ)
-    p.add_argument("--state-path", default="/tmp/oneapi-chrome-state.json")
+    p.add_argument("--state-path", default=DEFAULT_STATE_PATH)
     p.add_argument("--since", default="")
     p.add_argument("--until", default="")
     p.add_argument("--days", type=int, default=2, help="Lookback days from today (default 2). Ignored when --since or --until is set.")

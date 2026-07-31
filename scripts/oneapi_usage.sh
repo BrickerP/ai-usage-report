@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-STATE_PATH="${ONEAPI_STATE_PATH:-/tmp/oneapi-chrome-state.json}"
+STATE_PATH="${ONEAPI_STATE_PATH:-${HOME}/Library/Application Support/ai-usage-report/oneapi-chrome-state.json}"
 SINCE=""
 UNTIL=""
 
@@ -29,8 +29,8 @@ if [[ -n "$UNTIL" ]]; then
   END_TS=$(python3 -c "import datetime; d=datetime.date.fromisoformat('$UNTIL'); print(int(datetime.datetime.combine(d, datetime.time.max).timestamp()))")
 fi
 
-# Navigate to One API (reuse existing daemon if possible)
-chrome-use open "https://oneapi-comate.baidu-int.com/log" >/dev/null 2>&1
+# Navigate to One API with the saved session.
+chrome-use --state "$STATE_PATH" open "https://oneapi-comate.baidu-int.com/log" >/dev/null 2>&1
 
 # Fetch all pages via stdin to avoid shell escaping issues
 cat << JSEOF | chrome-use eval --stdin --timeout 180000 2>/dev/null
