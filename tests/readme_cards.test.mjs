@@ -80,7 +80,7 @@ test('CLI generates fixed light and dark cards with recorded usage semantics', (
   try {
     for (const svg of [cards.light, cards.dark]) {
       assert.match(svg, /<svg[^>]*width="560"[^>]*height="160"/)
-      assert.match(svg, />BRICKERP \/ AI USAGE CHRONICLE</)
+      assert.match(svg, />LEDGER 02 \/ AI USAGE CHRONICLE</)
       assert.match(svg, />500 recorded tokens</)
       assert.match(svg, />Jan 1 – Jan 8, 2026</)
       assert.match(svg, />150 cached context · 30\.0% of traffic</)
@@ -95,6 +95,38 @@ test('CLI generates fixed light and dark cards with recorded usage semantics', (
       )
     }
     assert.notEqual(cards.light, cards.dark)
+  } finally {
+    cards.cleanup()
+  }
+})
+
+test('Ledger identity and Skyline origin remain static, accessible, and self-contained', () => {
+  const cards = generateCards({
+    daily: [dailyRow('2026-01-05', [10, 20, 30, 40])],
+  })
+
+  try {
+    for (const svg of [cards.light, cards.dark]) {
+      assert.match(svg, /role="img" aria-labelledby="title desc"/)
+      assert.match(
+        svg,
+        /<title id="title">Ledger 02 — AI Usage Chronicle<\/title>/,
+      )
+      assert.match(svg, /<desc id="desc">[^<]+<\/desc>/)
+      assert.match(
+        svg,
+        /\.identity \{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;/,
+      )
+      assert.match(
+        svg,
+        /<circle cx="310" cy="126" r="3" fill="#D9684B" aria-hidden="true"\/>/,
+      )
+      assert.equal(svg.match(/#D9684B/g)?.length, 1)
+      assert.doesNotMatch(
+        svg,
+        /(?:<script|<foreignObject|\bhref=|\bon[a-z]+=|url\(|@import)/i,
+      )
+    }
   } finally {
     cards.cleanup()
   }

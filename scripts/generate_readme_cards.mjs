@@ -178,6 +178,7 @@ function chartMarkup(weeks, theme) {
 
   return [
     `<line x1="${x}" y1="${top + height}" x2="${x + width}" y2="${top + height}" stroke="${theme.grid}"/>`,
+    `<circle cx="${x}" cy="${top + height}" r="3" fill="#D9684B" aria-hidden="true"/>`,
     `<g aria-label="${escapeXml('Weekly token volume, stacked by tool')}">${bars}</g>`,
   ].join('')
 }
@@ -201,18 +202,18 @@ function renderCard(rows, mode) {
   const spanLabel = dateSpan(rows)
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}" role="img" aria-labelledby="title desc">
-  <title id="title">${escapeXml('BrickerP AI Usage Chronicle')}</title>
+  <title id="title">${escapeXml('Ledger 02 — AI Usage Chronicle')}</title>
   <desc id="desc">${escapeXml(`${totalLabel}; ${spanLabel}; ${cacheLabel}. Weekly tokens are stacked by tool.`)}</desc>
   <style>
     text { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: ${theme.text}; }
-    .identity { font-size: 13px; font-weight: 650; letter-spacing: .01em; }
+    .identity { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; font-weight: 700; letter-spacing: .11em; }
     .total { font-size: 24px; font-weight: 720; letter-spacing: -.02em; }
     .meta { font-size: 11px; fill: ${theme.muted}; }
     .chart-title { font-size: 10px; font-weight: 600; fill: ${theme.muted}; }
     .legend { font-size: 10px; fill: ${theme.muted}; }
   </style>
   <rect x=".5" y=".5" width="559" height="159" rx="12" fill="${theme.background}" stroke="${theme.border}"/>
-  <text x="20" y="26" class="identity">${escapeXml('BRICKERP / AI USAGE CHRONICLE')}</text>
+  <text x="20" y="26" class="identity">${escapeXml('LEDGER 02 / AI USAGE CHRONICLE')}</text>
   <text x="20" y="59" class="total">${escapeXml(totalLabel)}</text>
   <text x="20" y="82" class="meta">${escapeXml(spanLabel)}</text>
   <text x="20" y="102" class="meta">${escapeXml(cacheLabel)}</text>
