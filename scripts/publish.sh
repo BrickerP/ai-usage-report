@@ -301,28 +301,47 @@ require_oneapi_state() {
   fi
 }
 
-ONEAPI_CACHE_ARG=""
-ONEAPI_CACHE_READY=0
+ONEAPI_CACHE_READY_PATH=""
 collect_oneapi_cache() {
   local state_path="$ONEAPI_STATE_PATH"
   local cache_path="${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
-  ONEAPI_CACHE_READY=0
+  local cache_dir temp_path
+  ONEAPI_CACHE_READY_PATH=""
   if [[ ! -f "$state_path" ]]; then
-    log "One API state not found; skipping One API pre-collection"
+    log "One API state not found; skipping One API account collection"
     return 0
   fi
-  log "pre-collecting One API snapshot → ${cache_path}"
+  cache_dir="$(dirname "$cache_path")"
+  if ! mkdir -p "$cache_dir"; then
+    log "WARN: could not create One API cache directory ${cache_dir}; merge will keep prior series"
+    return 0
+  fi
+  if ! temp_path="$(mktemp "${cache_path}.tmp.XXXXXX")"; then
+    log "WARN: could not create One API cache temp file; merge will keep prior series"
+    return 0
+  fi
+  if ! chmod 600 "$temp_path"; then
+    rm -f -- "$temp_path"
+    log "WARN: could not secure One API cache temp file; merge will keep prior series"
+    return 0
+  fi
+  log "collecting complete five-day One API account snapshot → ${cache_path}"
   if python3 "$ROOT/scripts/oneapi_usage.py" \
       --state-path "$state_path" \
-      --days 2 \
-      > "$cache_path" \
+      --days 5 \
+      > "$temp_path" \
       2> >(while IFS= read -r line; do log "oneapi: $line"; done >&2); then
-    ONEAPI_CACHE_READY=1
+    if ! mv -f -- "$temp_path" "$cache_path"; then
+      rm -f -- "$temp_path"
+      log "WARN: could not atomically install One API cache; merge will keep prior series"
+      return 0
+    fi
+    ONEAPI_CACHE_READY_PATH="$cache_path"
     log "One API snapshot saved (${cache_path})"
   else
     local rc=$?
-    log "WARN: One API pre-collection failed (exit ${rc}); merge will fall back to prior series"
-    rm -f "$cache_path"
+    rm -f -- "$temp_path"
+    log "WARN: One API collection failed (exit ${rc}); merge will keep the prior published series"
   fi
 }
 
@@ -331,8 +350,8 @@ remerge_usage() {
   if [[ -n "${AI_USAGE_MACHINE_ID:-}" ]]; then
     extra_args+=(--machine-id "$AI_USAGE_MACHINE_ID")
   fi
-  if [[ -n "$ONEAPI_CACHE_ARG" ]]; then
-    extra_args+=($ONEAPI_CACHE_ARG)
+  if [[ -n "$ONEAPI_CACHE_READY_PATH" ]]; then
+    extra_args+=(--oneapi-cache-path "$ONEAPI_CACHE_READY_PATH")
   fi
   log "re-merging machines/*.json + Cursor API → usage.json"
   python3 "$ROOT/scripts/ai_usage_comparison_image.py" \
@@ -526,12 +545,9 @@ push_with_remmerge() {
       if (( BACKFILL_CODEX_CACHE == 1 )); then
         backfill_codex_cache
       else
-        # Re-collect One API snapshot to avoid a live chrome-use fetch inside merge
-        ONEAPI_CACHE_ARG=""
+        # The retry pull may contain a newer account snapshot, so collect again.
+        ONEAPI_CACHE_READY_PATH=""
         collect_oneapi_cache
-        if (( ONEAPI_CACHE_READY == 1 )); then
-          ONEAPI_CACHE_ARG="--oneapi-cache-path ${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
-        fi
         remerge_usage
       fi
     fi
@@ -560,11 +576,6 @@ if (( SKIP_COLLECT == 0 && BACKFILL_CODEX_CACHE == 0 )); then
 
   log "checking One API chrome session state"
   require_oneapi_state
-
-  # Pre-collect One API snapshot before Git pull so chrome-use isn't racing
-  # against the merge timeout. The cache file is loaded by remerge_usage
-  # to skip the live chrome-use fetch inside the merge step.
-  collect_oneapi_cache
 fi
 
 if (( SKIP_PUSH == 0 )); then
@@ -577,9 +588,10 @@ fi
 pull_latest
 require_backfill_at_remote_tip
 
-# Wire One API cache arg only when this invocation collected the snapshot.
-if (( ONEAPI_CACHE_READY == 1 )); then
-  ONEAPI_CACHE_ARG="--oneapi-cache-path ${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
+# Account-level snapshots are collected only after pull. This guarantees that
+# an older pre-pull cache from one Mac cannot replace a newer remote snapshot.
+if (( SKIP_COLLECT == 0 && BACKFILL_CODEX_CACHE == 0 )); then
+  collect_oneapi_cache
 fi
 
 if (( SKIP_COLLECT == 0 )); then

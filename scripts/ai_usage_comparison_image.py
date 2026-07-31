@@ -6,6 +6,7 @@ import base64
 from collections import defaultdict
 import copy
 import datetime as dt
+import hashlib
 import html
 import importlib.util
 import json
@@ -26,8 +27,10 @@ from zoneinfo import ZoneInfo
 SCRIPTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPTS_DIR.parent
 DEFAULT_TZ = "Asia/Shanghai"
-MODEL_BREAKDOWN_VERSION = 2
+PUBLIC_SCHEMA_VERSION = 3
+MODEL_BREAKDOWN_VERSION = 3
 DEFAULT_MACHINES_DIR = REPO_ROOT / "public" / "machines"
+PINNED_MODEL_PRICES_PATH = SCRIPTS_DIR / "model_prices.v1.json"
 CURSOR_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
 LITELLM_PRICES_URL = (
     "https://raw.githubusercontent.com/BerriAI/litellm/main/"
@@ -43,6 +46,33 @@ DEFAULT_ONEAPI_STATE_PATH = (
     / "ai-usage-report"
     / "oneapi-chrome-state.json"
 )
+
+
+def load_pinned_model_prices(path: Path = PINNED_MODEL_PRICES_PATH) -> dict[str, Any]:
+    """Load the checked-in price ledger used for reproducible estimates."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"invalid pinned model price ledger: {path}: {exc}") from exc
+    if not isinstance(payload, dict) or not str(payload.get("pricing_version") or ""):
+        raise RuntimeError(f"invalid pinned model price ledger: {path}")
+    if not isinstance(payload.get("models"), list):
+        raise RuntimeError(f"pinned model price ledger has no models: {path}")
+    return payload
+
+
+PINNED_MODEL_PRICES = load_pinned_model_prices()
+PRICING_VERSION = str(PINNED_MODEL_PRICES["pricing_version"])
+
+
+def stable_snapshot_id(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def load_module(name: str, path: Path):
@@ -90,7 +120,7 @@ def safe_float(value: Any) -> float:
 
 
 def normalize_models(models: Any) -> list[dict[str, Any]]:
-    """Normalize model rows to the compact public schema."""
+    """Normalize model rows without inventing token or cost attribution."""
     totals: dict[str, dict[str, Any]] = {}
     for item in models if isinstance(models, list) else []:
         if not isinstance(item, dict):
@@ -117,9 +147,92 @@ def normalize_models(models: Any) -> list[dict[str, Any]]:
         )
         if not (tokens or cost):
             continue
-        row = totals.setdefault(name, {"model": name, "tokens": 0, "cost": 0.0})
+        component_sources = {
+            "input": ("input", "input_tokens", "inputTokens"),
+            "output": ("output", "output_tokens", "outputTokens"),
+            "cache_read": ("cache_read", "cache_read_tokens", "cacheReadTokens"),
+            "cache_write": ("cache_write", "cache_write_tokens", "cacheWriteTokens"),
+            "cache_create": (
+                "cache_create",
+                "cache_creation_tokens",
+                "cacheCreationTokens",
+            ),
+        }
+        components: dict[str, int] = {}
+        for field, aliases in component_sources.items():
+            present = next((alias for alias in aliases if item.get(alias) is not None), None)
+            if present is not None:
+                components[field] = safe_int(item.get(present))
+        components_complete = bool(components) and sum(components.values()) == tokens
+        row = totals.setdefault(
+            name,
+            {
+                "model": name,
+                "tokens": 0,
+                "cost": 0.0,
+                "components_complete": True,
+                "raw_models": [],
+                "pricing_versions": [],
+                "pricing_provenance": [],
+                "ownership_rule_versions": [],
+            },
+        )
         row["tokens"] += tokens
         row["cost"] += cost
+        row["components_complete"] = bool(row["components_complete"] and components_complete)
+        for field, value in components.items():
+            row[field] = safe_int(row.get(field)) + value
+        reasoning_source = next(
+            (
+                key
+                for key in ("reasoning", "reasoning_tokens", "reasoningOutputTokens")
+                if item.get(key) is not None
+            ),
+            None,
+        )
+        if reasoning_source is not None:
+            row["reasoning"] = safe_int(row.get("reasoning")) + safe_int(
+                item.get(reasoning_source)
+            )
+        raw_values = item.get("raw_models")
+        if not isinstance(raw_values, list):
+            raw_values = [item.get("raw_model")] if item.get("raw_model") else []
+        for raw_name in raw_values:
+            raw_name = str(raw_name or "").strip()
+            if raw_name and raw_name not in row["raw_models"]:
+                row["raw_models"].append(raw_name)
+        pricing_version = str(item.get("pricing_version") or "").strip()
+        if pricing_version and pricing_version not in row["pricing_versions"]:
+            row["pricing_versions"].append(pricing_version)
+        provenance = str(item.get("pricing_provenance") or "").strip()
+        if provenance and provenance not in row["pricing_provenance"]:
+            row["pricing_provenance"].append(provenance)
+        canonical_model = str(item.get("canonical_model") or "").strip()
+        if canonical_model:
+            row["canonical_model"] = canonical_model
+        ownership_version = str(item.get("ownership_rule_version") or "").strip()
+        if ownership_version and ownership_version not in row["ownership_rule_versions"]:
+            row["ownership_rule_versions"].append(ownership_version)
+    for row in totals.values():
+        if not row.get("raw_models"):
+            row.pop("raw_models", None)
+        if not row.get("pricing_versions"):
+            row.pop("pricing_versions", None)
+        elif len(row["pricing_versions"]) == 1:
+            row["pricing_version"] = row.pop("pricing_versions")[0]
+        if not row.get("pricing_provenance"):
+            row.pop("pricing_provenance", None)
+        elif len(row["pricing_provenance"]) == 1:
+            row["pricing_provenance"] = row["pricing_provenance"][0]
+        elif isinstance(row.get("pricing_provenance"), list):
+            row["pricing_provenance"] = "mixed"
+        if not row.get("ownership_rule_versions"):
+            row.pop("ownership_rule_versions", None)
+        elif len(row["ownership_rule_versions"]) == 1:
+            row["ownership_rule_version"] = row.pop("ownership_rule_versions")[0]
+        if not row.get("components_complete"):
+            for field in component_sources:
+                row.pop(field, None)
     return sorted(
         totals.values(),
         key=lambda row: (-safe_int(row.get("tokens")), str(row.get("model"))),
@@ -143,51 +256,38 @@ def models_with_remainder(
     total_cost: Any,
     label: str = "Legacy unknown",
 ) -> list[dict[str, Any]]:
+    """Reconcile positive unattributed remainder; reject impossible over-attribution."""
     result = normalize_models(models)
     target_tokens = safe_int(total_tokens)
     target_cost = safe_float(total_cost)
     attributed_tokens = sum(safe_int(row.get("tokens")) for row in result)
     attributed_cost = sum(safe_float(row.get("cost")) for row in result)
-    if result and attributed_tokens > target_tokens:
-        remaining = target_tokens
-        for index, row in enumerate(result):
-            if index == len(result) - 1:
-                row["tokens"] = remaining
-            else:
-                scaled = int(
-                    target_tokens * safe_int(row.get("tokens")) / attributed_tokens
-                )
-                row["tokens"] = scaled
-                remaining -= scaled
-        attributed_tokens = target_tokens
+    if attributed_tokens > target_tokens:
+        raise ValueError(
+            f"model tokens exceed tool total: models={attributed_tokens}, total={target_tokens}"
+        )
+    cost_tolerance = max(1e-9, abs(target_cost) * 1e-9)
+    if attributed_cost - target_cost > cost_tolerance:
+        raise ValueError(
+            f"model cost exceeds tool total: models={attributed_cost}, total={target_cost}"
+        )
 
-    remainder_tokens = max(0, target_tokens - attributed_tokens)
-    remainder_cost = max(0.0, target_cost - attributed_cost)
-    if remainder_tokens or remainder_cost > 1e-9:
+    remainder_tokens = target_tokens - attributed_tokens
+    remainder_cost = target_cost - attributed_cost
+    if abs(remainder_cost) <= cost_tolerance:
+        remainder_cost = 0.0
+    if remainder_tokens or remainder_cost > 0:
         result = merge_models(
             result,
             [{"model": label, "tokens": remainder_tokens, "cost": remainder_cost}],
         )
-
-    if result and target_cost >= 0:
-        current_cost = sum(safe_float(row.get("cost")) for row in result)
-        if abs(current_cost - target_cost) > 1e-9:
-            weight_total = current_cost or sum(
-                safe_int(row.get("tokens")) for row in result
-            )
-            remaining_cost = target_cost
-            for index, row in enumerate(result):
-                if index == len(result) - 1:
-                    row["cost"] = remaining_cost
-                else:
-                    weight = (
-                        safe_float(row.get("cost"))
-                        if current_cost
-                        else safe_int(row.get("tokens"))
-                    )
-                    scaled_cost = target_cost * weight / weight_total if weight_total else 0.0
-                    row["cost"] = scaled_cost
-                    remaining_cost -= scaled_cost
+    final_tokens = sum(safe_int(row.get("tokens")) for row in result)
+    final_cost = sum(safe_float(row.get("cost")) for row in result)
+    if final_tokens != target_tokens or abs(final_cost - target_cost) > cost_tolerance:
+        raise ValueError(
+            f"model reconciliation failed: tokens={final_tokens}/{target_tokens}, "
+            f"cost={final_cost}/{target_cost}"
+        )
     return result
 
 
@@ -199,13 +299,7 @@ def ccusage_day_models(row: dict[str, Any]) -> list[dict[str, Any]]:
     models = row.get("models")
     if not isinstance(models, dict):
         return []
-    day_cost = safe_float(
-        row.get("costUSD")
-        if row.get("costUSD") is not None
-        else row.get("totalCost")
-    )
     raw: list[dict[str, Any]] = []
-    total_model_tokens = 0
     for name, values in models.items():
         values = values if isinstance(values, dict) else {}
         tokens = safe_int(values.get("totalTokens"))
@@ -216,11 +310,26 @@ def ccusage_day_models(row: dict[str, Any]) -> list[dict[str, Any]]:
                 + safe_int(values.get("cacheReadTokens"))
                 + safe_int(values.get("outputTokens"))
             )
-        total_model_tokens += tokens
-        raw.append({"model": str(name), "tokens": tokens, "cost": 0.0})
-    if day_cost and total_model_tokens:
-        for model in raw:
-            model["cost"] = day_cost * safe_int(model["tokens"]) / total_model_tokens
+        raw.append(
+            {
+                "model": str(name),
+                "tokens": tokens,
+                "cost": safe_float(
+                    values.get("costUSD")
+                    if values.get("costUSD") is not None
+                    else values.get("cost")
+                ),
+                "input": safe_int(values.get("inputTokens")),
+                "output": safe_int(values.get("outputTokens")),
+                "cache_create": safe_int(values.get("cacheCreationTokens")),
+                "cache_read": safe_int(values.get("cacheReadTokens")),
+                "reasoning": safe_int(values.get("reasoningOutputTokens")),
+                "pricing_version": str(values.get("pricingVersion") or "legacy"),
+                "pricing_provenance": str(
+                    values.get("pricingProvenance") or "legacy"
+                ),
+            }
+        )
     return normalize_models(raw)
 
 
@@ -313,8 +422,8 @@ def codex_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
         cache_read = row.get("cacheReadTokens")
         if cache_read is None:
             cache_read = row.get("cachedInputTokens")
-        rows.append(
-            {
+        models = ccusage_day_models(row)
+        point = {
                 "date": parsed.strftime("%Y-%m-%d"),
                 "tokens": safe_int(row.get("totalTokens")),
                 "cost": safe_float(row.get("costUSD")),
@@ -322,9 +431,20 @@ def codex_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "cache_read": safe_int(cache_read),
                 "output": safe_int(row.get("outputTokens")),
                 "reasoning": safe_int(row.get("reasoningOutputTokens")),
-                "models": ccusage_day_models(row),
+                "models": models,
+                "pricing_version": str(row.get("pricingVersion") or "legacy"),
+                "pricing_complete": bool(row.get("pricingComplete")),
+                "pricing_provenance": str(row.get("pricingProvenance") or "legacy"),
             }
+        component_total = point["input"] + point["cache_read"] + point["output"]
+        model_tokens = sum(safe_int(model.get("tokens")) for model in models)
+        model_cost = sum(safe_float(model.get("cost")) for model in models)
+        point["snapshot_complete"] = (
+            component_total == point["tokens"]
+            and model_tokens == point["tokens"]
+            and abs(model_cost - point["cost"]) <= max(1e-9, abs(point["cost"]) * 1e-9)
         )
+        rows.append(point)
     rows.sort(key=lambda r: r["date"])
     return rows
 
@@ -337,8 +457,8 @@ def claude_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not parsed:
             continue
         aware = parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)
-        rows.append(
-            {
+        models = ccusage_day_models(row)
+        point = {
                 "date": aware.strftime("%Y-%m-%d"),
                 "tokens": safe_int(row.get("totalTokens")),
                 "cost": safe_float(row.get("totalCost")),
@@ -346,9 +466,25 @@ def claude_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "cache_create": safe_int(row.get("cacheCreationTokens")),
                 "cache_read": safe_int(row.get("cacheReadTokens")),
                 "output": safe_int(row.get("outputTokens")),
-                "models": ccusage_day_models(row),
+                "models": models,
+                "pricing_version": str(row.get("pricingVersion") or "legacy"),
+                "pricing_complete": bool(row.get("pricingComplete")),
+                "pricing_provenance": str(row.get("pricingProvenance") or "legacy"),
             }
+        component_total = (
+            point["input"]
+            + point["cache_create"]
+            + point["cache_read"]
+            + point["output"]
         )
+        model_tokens = sum(safe_int(model.get("tokens")) for model in models)
+        model_cost = sum(safe_float(model.get("cost")) for model in models)
+        point["snapshot_complete"] = (
+            component_total == point["tokens"]
+            and model_tokens == point["tokens"]
+            and abs(model_cost - point["cost"]) <= max(1e-9, abs(point["cost"]) * 1e-9)
+        )
+        rows.append(point)
     rows.sort(key=lambda r: r["date"])
     return rows
 
@@ -497,6 +633,125 @@ def recompute_oneapi_totals(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def validate_oneapi_snapshot(
+    payload: Any,
+    *,
+    timezone: str,
+    today: str,
+    calendar_days: int,
+) -> dict[str, Any]:
+    """Validate a complete account snapshot before it may replace durable rows."""
+    if not isinstance(payload, dict):
+        raise ValueError("One API snapshot is not an object")
+    if payload.get("available") is not True or payload.get("complete") is not True:
+        raise ValueError("One API snapshot is not available and complete")
+    if safe_int(payload.get("accounting_version")) != oneapi_usage.ACCOUNTING_VERSION:
+        raise ValueError("One API snapshot accounting version mismatch")
+    if safe_int(payload.get("ownership_rule_version")) != oneapi_usage.OWNERSHIP_RULE_VERSION:
+        raise ValueError("One API snapshot ownership rule version mismatch")
+    if str(payload.get("timezone") or "") != timezone:
+        raise ValueError("One API snapshot timezone mismatch")
+
+    scope = payload.get("scope") if isinstance(payload.get("scope"), dict) else {}
+    if (
+        scope.get("kind") != "account"
+        or scope.get("scope_id") != "oneapi:self"
+        or scope.get("merge_strategy") != "latest_complete_snapshot"
+    ):
+        raise ValueError("One API snapshot account scope mismatch")
+
+    snapshot_id = str(payload.get("snapshot_id") or "")
+    if re.fullmatch(r"sha256:[0-9a-f]{64}", snapshot_id) is None:
+        raise ValueError("One API snapshot id is invalid")
+    captured_at = str(payload.get("captured_at") or "")
+    try:
+        captured = dt.datetime.fromisoformat(captured_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("One API snapshot capture time is invalid") from exc
+    if captured.tzinfo is None or captured.astimezone(resolve_tz(timezone)).date().isoformat() != today:
+        raise ValueError("One API snapshot was not captured today")
+
+    window = payload.get("window") if isinstance(payload.get("window"), dict) else {}
+    try:
+        start_date = dt.date.fromisoformat(str(window.get("start") or ""))
+        end_date = dt.date.fromisoformat(str(window.get("end") or ""))
+        today_date = dt.date.fromisoformat(today)
+    except ValueError as exc:
+        raise ValueError("One API snapshot window is invalid") from exc
+    expected_start = today_date - dt.timedelta(days=calendar_days - 1)
+    if (
+        end_date != today_date
+        or start_date != expected_start
+        or window.get("complete") is not True
+        or str(window.get("timezone") or "") != timezone
+        or safe_int(window.get("calendar_days")) != calendar_days
+    ):
+        raise ValueError("One API snapshot does not cover the expected calendar window")
+
+    pagination = (
+        payload.get("pagination")
+        if isinstance(payload.get("pagination"), dict)
+        else {}
+    )
+    if pagination.get("complete") is not True:
+        raise ValueError("One API snapshot pagination is incomplete")
+    if safe_int(pagination.get("records_after_deduplication")) != safe_int(
+        payload.get("request_count")
+    ):
+        raise ValueError("One API snapshot pagination count mismatch")
+
+    daily = payload.get("daily_timeline")
+    if not isinstance(daily, list):
+        raise ValueError("One API snapshot has no daily timeline")
+    seen_dates: set[str] = set()
+    for point in daily:
+        if not isinstance(point, dict):
+            raise ValueError("One API snapshot contains an invalid daily point")
+        date_key = str(point.get("date") or "")
+        if date_key in seen_dates or not (window["start"] <= date_key <= window["end"]):
+            raise ValueError("One API snapshot daily dates are invalid")
+        seen_dates.add(date_key)
+        component_total = sum(
+            safe_int(point.get(field))
+            for field in ("input", "output", "cache_read", "cache_write")
+        )
+        if component_total != safe_int(point.get("tokens")):
+            raise ValueError(f"One API component mismatch for {date_key}")
+        models = point.get("model_breakdowns")
+        if not isinstance(models, list):
+            raise ValueError(f"One API model breakdown missing for {date_key}")
+        if sum(safe_int(model.get("total_tokens")) for model in models if isinstance(model, dict)) != safe_int(point.get("tokens")):
+            raise ValueError(f"One API model token mismatch for {date_key}")
+        model_cost = sum(
+            safe_float(model.get("cost_usd"))
+            for model in models
+            if isinstance(model, dict)
+        )
+        point_cost = safe_float(point.get("cost_usd"))
+        if abs(model_cost - point_cost) > max(1e-9, abs(point_cost) * 1e-9):
+            raise ValueError(f"One API model cost mismatch for {date_key}")
+
+    actual_totals = payload.get("totals") if isinstance(payload.get("totals"), dict) else {}
+    computed_totals = recompute_oneapi_totals(copy.deepcopy(payload))["totals"]
+    for field in (
+        "input_tokens",
+        "output_tokens",
+        "cache_read_tokens",
+        "cache_write_tokens",
+        "total_tokens",
+        "quota",
+        "requests",
+    ):
+        if safe_int(actual_totals.get(field)) != safe_int(computed_totals.get(field)):
+            raise ValueError(f"One API snapshot total mismatch: {field}")
+    for field in ("cost_cny", "cost_usd"):
+        actual = safe_float(actual_totals.get(field))
+        computed = safe_float(computed_totals.get(field))
+        if abs(actual - computed) > max(1e-9, abs(computed) * 1e-9):
+            raise ValueError(f"One API snapshot total mismatch: {field}")
+    return payload
+
+
 def reconcile_oneapi_payload(
     prior: dict[str, Any],
     fetched: dict[str, Any],
@@ -622,6 +877,12 @@ def apply_tool_point(row: dict[str, Any], prefix: str, point: dict[str, Any]) ->
     for field in TOOL_TOKEN_FIELDS[prefix]:
         row[f"{prefix}_{field}"] = safe_int(point.get(field))
     row[f"{prefix}_models"] = normalize_models(point.get("models"))
+    row[f"{prefix}_snapshot_complete"] = bool(point.get("snapshot_complete", True))
+    row[f"{prefix}_pricing_version"] = str(point.get("pricing_version") or "legacy")
+    row[f"{prefix}_pricing_complete"] = bool(point.get("pricing_complete"))
+    row[f"{prefix}_pricing_provenance"] = str(
+        point.get("pricing_provenance") or "legacy"
+    )
 
 
 def usage_daily_rows(payload: Any) -> list[dict[str, Any]]:
@@ -729,6 +990,7 @@ def fetch_cursor_usage(
         {"teamId": team_id, "userId": user_id, "startDate": start_ms, "endDate": end_ms},
     )
     cursor_errors: list[str] = []
+    aggregated_available = bool(full_usage) and not full_usage.get("_status")
     if full_usage.get("_status"):
         cursor_errors.append(f"GetAggregatedUsageEvents failed: {full_usage.get('_error') or full_usage.get('_status')}")
         full_usage = {}
@@ -829,6 +1091,27 @@ def fetch_cursor_usage(
         + safe_int(full_usage.get("totalCacheWriteTokens"))
         + safe_int(full_usage.get("totalCacheReadTokens"))
     )
+    aggregate_cost = safe_float(full_usage.get("totalCostCents")) / 100
+    filtered_tokens = sum(cursor_day_tokens.values())
+    filtered_cost = sum(cursor_day_cost.values())
+    aggregate_matches_events = (
+        aggregated_available
+        and filtered_tokens == total_tokens
+        and abs(filtered_cost - aggregate_cost)
+        <= max(1e-9, abs(aggregate_cost) * 1e-9)
+    )
+    if aggregated_available and not aggregate_matches_events:
+        cursor_errors.append(
+            "Cursor aggregate/event totals mismatch: "
+            f"tokens={filtered_tokens}/{total_tokens}, "
+            f"cost={filtered_cost}/{aggregate_cost}"
+        )
+    collection_complete = (
+        filtered_complete
+        and expected_event_count is not None
+        and processed_events == expected_event_count
+        and aggregate_matches_events
+    )
     daily_timeline = [
         {
             "date": d,
@@ -844,14 +1127,33 @@ def fetch_cursor_usage(
                     for model_name, values in cursor_day_models[d].items()
                 ]
             ),
+            "snapshot_complete": collection_complete,
+            "pricing_version": "cursor-billed",
+            "pricing_complete": collection_complete,
+            "pricing_provenance": "billed-dashboard",
         }
         for d in sorted(cursor_day_tokens.keys())
     ]
+    captured_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    snapshot_id = stable_snapshot_id(
+        {
+            "scope": {"team_id": team_id, "user_id": user_id},
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "events": expected_event_count,
+            "daily_timeline": daily_timeline,
+        }
+    )
     return {
         "available": True,
-        "complete": filtered_complete
-        and expected_event_count is not None
-        and processed_events == expected_event_count,
+        "complete": collection_complete,
+        "captured_at": captured_at,
+        "snapshot_id": snapshot_id,
+        "scope": {
+            "kind": "account",
+            "merge_strategy": "latest-complete-snapshot",
+            "endpoint": "Cursor Dashboard API",
+        },
         "account": {
             "membership": state.get("membership", ""),
             "subscription_status": state.get("subscription_status", ""),
@@ -872,7 +1174,7 @@ def fetch_cursor_usage(
             "cache_write": safe_int(full_usage.get("totalCacheWriteTokens")),
             "cache_read": safe_int(full_usage.get("totalCacheReadTokens")),
             "total_tokens": total_tokens,
-            "cost": safe_float(full_usage.get("totalCostCents")) / 100,
+            "cost": aggregate_cost,
         },
         "daily_timeline": daily_timeline,
         "error": "; ".join(cursor_errors),
@@ -905,8 +1207,22 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
 
     rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts)
     row = daily_row_for_date(today_key, rows)
+    generated_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    report_snapshot_id = stable_snapshot_id(
+        {
+            "schema_version": PUBLIC_SCHEMA_VERSION,
+            "pricing_version": PRICING_VERSION,
+            "cursor_snapshot_id": cursor_usage.get("snapshot_id"),
+            "date": today_key,
+            "row": row,
+        }
+    )
     return {
-        "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+        "schema_version": PUBLIC_SCHEMA_VERSION,
+        "pricing_version": PRICING_VERSION,
+        "captured_at": generated_at,
+        "snapshot_id": report_snapshot_id,
+        "generated_at": generated_at,
         "timezone": timezone,
         "date": today_key,
         "row": row,
@@ -985,9 +1301,49 @@ def load_previous_cursor_points(usage_json: Path) -> list[dict[str, Any]]:
                 "cache_read": safe_int(row.get("cursor_cache_read")),
                 "output": safe_int(row.get("cursor_output")),
                 "models": normalize_models(row.get("cursor_models")),
+                "snapshot_complete": bool(row.get("cursor_snapshot_complete", True)),
+                "pricing_version": str(
+                    row.get("cursor_pricing_version") or "cursor-billed"
+                ),
+                "pricing_complete": bool(row.get("cursor_pricing_complete", True)),
+                "pricing_provenance": str(
+                    row.get("cursor_pricing_provenance") or "billed-dashboard"
+                ),
             }
         )
     return points
+
+
+def overlay_prior_cursor_row(target: dict[str, Any], prior: dict[str, Any]) -> None:
+    """Copy the durable account snapshot, including its model attribution."""
+    for key in (
+        "cursor_tokens",
+        "cursor_cost",
+        "cursor_input",
+        "cursor_cache_write",
+        "cursor_cache_read",
+        "cursor_output",
+    ):
+        if not (safe_int(target.get(key)) or safe_float(target.get(key))):
+            target[key] = (
+                safe_float(prior.get(key))
+                if key.endswith("cost")
+                else safe_int(prior.get(key))
+            )
+    current_models = normalize_models(target.get("cursor_models"))
+    if not current_models or all(
+        str(model.get("model") or "") == "Legacy unknown"
+        for model in current_models
+    ):
+        target["cursor_models"] = normalize_models(prior.get("cursor_models"))
+    for key, default in (
+        ("cursor_snapshot_complete", True),
+        ("cursor_pricing_complete", True),
+        ("cursor_pricing_version", "cursor-billed"),
+        ("cursor_pricing_provenance", "billed-dashboard"),
+    ):
+        if key not in target:
+            target[key] = prior.get(key, default)
 
 
 def resolve_cursor_points(
@@ -1056,12 +1412,13 @@ def ccusage_command() -> list[str]:
 
 
 def model_breakdown_tokens(breakdown: dict[str, Any]) -> int:
-    return (
+    components = (
         safe_int(breakdown.get("inputTokens"))
         + safe_int(breakdown.get("outputTokens"))
         + safe_int(breakdown.get("cacheCreationTokens"))
         + safe_int(breakdown.get("cacheReadTokens"))
     )
+    return components or safe_int(breakdown.get("totalTokens"))
 
 
 def unpriced_models(usage: Any) -> list[str]:
@@ -1184,6 +1541,237 @@ def breakdown_cost_from_litellm(
     )
 
 
+def pinned_price_index() -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for raw in PINNED_MODEL_PRICES.get("models") or []:
+        if not isinstance(raw, dict):
+            continue
+        canonical = str(raw.get("model") or "").strip()
+        if not canonical:
+            continue
+        entry = dict(raw)
+        entry["canonical_model"] = canonical
+        for name in [canonical, *(raw.get("aliases") or [])]:
+            normalized = str(name or "").strip()
+            if normalized:
+                index[normalized] = entry
+    return index
+
+
+PINNED_PRICE_INDEX = pinned_price_index()
+
+
+def breakdown_cost_from_pinned(
+    breakdown: dict[str, Any], price: dict[str, Any]
+) -> float:
+    return (
+        safe_int(breakdown.get("inputTokens")) * safe_float(price.get("input"))
+        + safe_int(breakdown.get("outputTokens")) * safe_float(price.get("output"))
+        + safe_int(breakdown.get("cacheReadTokens"))
+        * safe_float(price.get("cache_read"))
+        + safe_int(breakdown.get("cacheCreationTokens"))
+        * safe_float(price.get("cache_create"))
+    )
+
+
+def sync_usage_cost_fields(payload: dict[str, Any]) -> None:
+    """Keep Codex costUSD and Claude totalCost mathematically identical."""
+    daily = payload.get("daily") if isinstance(payload.get("daily"), list) else []
+    total_cost = 0.0
+    for day in daily:
+        if not isinstance(day, dict):
+            continue
+        breakdowns = (
+            day.get("modelBreakdowns")
+            if isinstance(day.get("modelBreakdowns"), list)
+            else []
+        )
+        if breakdowns:
+            day_cost = sum(
+                safe_float(item.get("cost"))
+                for item in breakdowns
+                if isinstance(item, dict)
+            )
+        else:
+            day_cost = safe_float(
+                day.get("costUSD")
+                if day.get("costUSD") is not None
+                else day.get("totalCost")
+            )
+        day["costUSD"] = day_cost
+        day["totalCost"] = day_cost
+        total_cost += day_cost
+    totals = payload.get("totals")
+    if not isinstance(totals, dict):
+        totals = {}
+        payload["totals"] = totals
+    totals["costUSD"] = total_cost
+    totals["totalCost"] = total_cost
+
+
+def ensure_ccusage_model_breakdowns(payload: dict[str, Any]) -> set[int]:
+    """Materialize Codex's models map and return the converted day indexes."""
+    materialized: set[int] = set()
+    for day_index, day in enumerate(payload.get("daily") or []):
+        if not isinstance(day, dict) or isinstance(day.get("modelBreakdowns"), list):
+            continue
+        models = day.get("models")
+        if not isinstance(models, dict):
+            continue
+        breakdowns: list[dict[str, Any]] = []
+        for name, raw_values in models.items():
+            values = raw_values if isinstance(raw_values, dict) else {}
+            breakdowns.append(
+                {
+                    "modelName": str(name),
+                    "inputTokens": safe_int(values.get("inputTokens")),
+                    "outputTokens": safe_int(values.get("outputTokens")),
+                    "cacheCreationTokens": safe_int(
+                        values.get("cacheCreationTokens")
+                    ),
+                    "cacheReadTokens": safe_int(values.get("cacheReadTokens")),
+                    "reasoningOutputTokens": safe_int(
+                        values.get("reasoningOutputTokens")
+                    ),
+                    "totalTokens": safe_int(values.get("totalTokens")),
+                    "cost": safe_float(
+                        values.get("costUSD")
+                        if values.get("costUSD") is not None
+                        else values.get("cost")
+                    ),
+                }
+            )
+        day["modelBreakdowns"] = breakdowns
+        materialized.add(day_index)
+    return materialized
+
+
+def reprice_models_with_pinned_ledger(usage: Any) -> Any:
+    """Apply checked-in rates to known models and annotate unresolved legacy cost."""
+    if not isinstance(usage, dict):
+        return usage
+    patched = copy.deepcopy(usage)
+    materialized_days = ensure_ccusage_model_breakdowns(patched)
+    for day_index, day in enumerate(patched.get("daily") or []):
+        if not isinstance(day, dict):
+            continue
+        original_day_cost = safe_float(
+            day.get("costUSD")
+            if day.get("costUSD") is not None
+            else day.get("totalCost")
+        )
+        collector_original_cost = safe_float(
+            day.get("_collector_original_cost")
+            if day.get("_collector_original_cost") is not None
+            else original_day_cost
+        )
+        had_collector_residual = any(
+            isinstance(item, dict)
+            and str(item.get("modelName") or "") == "Legacy collector residual"
+            for item in (day.get("modelBreakdowns") or [])
+        )
+        original_breakdowns = [
+            item
+            for item in (day.get("modelBreakdowns") or [])
+            if not (
+                isinstance(item, dict)
+                and str(item.get("modelName") or "") == "Legacy collector residual"
+            )
+        ]
+        day["modelBreakdowns"] = original_breakdowns
+        if day_index in materialized_days:
+            day["_collector_original_cost"] = original_day_cost
+            collector_original_cost = original_day_cost
+        active = 0
+        pinned = 0
+        unresolved = 0
+        for breakdown in day.get("modelBreakdowns") or []:
+            if not isinstance(breakdown, dict):
+                continue
+            tokens = model_breakdown_tokens(breakdown)
+            if tokens <= 0:
+                continue
+            active += 1
+            name = str(breakdown.get("modelName") or "unknown").strip() or "unknown"
+            price = PINNED_PRICE_INDEX.get(name)
+            priced_components = (
+                safe_int(breakdown.get("inputTokens"))
+                + safe_int(breakdown.get("outputTokens"))
+                + safe_int(breakdown.get("cacheCreationTokens"))
+                + safe_int(breakdown.get("cacheReadTokens"))
+            )
+            if price is not None and priced_components == tokens:
+                breakdown["cost"] = breakdown_cost_from_pinned(breakdown, price)
+                breakdown["pricing_version"] = PRICING_VERSION
+                breakdown["pricing_provenance"] = "pinned-ledger"
+                breakdown["canonical_model"] = price["canonical_model"]
+                pinned += 1
+            else:
+                unresolved += 1
+                breakdown["pricing_version"] = "legacy"
+                breakdown["pricing_provenance"] = (
+                    "collector-legacy"
+                    if safe_float(breakdown.get("cost")) > 0
+                    else "unpriced"
+                )
+        attributed_cost = sum(
+            safe_float(item.get("cost"))
+            for item in day.get("modelBreakdowns") or []
+            if isinstance(item, dict)
+        )
+        # Codex's `models` map has components but no per-model legacy costs. In
+        # that one case, keep the remaining collector estimate explicit. Rows
+        # that already supplied modelBreakdowns have attributable model costs;
+        # restoring their old day total would undo the pinned known-model price.
+        legacy_unattributed_cost = (
+            max(0.0, collector_original_cost - attributed_cost)
+            if day_index in materialized_days or had_collector_residual
+            else 0.0
+        )
+        if unresolved and legacy_unattributed_cost > 1e-9:
+            day["modelBreakdowns"].append(
+                {
+                    "modelName": "Legacy collector residual",
+                    "inputTokens": 0,
+                    "outputTokens": 0,
+                    "cacheCreationTokens": 0,
+                    "cacheReadTokens": 0,
+                    "cost": legacy_unattributed_cost,
+                    "pricing_version": "legacy",
+                    "pricing_provenance": "collector-residual",
+                }
+            )
+        day["pricingVersion"] = PRICING_VERSION
+        day["pricingComplete"] = active == pinned
+        day["pricingProvenance"] = (
+            "pinned-ledger"
+            if active == pinned
+            else "mixed-legacy"
+            if pinned
+            else "collector-legacy"
+            if active and not unresolved_models_for_day(day)
+            else "unpriced"
+        )
+    sync_usage_cost_fields(patched)
+    totals = patched.get("totals")
+    if isinstance(totals, dict):
+        days = [day for day in patched.get("daily") or [] if isinstance(day, dict)]
+        totals["pricingVersion"] = PRICING_VERSION
+        totals["pricingComplete"] = all(bool(day.get("pricingComplete")) for day in days)
+    patched["pricing_version"] = PRICING_VERSION
+    return patched
+
+
+def unresolved_models_for_day(day: dict[str, Any]) -> list[str]:
+    return [
+        str(item.get("modelName") or "unknown")
+        for item in day.get("modelBreakdowns") or []
+        if isinstance(item, dict)
+        and model_breakdown_tokens(item) > 0
+        and safe_float(item.get("cost")) <= 0
+    ]
+
+
 def reprice_unpriced_models_with_litellm(
     usage: Any,
     *,
@@ -1223,13 +1811,8 @@ def reprice_unpriced_models_with_litellm(
             day_cost += safe_float(breakdown.get("cost"))
         if day.get("modelBreakdowns"):
             day["totalCost"] = day_cost
-    totals = patched.get("totals")
-    if isinstance(totals, dict) and isinstance(patched.get("daily"), list):
-        totals["totalCost"] = sum(
-            safe_float(day.get("totalCost"))
-            for day in patched["daily"]
-            if isinstance(day, dict)
-        )
+            day["costUSD"] = day_cost
+    sync_usage_cost_fields(patched)
     return patched, recovered
 
 
@@ -1279,8 +1862,8 @@ def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") ->
     3. If still unpriced (stale ccusage cache / flaky price API), reprice those
        models from the LiteLLM JSON table (cached under ``~/.cache``)
     """
-    offline_usage = run_ccusage_daily(
-        tool, timezone, since=since, until=until, offline=True
+    offline_usage = reprice_models_with_pinned_ledger(
+        run_ccusage_daily(tool, timezone, since=since, until=until, offline=True)
     )
     missing = unpriced_models(offline_usage)
     if not missing:
@@ -1290,8 +1873,8 @@ def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") ->
     range_label = f"{since or '...'}..{until or '...'}"
     candidate: Any = offline_usage
     try:
-        online_usage = run_ccusage_daily(
-            tool, timezone, since=since, until=until, offline=False
+        online_usage = reprice_models_with_pinned_ledger(
+            run_ccusage_daily(tool, timezone, since=since, until=until, offline=False)
         )
     except Exception as exc:
         print(
@@ -1353,14 +1936,14 @@ def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") ->
                 f"({', '.join(recovered)}; {range_label})",
                 file=sys.stderr,
             )
-        return patched
+        return reprice_models_with_pinned_ledger(patched)
 
     print(
         f"warning: no pricing source recovered costs for {tool} "
         f"({missing_label}; {range_label})",
         file=sys.stderr,
     )
-    return candidate
+    return reprice_models_with_pinned_ledger(candidate)
 
 
 def filter_points_since(points: list[dict[str, Any]], since: str) -> list[dict[str, Any]]:
@@ -1410,6 +1993,7 @@ SOURCE_STATUS_DEFAULT_ERROR = {
 PUBLIC_ONEAPI_FIELDS = {
     "accounting_version",
     "available",
+    "captured_at",
     "complete",
     "daily_timeline",
     "excluded",
@@ -1418,11 +2002,15 @@ PUBLIC_ONEAPI_FIELDS = {
     "legacy_comate",
     "legacy_history_discarded",
     "ownership_rule",
+    "ownership_rule_version",
     "pages",
+    "pagination",
     "rate_limit_retries",
     "raw_totals",
     "request_count",
     "stale",
+    "scope",
+    "snapshot_id",
     "timezone",
     "totals",
     "unclassified",
@@ -1697,8 +2285,10 @@ def persist_local_model_metadata(
     codex_points: list[dict[str, Any]],
     claude_points: list[dict[str, Any]],
     legacy_comate: dict[str, Any],
+    *,
+    model_seed_complete: bool,
 ) -> None:
-    """Backfill model rows without changing the durable numeric ledger."""
+    """Backfill fact/model metadata and deterministically revalue complete snapshots."""
     fragment = machine_fragments.load_machine_fragment(
         fragment_file.parent, fragment_file.stem
     )
@@ -1717,25 +2307,88 @@ def persist_local_model_metadata(
             if isinstance(point, dict) and point.get("date")
         },
     }
+    pricing_regressions: set[str] = set()
     for row in fragment.get("daily") or []:
         if not isinstance(row, dict):
             continue
         date_key = str(row.get("date") or "")
         for prefix in ("codex", "claude"):
             point = points_by_tool[prefix].get(date_key)
-            source_models = (
-                point.get("models")
-                if isinstance(point, dict)
-                else row.get(f"{prefix}_models")
+            if not isinstance(point, dict):
+                row[f"{prefix}_models"] = models_with_remainder(
+                    row.get(f"{prefix}_models"),
+                    total_tokens=row.get(f"{prefix}_tokens"),
+                    total_cost=row.get(f"{prefix}_cost"),
+                    label="Legacy unknown",
+                )
+                continue
+
+            same_fact_total = safe_int(point.get("tokens")) == safe_int(
+                row.get(f"{prefix}_tokens")
             )
-            row[f"{prefix}_models"] = models_with_remainder(
-                source_models,
-                total_tokens=row.get(f"{prefix}_tokens"),
-                total_cost=row.get(f"{prefix}_cost"),
-                label="Legacy unknown",
+            snapshot_complete = bool(point.get("snapshot_complete")) and same_fact_total
+            incoming_cost = safe_float(point.get("cost"))
+            existing_cost = safe_float(row.get(f"{prefix}_cost"))
+            pricing_complete = bool(point.get("pricing_complete"))
+            unpriced_decrease = (
+                incoming_cost + max(1e-9, abs(existing_cost) * 1e-9) < existing_cost
+                and not pricing_complete
+            )
+            if not snapshot_complete or unpriced_decrease:
+                row[f"{prefix}_models"] = models_with_remainder(
+                    row.get(f"{prefix}_models"),
+                    total_tokens=row.get(f"{prefix}_tokens"),
+                    total_cost=row.get(f"{prefix}_cost"),
+                    label="Legacy unknown",
+                )
+                row[f"{prefix}_snapshot_complete"] = False
+                row[f"{prefix}_pricing_complete"] = False
+                row[f"{prefix}_pricing_provenance"] = "legacy-preserved"
+                if unpriced_decrease:
+                    pricing_regressions.add(date_key)
+                continue
+
+            target_cost = incoming_cost
+            try:
+                reconciled_models = models_with_remainder(
+                    point.get("models"),
+                    total_tokens=row.get(f"{prefix}_tokens"),
+                    total_cost=target_cost,
+                    label="Legacy unknown",
+                )
+            except ValueError:
+                row[f"{prefix}_snapshot_complete"] = False
+                pricing_regressions.add(date_key)
+                continue
+            row[f"{prefix}_models"] = reconciled_models
+            row[f"{prefix}_cost"] = target_cost
+            for field in TOOL_TOKEN_FIELDS[prefix]:
+                row[f"{prefix}_{field}"] = safe_int(point.get(field))
+            row[f"{prefix}_snapshot_complete"] = True
+            row[f"{prefix}_pricing_version"] = str(
+                point.get("pricing_version") or "legacy"
+            )
+            row[f"{prefix}_pricing_complete"] = pricing_complete
+            row[f"{prefix}_pricing_provenance"] = str(
+                point.get("pricing_provenance") or "legacy"
             )
 
-    fragment["model_breakdown_version"] = MODEL_BREAKDOWN_VERSION
+    if model_seed_complete:
+        fragment["model_breakdown_version"] = MODEL_BREAKDOWN_VERSION
+    fragment["schema_version"] = PUBLIC_SCHEMA_VERSION
+    fragment["pricing_version"] = PRICING_VERSION
+    if pricing_regressions:
+        current_boundary = str(fragment.get("mutable_from") or "")
+        fragment["mutable_from"] = min(
+            [value for value in [current_boundary, *pricing_regressions] if value]
+        )
+        stats = (
+            fragment.get("last_append_stats")
+            if isinstance(fragment.get("last_append_stats"), dict)
+            else {}
+        )
+        stats["pricing_regression_dates"] = sorted(pricing_regressions)
+        fragment["last_append_stats"] = stats
     fragment["legacy_comate"] = legacy_comate
     fragment["tools"] = ["codex", "claude"]
     machine_fragments.write_json_atomic(fragment_file, fragment)
@@ -1782,10 +2435,13 @@ def collect_local_machine(
 
     model_codex_usage = codex_usage
     model_claude_usage = claude_usage
+    model_seed_complete = first_seed or not needs_model_seed
     if needs_model_seed and not first_seed:
+        model_seed_complete = False
         try:
             model_codex_usage = ccusage_daily("codex", timezone)
             model_claude_usage = ccusage_daily("claude", timezone)
+            model_seed_complete = True
         except Exception as exc:
             print(
                 f"warning: full model backfill failed; keeping incremental model rows: {exc}",
@@ -1839,6 +2495,7 @@ def collect_local_machine(
         codex_pts_all,
         claude_pts_all,
         comate,
+        model_seed_complete=model_seed_complete,
     )
     local_summary["machine_fragment"] = str(fragment_file)
     local_summary["fragment_mode"] = fragment_meta.get("mode")
@@ -1975,7 +2632,7 @@ def collect_usage(
     merge_only: bool = False,
     usage_json_path: Path | None = None,
     force_reseed: bool = False,
-    oneapi_days: int = 2,
+    oneapi_days: int = 5,
     oneapi_cache_path: Path | None = None,
 ) -> dict[str, Any]:
     mid = machine_fragments.resolve_machine_id(machine_id)
@@ -2044,33 +2701,13 @@ def collect_usage(
             prev = prior_by.get(str(row.get("date")))
             if not prev:
                 continue
-            for key in (
-                "cursor_tokens",
-                "cursor_cost",
-                "cursor_input",
-                "cursor_cache_write",
-                "cursor_cache_read",
-                "cursor_output",
-            ):
-                if key not in row or not (safe_int(row.get(key)) or safe_float(row.get(key))):
-                    if key.endswith("cost"):
-                        row[key] = safe_float(prev.get(key))
-                    else:
-                        row[key] = safe_int(prev.get(key))
+            overlay_prior_cursor_row(row, prev)
         for date_key, prev in prior_by.items():
             if date_key in {str(r.get("date")) for r in local_merged}:
                 continue
             if safe_int(prev.get("cursor_tokens")) or safe_float(prev.get("cursor_cost")):
                 row = empty_daily_row(date_key)
-                for key in (
-                    "cursor_tokens",
-                    "cursor_cost",
-                    "cursor_input",
-                    "cursor_cache_write",
-                    "cursor_cache_read",
-                    "cursor_output",
-                ):
-                    row[key] = safe_float(prev.get(key)) if key.endswith("cost") else safe_int(prev.get(key))
+                overlay_prior_cursor_row(row, prev)
                 local_merged.append(row)
         local_merged.sort(key=lambda r: str(r.get("date") or ""))
 
@@ -2185,30 +2822,13 @@ def collect_usage(
             prev = prior_by.get(str(row.get("date")))
             if not prev:
                 continue
-            for key in (
-                "cursor_tokens",
-                "cursor_cost",
-                "cursor_input",
-                "cursor_cache_write",
-                "cursor_cache_read",
-                "cursor_output",
-            ):
-                if not (safe_int(row.get(key)) or safe_float(row.get(key))):
-                    row[key] = safe_float(prev.get(key)) if key.endswith("cost") else safe_int(prev.get(key))
+            overlay_prior_cursor_row(row, prev)
         for date_key, prev in prior_by.items():
             if date_key in merged_dates:
                 continue
             if safe_int(prev.get("cursor_tokens")) or safe_float(prev.get("cursor_cost")):
                 row = empty_daily_row(date_key)
-                for key in (
-                    "cursor_tokens",
-                    "cursor_cost",
-                    "cursor_input",
-                    "cursor_cache_write",
-                    "cursor_cache_read",
-                    "cursor_output",
-                ):
-                    row[key] = safe_float(prev.get(key)) if key.endswith("cost") else safe_int(prev.get(key))
+                overlay_prior_cursor_row(row, prev)
                 local_merged.append(row)
         local_merged.sort(key=lambda r: str(r.get("date") or ""))
 
@@ -2256,7 +2876,8 @@ def collect_usage(
         for row in prior_rows
     )
     durable_oneapi_rows = prior_rows if prior_oneapi_compatible else []
-    oneapi_data: dict[str, Any]
+    oneapi_data: dict[str, Any] = {}
+    oneapi_cache_loaded = False
     oneapi_refresh_complete = False
     oneapi_refresh_error = ""
     oneapi_status_error = ""
@@ -2265,27 +2886,36 @@ def collect_usage(
     if oneapi_cache_path and oneapi_cache_path.exists():
         try:
             cached = json.loads(oneapi_cache_path.read_text())
-            if isinstance(cached, dict) and cached.get("complete"):
-                print(f"INFO: loaded pre-cached One API snapshot from {oneapi_cache_path}", file=sys.stderr)
-                oneapi_data = cached
-                oneapi_refresh_complete = True
-                oneapi_data["stale"] = False
-                oneapi_data["state_path"] = oneapi_state_path
-                oneapi_data["legacy_history_discarded"] = bool(
-                    legacy_oneapi_present and not prior_oneapi_compatible
-                )
-            else:
-                raise RuntimeError("cached One API snapshot is incomplete or invalid")
+            oneapi_data = validate_oneapi_snapshot(
+                cached,
+                timezone=timezone,
+                today=today,
+                calendar_days=oneapi_days,
+            )
+            print(f"INFO: loaded pre-cached One API snapshot from {oneapi_cache_path}", file=sys.stderr)
+            oneapi_refresh_complete = True
+            oneapi_data["stale"] = False
+            oneapi_data["state_path"] = oneapi_state_path
+            oneapi_data["legacy_history_discarded"] = bool(
+                legacy_oneapi_present and not prior_oneapi_compatible
+            )
+            oneapi_cache_loaded = True
         except Exception as exc:
             print(f"WARN: failed to load cached One API snapshot; falling back to live fetch: {exc}", file=sys.stderr)
             oneapi_cache_path = None
 
-    elif Path(oneapi_state_path).exists():
+    if not oneapi_cache_loaded and Path(oneapi_state_path).exists():
         try:
             oneapi_data = oneapi_usage.collect_oneapi(
                 timezone=timezone,
                 state_path=oneapi_state_path,
                 days=oneapi_days,
+            )
+            oneapi_data = validate_oneapi_snapshot(
+                oneapi_data,
+                timezone=timezone,
+                today=today,
+                calendar_days=oneapi_days,
             )
             oneapi_refresh_complete = bool(
                 oneapi_data.get("available") and oneapi_data.get("complete")
@@ -2313,7 +2943,7 @@ def collect_usage(
                 "note": note,
                 "state_path": oneapi_state_path,
             }
-    else:
+    elif not oneapi_cache_loaded:
         note = (
             f"One API state not found at {oneapi_state_path}; "
             f"kept prior compatible series. "
@@ -2483,8 +3113,23 @@ def collect_usage(
     if daily_rows:
         span_first, span_last = daily_rows[0]["date"], daily_rows[-1]["date"]
 
+    generated_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    report_snapshot_id = stable_snapshot_id(
+        {
+            "schema_version": PUBLIC_SCHEMA_VERSION,
+            "pricing_version": PRICING_VERSION,
+            "machines": machine_ids,
+            "cursor_snapshot_id": cursor_usage.get("snapshot_id"),
+            "oneapi_snapshot_id": oneapi_data.get("snapshot_id"),
+            "daily": daily_rows,
+        }
+    )
     return {
-        "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+        "schema_version": PUBLIC_SCHEMA_VERSION,
+        "pricing_version": PRICING_VERSION,
+        "captured_at": generated_at,
+        "snapshot_id": report_snapshot_id,
+        "generated_at": generated_at,
         "timezone": timezone,
         "machine_id": mid,
         "machines": machine_ids,
@@ -2509,8 +3154,8 @@ CARD_BREAKDOWNS: dict[str, list[tuple[str, str]]] = {
     "Codex": [
         ("input", "Input"),
         ("cache_read", "Cache read"),
-        ("output", "Output"),
-        ("reasoning", "Reasoning"),
+        ("output", "Output (incl. reasoning)"),
+        ("reasoning", "↳ Reasoning subset"),
     ],
     "Claude Code": [
         ("input", "Input"),
@@ -2592,6 +3237,8 @@ def render_html(data: dict[str, Any]) -> str:
         + safe_int(r.get("claude_cache_read"))
         + safe_int(r.get("cursor_cache_write"))
         + safe_int(r.get("cursor_cache_read"))
+        + safe_int(r.get("oneapi_cache_write"))
+        + safe_int(r.get("oneapi_cache_read"))
         for r in daily_rows
         if isinstance(r, dict)
     )
@@ -2599,6 +3246,7 @@ def render_html(data: dict[str, Any]) -> str:
         safe_int(r.get("codex_tokens"))
         + safe_int(r.get("claude_tokens"))
         + safe_int(r.get("cursor_tokens"))
+        + safe_int(r.get("oneapi_tokens"))
         for r in daily_rows
         if isinstance(r, dict)
     )
@@ -2606,6 +3254,7 @@ def render_html(data: dict[str, Any]) -> str:
         safe_float(r.get("codex_cost"))
         + safe_float(r.get("claude_cost"))
         + safe_float(r.get("cursor_cost"))
+        + safe_float(r.get("oneapi_cost"))
         for r in daily_rows
         if isinstance(r, dict)
     )
@@ -2640,18 +3289,21 @@ def render_html(data: dict[str, Any]) -> str:
   const cT = RAW.map(r => r.codex_tokens || 0);
   const clT = RAW.map(r => r.claude_tokens || 0);
   const cuT = RAW.map(r => r.cursor_tokens || 0);
+  const oT = RAW.map(r => r.oneapi_tokens || 0);
   const cC = RAW.map(r => Number(r.codex_cost) || 0);
   const clC = RAW.map(r => Number(r.claude_cost) || 0);
   const cuC = RAW.map(r => Number(r.cursor_cost) || 0);
+  const oC = RAW.map(r => Number(r.oneapi_cost) || 0);
   const cCache = RAW.map(r => Number(r.codex_cache_read) || 0);
   const clCache = RAW.map(r => (Number(r.claude_cache_create) || 0) + (Number(r.claude_cache_read) || 0));
   const cuCache = RAW.map(r => (Number(r.cursor_cache_write) || 0) + (Number(r.cursor_cache_read) || 0));
+  const oCache = RAW.map(r => (Number(r.oneapi_cache_write) || 0) + (Number(r.oneapi_cache_read) || 0));
   const breakdownFields = {
     codex: [
       ['input', 'Input', r => Number(r.codex_input) || 0],
       ['cache_read', 'Cache read', r => Number(r.codex_cache_read) || 0],
-      ['output', 'Output', r => Number(r.codex_output) || 0],
-      ['reasoning', 'Reasoning', r => Number(r.codex_reasoning) || 0],
+      ['output', 'Output (incl. reasoning)', r => Number(r.codex_output) || 0],
+      ['reasoning', '↳ Reasoning subset', r => Number(r.codex_reasoning) || 0],
     ],
     claude: [
       ['input', 'Input', r => Number(r.claude_input) || 0],
@@ -2665,11 +3317,17 @@ def render_html(data: dict[str, Any]) -> str:
       ['cache_read', 'Cache read', r => Number(r.cursor_cache_read) || 0],
       ['output', 'Output', r => Number(r.cursor_output) || 0],
     ],
+    oneapi: [
+      ['input', 'Input', r => Number(r.oneapi_input) || 0],
+      ['cache_read', 'Cache read', r => Number(r.oneapi_cache_read) || 0],
+      ['cache_write', 'Cache write', r => Number(r.oneapi_cache_write) || 0],
+      ['output', 'Output', r => Number(r.oneapi_output) || 0],
+    ],
   };
 
-  const totalDaySpend = cC.map((v, i) => (Number(v) || 0) + (Number(clC[i]) || 0) + (Number(cuC[i]) || 0));
+  const totalDaySpend = cC.map((v, i) => (Number(v) || 0) + (Number(clC[i]) || 0) + (Number(cuC[i]) || 0) + (Number(oC[i]) || 0));
 
-  const COL = { codex: '#2563eb', claude: '#c2410c', cursor: '#0d9488' };
+  const COL = { codex: '#2563eb', claude: '#c2410c', cursor: '#0d9488', oneapi: '#7c3aed' };
   const chart = echarts.init(el, null, { renderer: 'canvas' });
 
   function mixChannel(c, t) {
@@ -2981,12 +3639,14 @@ def render_html(data: dict[str, Any]) -> str:
     setKpi('codex', cT, cC);
     setKpi('claude', clT, clC);
     setKpi('cursor', cuT, cuC);
+    setKpi('oneapi', oT, oC);
     setBreakdown('codex');
     setBreakdown('claude');
     setBreakdown('cursor');
-    const allTok = sumSlice(cT, i0, i1) + sumSlice(clT, i0, i1) + sumSlice(cuT, i0, i1);
-    const allCost = sumSlice(cC, i0, i1) + sumSlice(clC, i0, i1) + sumSlice(cuC, i0, i1);
-    const allCache = sumSlice(cCache, i0, i1) + sumSlice(clCache, i0, i1) + sumSlice(cuCache, i0, i1);
+    setBreakdown('oneapi');
+    const allTok = sumSlice(cT, i0, i1) + sumSlice(clT, i0, i1) + sumSlice(cuT, i0, i1) + sumSlice(oT, i0, i1);
+    const allCost = sumSlice(cC, i0, i1) + sumSlice(clC, i0, i1) + sumSlice(cuC, i0, i1) + sumSlice(oC, i0, i1);
+    const allCache = sumSlice(cCache, i0, i1) + sumSlice(clCache, i0, i1) + sumSlice(cuCache, i0, i1) + sumSlice(oCache, i0, i1);
     const allTokEl = document.getElementById('kpi-all-tokens');
     const allCostEl = document.getElementById('kpi-all-cost');
     const allCacheEl = document.getElementById('kpi-all-cache');
@@ -3057,12 +3717,13 @@ def render_html(data: dict[str, Any]) -> str:
         toolSection('Codex', 'codex', row.codex_tokens || 0, Number(row.codex_cost) || 0, breakdownFields.codex);
         toolSection('Claude Code', 'claude', row.claude_tokens || 0, Number(row.claude_cost) || 0, breakdownFields.claude);
         toolSection('Cursor', 'cursor', row.cursor_tokens || 0, Number(row.cursor_cost) || 0, breakdownFields.cursor);
+        toolSection('One API', 'oneapi', row.oneapi_tokens || 0, Number(row.oneapi_cost) || 0, breakdownFields.oneapi);
         lines.push('<div style="margin-top:8px">Daily spend (all tools): <strong>' + fmtUsd(totalDaySpend[idx] || 0) + '</strong></div>');
         return lines.join('<br/>');
       },
     },
     legend: {
-      data: ['Codex', 'Claude', 'Cursor', 'Codex cache', 'Claude cache', 'Cursor cache', 'Daily spend (all tools)'],
+      data: ['Codex', 'Claude', 'Cursor', 'One API', 'Codex cache', 'Claude cache', 'Cursor cache', 'One API cache', 'Daily spend (all tools)'],
       type: 'scroll',
       top: 6,
       left: 'center',
@@ -3170,8 +3831,16 @@ def render_html(data: dict[str, Any]) -> str:
         ...stackBar,
         xAxisIndex: 0,
         yAxisIndex: 0,
-        itemStyle: stackSegStyle(COL.cursor, 'top'),
+        itemStyle: stackSegStyle(COL.cursor, 'mid'),
         data: cuT,
+      },
+      {
+        name: 'One API',
+        ...stackBar,
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        itemStyle: stackSegStyle(COL.oneapi, 'top'),
+        data: oT,
       },
       {
         name: 'Codex cache',
@@ -3197,8 +3866,17 @@ def render_html(data: dict[str, Any]) -> str:
         stack: 'cache',
         xAxisIndex: 1,
         yAxisIndex: 1,
-        itemStyle: stackSegStyle(COL.cursor, 'top'),
+        itemStyle: stackSegStyle(COL.cursor, 'mid'),
         data: cuCache,
+      },
+      {
+        name: 'One API cache',
+        ...stackBar,
+        stack: 'cache',
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        itemStyle: stackSegStyle(COL.oneapi, 'top'),
+        data: oCache,
       },
       {
         name: 'Daily spend (all tools)',
@@ -3456,8 +4134,8 @@ input[type="date"] {{
 <p class="methodology">
   <strong>Token breakdown:</strong> cards and tooltips show input, cache, and output tokens per tool.
   Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read.
-  <strong>Cost estimate:</strong> Codex/Claude costs come from <code>ccusage</code> using LiteLLM official model pricing
-  (Codex reads <code>service_tier</code> from <code>~/.codex/config.toml</code>); Cursor costs come from the authenticated Dashboard API.
+  <strong>Cost estimate:</strong> Codex/Claude use the checked-in <code>{esc(PRICING_VERSION)}</code> price ledger;
+  unresolved models retain an explicit legacy collector value. Cursor costs come from the authenticated Dashboard API.
 </p>
 <section class="cards">{cards_html}</section>
 <section class="controls" aria-label="Time range controls">
@@ -3613,8 +4291,8 @@ def main() -> int:
         help="Validate and print Codex cache backfill stats without writing files.",
     )
     parser.add_argument("--cursor-page-size", type=int, default=500)
-    parser.add_argument("--oneapi-days", type=int, default=2,
-                        help="One API lookback days from today (default 2).")
+    parser.add_argument("--oneapi-days", type=int, default=5,
+                        help="One API lookback days from today (default 5).")
     parser.add_argument("--oneapi-cache-path", type=str, default="",
                         help="Path to a pre-collected One API JSON snapshot to skip live fetch.")
     parser.add_argument("--width", type=int, default=1400)
@@ -3739,6 +4417,10 @@ def main() -> int:
             json_path = Path(args.json_out).expanduser()
             machines = data.get("machines") if isinstance(data.get("machines"), list) else []
             payload = {
+                "schema_version": data.get("schema_version", PUBLIC_SCHEMA_VERSION),
+                "pricing_version": data.get("pricing_version", PRICING_VERSION),
+                "captured_at": data.get("captured_at"),
+                "snapshot_id": data.get("snapshot_id"),
                 "generated_at": data.get("generated_at"),
                 "timezone": data.get("timezone"),
                 "cursor_mutable_from": data.get("cursor_mutable_from"),
@@ -3761,11 +4443,11 @@ def main() -> int:
                         "without gateway coverage."
                     ),
                     "cost": (
-                        "Codex/Claude costs come from ccusage using LiteLLM official model pricing "
-                        "(Codex reads service_tier from ~/.codex/config.toml): "
-                        "collect offline first for launchd reliability, auto-retry online when any "
-                        "model has tokens but $0 cost, then reprice remaining unpriced models from "
-                        "the LiteLLM JSON table (cached under ~/.cache/ai-usage-report); "
+                        f"Codex/Claude estimates use the checked-in versioned price ledger "
+                        f"{PRICING_VERSION}; known models are deterministically repriced from "
+                        "persisted per-model token components. Models without a pinned rate retain "
+                        "their collector value with explicit legacy provenance and cannot silently "
+                        "replace a higher durable estimate; "
                         "Cursor costs come from the authenticated Dashboard API; "
                         "One API quota uses 250,000 units/CNY and is estimated at "
                         "~0.14 USD/CNY. "

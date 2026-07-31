@@ -119,18 +119,49 @@ class LiteLLMRepriceTests(unittest.TestCase):
         opus5 = patched["daily"][0]["modelBreakdowns"][1]
         self.assertAlmostEqual(opus5["cost"], 5.05, places=6)
         self.assertAlmostEqual(patched["daily"][0]["totalCost"], 5.45, places=6)
+        self.assertAlmostEqual(patched["daily"][0]["costUSD"], 5.45, places=6)
+        self.assertAlmostEqual(patched["totals"]["costUSD"], 5.45, places=6)
         self.assertEqual(usage_report.unpriced_models(patched), [])
+
+    def test_pinned_codex_models_map_is_component_priced_and_synced(self):
+        payload = {
+            "daily": [
+                {
+                    "date": "2026-07-31",
+                    "costUSD": 999,
+                    "models": {
+                        "gpt-5.6-sol": {
+                            "inputTokens": 100,
+                            "cacheReadTokens": 20,
+                            "outputTokens": 10,
+                            "reasoningOutputTokens": 4,
+                            "totalTokens": 130,
+                        }
+                    },
+                }
+            ],
+            "totals": {"costUSD": 999},
+        }
+
+        result = usage_report.reprice_models_with_pinned_ledger(payload)
+
+        expected = 100 * 5e-6 + 20 * 5e-7 + 10 * 3e-5
+        self.assertAlmostEqual(result["daily"][0]["costUSD"], expected)
+        self.assertAlmostEqual(result["daily"][0]["totalCost"], expected)
+        self.assertAlmostEqual(result["totals"]["costUSD"], expected)
+        self.assertAlmostEqual(result["totals"]["totalCost"], expected)
+        self.assertTrue(result["daily"][0]["pricingComplete"])
 
 
 class CcusagePricingRetryTests(unittest.TestCase):
     def test_prefers_online_when_it_recovers_prices(self):
         offline_payload = daily_payload(
             breakdown("claude-opus-4-8", input_tokens=80, cost=0.4),
-            breakdown("claude-opus-5", input_tokens=500, cost=0.0),
+            breakdown("brand-new-unpinned", input_tokens=500, cost=0.0),
         )
         online_payload = daily_payload(
             breakdown("claude-opus-4-8", input_tokens=80, cost=0.4),
-            breakdown("claude-opus-5", input_tokens=500, cost=1.7),
+            breakdown("brand-new-unpinned", input_tokens=500, cost=1.7),
         )
         calls: list[bool] = []
 
@@ -150,12 +181,11 @@ class CcusagePricingRetryTests(unittest.TestCase):
             )
 
         self.assertEqual(calls, [True, False])
-        self.assertIs(result, online_payload)
-        self.assertEqual(result["daily"][0]["totalCost"], 2.1)
+        self.assertAlmostEqual(result["daily"][0]["totalCost"], 1.7004)
 
     def test_keeps_offline_when_online_fails_and_litellm_unavailable(self):
         offline_payload = daily_payload(
-            breakdown("claude-opus-5", input_tokens=500, cost=0.0),
+            breakdown("brand-new-unpinned", input_tokens=500, cost=0.0),
         )
         calls: list[bool] = []
 
@@ -178,17 +208,18 @@ class CcusagePricingRetryTests(unittest.TestCase):
             )
 
         self.assertEqual(calls, [True, False])
-        self.assertIs(result, offline_payload)
+        self.assertIsNot(result, offline_payload)
+        self.assertEqual(result["pricing_version"], usage_report.PRICING_VERSION)
 
     def test_litellm_fallback_when_online_still_unpriced(self):
         offline_payload = daily_payload(
-            breakdown("claude-opus-5", input_tokens=1_000_000, output_tokens=0, cost=0.0),
+            breakdown("new-model", input_tokens=1_000_000, output_tokens=0, cost=0.0),
         )
         online_payload = daily_payload(
-            breakdown("claude-opus-5", input_tokens=1_000_000, output_tokens=0, cost=0.0),
+            breakdown("new-model", input_tokens=1_000_000, output_tokens=0, cost=0.0),
         )
         prices = {
-            "claude-opus-5": {
+            "new-model": {
                 "input_cost_per_token": 5e-6,
                 "output_cost_per_token": 2.5e-5,
             }
@@ -229,7 +260,8 @@ class CcusagePricingRetryTests(unittest.TestCase):
             )
 
         self.assertEqual(calls, [True])
-        self.assertIs(result, offline_payload)
+        self.assertIsNot(result, offline_payload)
+        self.assertEqual(result["pricing_version"], usage_report.PRICING_VERSION)
 
 
 if __name__ == "__main__":

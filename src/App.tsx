@@ -41,8 +41,10 @@ import {
 } from './lib/interaction'
 import {
   degradedSourceNotices,
+  describeRange,
   indexForPreset,
   loadUsage,
+  percentageTenths,
   selectModelSeries,
   summarizeRange,
   TOOLS,
@@ -192,6 +194,13 @@ function ReportApp() {
   const pinnedModelUsage = pinnedModel
     ? modelSelection?.fullModels.find((model) => model.model === pinnedModel)
     : undefined
+  const modelShareTenths = useMemo(() => {
+    const models = modelSelection?.fullModels ?? []
+    const shares = percentageTenths(models.map((model) => model.tokens))
+    return new Map(
+      models.map((model, index) => [model.model, shares[index]] as const),
+    )
+  }, [modelSelection])
 
   const dateRangeValue: DateRange | null = useMemo(() => {
     if (!visible.length) return null
@@ -433,10 +442,10 @@ function ReportApp() {
     )
   }
 
-  const spanLabel =
-    visible.length > 0
-      ? `${visible[0].date} — ${visible[visible.length - 1].date} · ${visible.length} day(s)`
-      : '—'
+  const rangeDescription = describeRange(visible, preset)
+  const spanLabel = rangeDescription
+    ? `${rangeDescription.start} — ${rangeDescription.end} · ${rangeDescription.calendarDays} calendar ${rangeDescription.calendarDays === 1 ? 'day' : 'days'} · ${rangeDescription.recordedDays} recorded ${rangeDescription.recordedDays === 1 ? 'day' : 'days'}`
+    : '—'
 
   const fullSpan =
     payload.timeline_meta?.span ||
@@ -969,8 +978,9 @@ function ReportApp() {
                   <div className="model-detail-list">
                     {modelSelection.fullModels.map((model) => {
                       const isLegacy = model.model === 'Legacy unknown'
-                      const total = activeToolSummary.tokens
-                      const share = total > 0 ? (model.tokens / total) * 100 : 0
+                      const share = (
+                        (modelShareTenths.get(model.model) ?? 0) / 10
+                      ).toFixed(1)
                       const isFocused = pinnedModel === model.model
                       return (
                         <button
@@ -978,7 +988,7 @@ function ReportApp() {
                           className="model-detail-row"
                           key={model.model}
                           aria-pressed={isLegacy ? undefined : isFocused}
-                          aria-label={`${isLegacy ? 'Unattributed legacy' : model.model}, ${fmtExactTokens(model.tokens)} tokens, ${share.toFixed(1)} percent, ${fmtExactUsd(model.cost)} spend${isLegacy ? '' : ', focus in chart'}`}
+                          aria-label={`${isLegacy ? 'Unattributed legacy' : model.model}, ${fmtExactTokens(model.tokens)} tokens, ${share} percent, ${fmtExactUsd(model.cost)} spend${isLegacy ? '' : ', focus in chart'}`}
                           onClick={() => {
                             if (!isLegacy) toggleModelFocus(model.model)
                           }}
@@ -997,7 +1007,7 @@ function ReportApp() {
                           <span data-label="Tokens">
                             {fmtExactTokens(model.tokens)}
                           </span>
-                          <span data-label="Share">{share.toFixed(1)}%</span>
+                          <span data-label="Share">{share}%</span>
                           <span data-label="Spend">{fmtExactUsd(model.cost)}</span>
                         </button>
                       )

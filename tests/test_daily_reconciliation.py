@@ -31,20 +31,37 @@ machine_fragments = usage_report.machine_fragments
 
 def local_row(date: str, *, codex_tokens: int, claude_tokens: int = 0):
     row = usage_report.empty_daily_row(date)
+    codex_input = codex_tokens // 5
+    codex_output = codex_tokens // 10
+    codex_cache = codex_tokens - codex_input - codex_output
+    claude_input = claude_tokens // 5
+    claude_create = claude_tokens // 10
+    claude_output = claude_tokens // 10
+    claude_read = claude_tokens - claude_input - claude_create - claude_output
     row.update(
         {
             "codex_tokens": codex_tokens,
             "codex_cost": codex_tokens / 100,
-            "codex_input": codex_tokens // 5,
-            "codex_cache_read": codex_tokens * 3 // 5,
-            "codex_output": codex_tokens // 10,
-            "codex_reasoning": codex_tokens // 20,
+            "codex_input": codex_input,
+            "codex_cache_read": codex_cache,
+            "codex_output": codex_output,
+            "codex_reasoning": codex_output // 2,
+            "codex_models": ([{"model": "codex-test", "tokens": codex_tokens, "cost": codex_tokens / 100}] if codex_tokens else []),
+            "codex_snapshot_complete": True,
+            "codex_pricing_version": usage_report.PRICING_VERSION,
+            "codex_pricing_complete": True,
+            "codex_pricing_provenance": "pinned-ledger",
             "claude_tokens": claude_tokens,
             "claude_cost": claude_tokens / 100,
-            "claude_input": claude_tokens // 5,
-            "claude_cache_create": claude_tokens // 10,
-            "claude_cache_read": claude_tokens // 2,
-            "claude_output": claude_tokens // 10,
+            "claude_input": claude_input,
+            "claude_cache_create": claude_create,
+            "claude_cache_read": claude_read,
+            "claude_output": claude_output,
+            "claude_models": ([{"model": "claude-test", "tokens": claude_tokens, "cost": claude_tokens / 100}] if claude_tokens else []),
+            "claude_snapshot_complete": True,
+            "claude_pricing_version": usage_report.PRICING_VERSION,
+            "claude_pricing_complete": True,
+            "claude_pricing_provenance": "pinned-ledger",
         }
     )
     return row
@@ -170,6 +187,37 @@ class LocalReconciliationTests(unittest.TestCase):
 
         self.assertEqual(rows[0]["codex_tokens"], before["codex_tokens"])
         self.assertEqual(rows[0]["claude_tokens"], before["claude_tokens"])
+
+    def test_unpriced_cost_decrease_is_kept_open(self):
+        existing = local_row("2026-07-19", codex_tokens=100)
+        incoming = local_row("2026-07-19", codex_tokens=100)
+        incoming["codex_cost"] = 0.5
+        incoming["codex_models"] = [{"model": "unknown", "tokens": 100, "cost": 0.5}]
+        incoming["codex_pricing_complete"] = False
+
+        rows, stats = merge_local([existing], [incoming], today="2026-07-20", mutable_from="2026-07-19")
+
+        self.assertEqual(rows[0]["codex_cost"], 1.0)
+        self.assertEqual(stats["regression_reasons"]["2026-07-19:codex"], "unpriced_cost_regression")
+
+    def test_complete_pinned_reprice_can_lower_cost_with_audit_record(self):
+        existing = local_row("2026-07-19", codex_tokens=100)
+        incoming = local_row("2026-07-19", codex_tokens=100)
+        incoming["codex_cost"] = 0.5
+        incoming["codex_models"] = [{"model": "codex-test", "tokens": 100, "cost": 0.5}]
+
+        rows, stats = merge_local([existing], [incoming], today="2026-07-20", mutable_from="2026-07-19")
+
+        self.assertEqual(rows[0]["codex_cost"], 0.5)
+        self.assertEqual(stats["pricing_changes"][0]["pricing_complete"], True)
+
+    def test_model_over_attribution_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "model tokens exceed tool total"):
+            usage_report.models_with_remainder(
+                [{"model": "bad", "tokens": 101, "cost": 1}],
+                total_tokens=100,
+                total_cost=1,
+            )
 
     def test_successful_local_capture_atomically_advances_boundary(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -456,6 +504,30 @@ class CursorReconciliationTests(unittest.TestCase):
             ),
             "2026-07-19",
         )
+
+    def test_frozen_cursor_legacy_model_is_backfilled_when_totals_match(self):
+        existing = usage_report.empty_daily_row("2026-07-18")
+        existing.update({
+            "cursor_tokens": 100,
+            "cursor_cost": 1.0,
+            "cursor_models": [{"model": "Legacy unknown", "tokens": 100, "cost": 1.0}],
+        })
+        stats = {}
+
+        rows = machine_fragments.apply_cursor_points(
+            [existing],
+            [{"date": "2026-07-18", "tokens": 100, "cost": 1.0, "models": [{"model": "cursor-model", "tokens": 100, "cost": 1.0}]}],
+            usage_report.empty_daily_row,
+            usage_report.apply_tool_point,
+            usage_report.safe_int,
+            usage_report.safe_float,
+            today="2026-07-20",
+            cursor_mutable_from="2026-07-19",
+            reconciliation_stats=stats,
+        )
+
+        self.assertEqual(rows[0]["cursor_models"][0]["model"], "cursor-model")
+        self.assertEqual(stats["model_backfilled_dates"], ["2026-07-18"])
 
 
 class TimezoneContractTests(unittest.TestCase):

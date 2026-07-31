@@ -4,8 +4,13 @@ import test from 'node:test'
 
 import {
   degradedSourceNotices,
+  describeRange,
+  indexForPreset,
+  modelSeriesMembers,
   modelSeriesPoint,
+  percentageTenths,
   selectModelSeries,
+  summarizeRange,
   TOOLS,
 } from '../src/lib/usage.ts'
 import {
@@ -167,6 +172,64 @@ test('advanced time controls are disclosed without losing capability', () => {
   assert.match(appSource, /onClick=\{\(\) => applyPreset\('all'\)\}/)
 })
 
+test('presets select natural calendar windows and disclose missing records', () => {
+  const dates = [
+    { date: '2026-04-30' },
+    { date: '2026-05-03' },
+    { date: '2026-07-25' },
+    { date: '2026-07-29' },
+    { date: '2026-07-31' },
+  ]
+
+  assert.deepEqual(indexForPreset(dates, '7'), [2, 4])
+  assert.deepEqual(indexForPreset(dates, '30'), [2, 4])
+  assert.deepEqual(indexForPreset(dates, '90'), [1, 4])
+  assert.deepEqual(describeRange(dates.slice(2), '7'), {
+    start: '2026-07-25',
+    end: '2026-07-31',
+    calendarDays: 7,
+    recordedDays: 3,
+  })
+  assert.match(appSource, /calendar \$\{[\s\S]{0,160}recorded/)
+})
+
+test('Codex reasoning is a labelled subset of output and never double-counts', () => {
+  const result = summarizeRange([
+    {
+      date: '2026-07-31',
+      codex_tokens: 130,
+      codex_input: 10,
+      codex_cache_read: 20,
+      codex_output: 100,
+      codex_reasoning: 40,
+    },
+  ])
+  const codex = result.byTool.find((tool) => tool.id === 'codex')
+
+  assert.deepEqual(
+    codex.parts.map((part) => [part.label, part.value]),
+    [
+      ['Input', 10],
+      ['Cache read', 20],
+      ['Output (non-reasoning)', 60],
+      ['Reasoning (of output)', 40],
+    ],
+  )
+  assert.equal(
+    codex.parts.reduce((sum, part) => sum + part.value, 0),
+    codex.tokens,
+  )
+})
+
+test('display percentages use stable largest remainders and total 100.0%', () => {
+  const thirds = percentageTenths([1, 1, 1])
+
+  assert.deepEqual(thirds, [334, 333, 333])
+  assert.equal(thirds.reduce((sum, share) => sum + share, 0), 1000)
+  assert.deepEqual(percentageTenths([0, 0, Number.NaN]), [0, 0, 0])
+  assert.match(appSource, /percentageTenths\(models\.map\(\(model\) => model\.tokens\)\)/)
+})
+
 test('model details and focus preserve keyboard and accessible state', () => {
   assert.match(appSource, /aria-expanded=\{isModelListOpen\}/)
   assert.match(appSource, /aria-controls="model-details-panel"/)
@@ -243,6 +306,10 @@ test('tooltips follow plotted series instead of dumping raw detail', () => {
     /const tooltipSeries = focusedSeries \? \[focusedSeries\] : specs/,
   )
   assert.match(chartsSource, /modelSeriesPoint\(row, activeTool\.id, spec\)/)
+  assert.match(
+    chartsSource,
+    /spec\.kind === 'other'[\s\S]{0,220}modelSeriesMembers\(/,
+  )
   assert.match(chartsSource, /Tool total:/)
   assert.match(chartsSource, /name: 'Tokens \/ day'/)
   assert.match(chartsSource, /name: 'Spend \/ day'/)
@@ -583,6 +650,10 @@ test('an aggregated series keeps exact daily tokens and cost', () => {
     tokens: 50,
     cost: 5,
   })
+  assert.deepEqual(modelSeriesMembers(rows[0], 'oneapi', other), [
+    { model: 'epsilon', tokens: 10, cost: 1 },
+    { model: 'zeta', tokens: 5, cost: 0.5 },
+  ])
 })
 
 test('normalized model names keep their daily chart values', () => {

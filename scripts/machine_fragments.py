@@ -22,6 +22,12 @@ from typing import Any, Callable
 
 LOCAL_TOOL_PREFIXES = ("codex", "claude")
 ACCOUNT_TOOL_PREFIXES = ("cursor",)
+TOOL_METADATA_FIELDS = (
+    "snapshot_complete",
+    "pricing_version",
+    "pricing_complete",
+    "pricing_provenance",
+)
 
 SafeInt = Callable[[Any], int]
 SafeFloat = Callable[[Any], float]
@@ -81,6 +87,10 @@ def strip_row_to_local(
         out[f"{prefix}_models"] = [
             dict(model) for model in models if isinstance(model, dict)
         ] if isinstance(models, list) else []
+        for suffix in TOOL_METADATA_FIELDS:
+            key = f"{prefix}_{suffix}"
+            if key in row:
+                out[key] = row[key]
     return out
 
 
@@ -586,6 +596,78 @@ def _copy_tool_group(
         for model in source.get(f"{prefix}_models", [])
         if isinstance(model, dict)
     ]
+    for suffix in TOOL_METADATA_FIELDS:
+        key = f"{prefix}_{suffix}"
+        if key in source:
+            target[key] = source[key]
+
+
+def _additive_component_total(
+    row: dict[str, Any],
+    prefix: str,
+    tool_token_fields: dict[str, list[str]],
+    safe_int: SafeInt,
+) -> int:
+    return sum(
+        safe_int(row.get(f"{prefix}_{field}"))
+        for field in tool_token_fields.get(prefix, [])
+        if not (prefix == "codex" and field == "reasoning")
+    )
+
+
+def _model_totals(
+    row: dict[str, Any],
+    prefix: str,
+    safe_int: SafeInt,
+    safe_float: SafeFloat,
+) -> tuple[int, float, bool]:
+    models = row.get(f"{prefix}_models")
+    if not isinstance(models, list) or not models:
+        return 0, 0.0, False
+    return (
+        sum(safe_int(model.get("tokens")) for model in models if isinstance(model, dict)),
+        sum(safe_float(model.get("cost")) for model in models if isinstance(model, dict)),
+        True,
+    )
+
+
+def _tool_regression_reason(
+    existing: dict[str, Any],
+    incoming: dict[str, Any],
+    prefix: str,
+    tool_token_fields: dict[str, list[str]],
+    safe_int: SafeInt,
+    safe_float: SafeFloat,
+) -> str:
+    incoming_tokens = safe_int(incoming.get(f"{prefix}_tokens"))
+    existing_tokens = safe_int(existing.get(f"{prefix}_tokens"))
+    if incoming_tokens < existing_tokens:
+        return "token_regression"
+    if _additive_component_total(incoming, prefix, tool_token_fields, safe_int) != incoming_tokens:
+        return "component_mismatch"
+    if prefix == "codex" and safe_int(incoming.get("codex_reasoning")) > safe_int(
+        incoming.get("codex_output")
+    ):
+        return "reasoning_exceeds_output"
+    model_tokens, model_cost, has_models = _model_totals(
+        incoming, prefix, safe_int, safe_float
+    )
+    incoming_cost = safe_float(incoming.get(f"{prefix}_cost"))
+    cost_tolerance = max(1e-9, abs(incoming_cost) * 1e-9)
+    if has_models and (
+        model_tokens != incoming_tokens
+        or abs(model_cost - incoming_cost) > cost_tolerance
+    ):
+        return "model_mismatch"
+    if incoming.get(f"{prefix}_snapshot_complete") is False:
+        return "incomplete_snapshot"
+    existing_cost = safe_float(existing.get(f"{prefix}_cost"))
+    if (
+        incoming_cost + max(1e-9, abs(existing_cost) * 1e-9) < existing_cost
+        and not bool(incoming.get(f"{prefix}_pricing_complete"))
+    ):
+        return "unpriced_cost_regression"
+    return ""
 
 
 def _tool_regressed(
@@ -593,12 +675,23 @@ def _tool_regressed(
     incoming: dict[str, Any],
     prefix: str,
     safe_int: SafeInt,
+    safe_float: SafeFloat | None = None,
+    tool_token_fields: dict[str, list[str]] | None = None,
 ) -> bool:
-    if safe_int(incoming.get(f"{prefix}_tokens")) < safe_int(
-        existing.get(f"{prefix}_tokens")
-    ):
-        return True
-    return False
+    if safe_float is None or tool_token_fields is None:
+        return safe_int(incoming.get(f"{prefix}_tokens")) < safe_int(
+            existing.get(f"{prefix}_tokens")
+        )
+    return bool(
+        _tool_regression_reason(
+            existing,
+            incoming,
+            prefix,
+            tool_token_fields,
+            safe_int,
+            safe_float,
+        )
+    )
 
 
 def merge_append_daily(
@@ -644,6 +737,8 @@ def merge_append_daily(
         "skipped": 0,
         "regression_kept": 0,
         "regression_dates": [],
+        "regression_reasons": {},
+        "pricing_changes": [],
     }
     regression_dates: set[str] = set()
 
@@ -675,10 +770,36 @@ def merge_append_daily(
 
         merged = dict(existing)
         for prefix in LOCAL_TOOL_PREFIXES:
-            if _tool_regressed(existing, incoming, prefix, safe_int):
+            regression_reason = _tool_regression_reason(
+                existing,
+                incoming,
+                prefix,
+                tool_token_fields,
+                safe_int,
+                safe_float,
+            )
+            if regression_reason:
                 regression_dates.add(date_key)
                 stats["regression_kept"] += 1
+                stats["regression_reasons"][f"{date_key}:{prefix}"] = regression_reason
                 continue
+            old_cost = safe_float(existing.get(f"{prefix}_cost"))
+            new_cost = safe_float(incoming.get(f"{prefix}_cost"))
+            if abs(old_cost - new_cost) > max(1e-9, abs(old_cost) * 1e-9):
+                stats["pricing_changes"].append(
+                    {
+                        "date": date_key,
+                        "tool": prefix,
+                        "from": old_cost,
+                        "to": new_cost,
+                        "pricing_version": str(
+                            incoming.get(f"{prefix}_pricing_version") or "legacy"
+                        ),
+                        "pricing_complete": bool(
+                            incoming.get(f"{prefix}_pricing_complete")
+                        ),
+                    }
+                )
             _copy_tool_group(merged, incoming, prefix, tool_token_fields)
         by_date[date_key] = merged
         if date_key == today:
@@ -759,9 +880,23 @@ def write_machine_fragment_append(
     next_mutable_from = min([safety_window_start, *regression_dates])
 
     payload = {
+        "schema_version": 3,
+        "pricing_version": str(
+            next(
+                (
+                    row.get(f"{prefix}_pricing_version")
+                    for row in merged
+                    for prefix in LOCAL_TOOL_PREFIXES
+                    if row.get(f"{prefix}_pricing_version")
+                ),
+                (existing or {}).get("pricing_version") or "legacy",
+            )
+        ),
         "machine_id": mid,
         "hostname": hostname or socket.gethostname(),
         "collected_at": now,
+        "captured_at": now,
+        "snapshot_id": f"{mid}@{now}",
         "seeded_at": seeded_at,
         "seeded": True,
         "append_mode": True,
@@ -874,12 +1009,63 @@ def merge_local_fragments(
             if not date_key:
                 continue
             target = by_date.setdefault(date_key, empty_daily_row(date_key))
+            prior_activity = {
+                prefix: bool(
+                    safe_int(target.get(f"{prefix}_tokens"))
+                    or safe_float(target.get(f"{prefix}_cost"))
+                )
+                for prefix in LOCAL_TOOL_PREFIXES
+            }
             for name in tool_field_names(tool_token_fields, LOCAL_TOOL_PREFIXES):
                 if name.endswith("_cost"):
                     target[name] = safe_float(target.get(name)) + safe_float(row.get(name))
                 else:
                     target[name] = safe_int(target.get(name)) + safe_int(row.get(name))
             for prefix in LOCAL_TOOL_PREFIXES:
+                source_active = bool(
+                    safe_int(row.get(f"{prefix}_tokens"))
+                    or safe_float(row.get(f"{prefix}_cost"))
+                )
+                if source_active:
+                    source_complete = bool(
+                        row.get(f"{prefix}_snapshot_complete", True)
+                    )
+                    source_pricing_complete = bool(
+                        row.get(f"{prefix}_pricing_complete")
+                    )
+                    if prior_activity[prefix]:
+                        target[f"{prefix}_snapshot_complete"] = bool(
+                            target.get(f"{prefix}_snapshot_complete", True)
+                        ) and source_complete
+                        target[f"{prefix}_pricing_complete"] = bool(
+                            target.get(f"{prefix}_pricing_complete")
+                        ) and source_pricing_complete
+                    else:
+                        target[f"{prefix}_snapshot_complete"] = source_complete
+                        target[f"{prefix}_pricing_complete"] = source_pricing_complete
+                    source_version = str(
+                        row.get(f"{prefix}_pricing_version") or "legacy"
+                    )
+                    current_version = str(
+                        target.get(f"{prefix}_pricing_version") or ""
+                    )
+                    target[f"{prefix}_pricing_version"] = (
+                        source_version
+                        if not current_version or current_version == source_version
+                        else "mixed"
+                    )
+                    source_provenance = str(
+                        row.get(f"{prefix}_pricing_provenance") or "legacy"
+                    )
+                    current_provenance = str(
+                        target.get(f"{prefix}_pricing_provenance") or ""
+                    )
+                    target[f"{prefix}_pricing_provenance"] = (
+                        source_provenance
+                        if not current_provenance
+                        or current_provenance == source_provenance
+                        else "mixed"
+                    )
                 by_model: dict[str, dict[str, Any]] = {}
                 for model in [
                     *(
@@ -898,10 +1084,57 @@ def merge_local_fragments(
                     name = str(model.get("model") or "Legacy unknown").strip()
                     acc = by_model.setdefault(
                         name,
-                        {"model": name, "tokens": 0, "cost": 0.0},
+                        {
+                            "model": name,
+                            "tokens": 0,
+                            "cost": 0.0,
+                            "components_complete": True,
+                            "raw_models": [],
+                        },
                     )
                     acc["tokens"] += safe_int(model.get("tokens"))
                     acc["cost"] += safe_float(model.get("cost"))
+                    complete_components = bool(model.get("components_complete"))
+                    acc["components_complete"] = bool(
+                        acc["components_complete"] and complete_components
+                    )
+                    if complete_components:
+                        for field in (
+                            "input",
+                            "output",
+                            "cache_read",
+                            "cache_write",
+                            "cache_create",
+                            "reasoning",
+                        ):
+                            acc[field] = safe_int(acc.get(field)) + safe_int(
+                                model.get(field)
+                            )
+                    raw_models = model.get("raw_models")
+                    if isinstance(raw_models, list):
+                        for raw_name in raw_models:
+                            raw_name = str(raw_name or "").strip()
+                            if raw_name and raw_name not in acc["raw_models"]:
+                                acc["raw_models"].append(raw_name)
+                    for field in ("pricing_version", "pricing_provenance"):
+                        value = str(model.get(field) or "").strip()
+                        if not value:
+                            continue
+                        current = str(acc.get(field) or "")
+                        acc[field] = value if not current or current == value else "mixed"
+                for model in by_model.values():
+                    if not model.get("components_complete"):
+                        for field in (
+                            "input",
+                            "output",
+                            "cache_read",
+                            "cache_write",
+                            "cache_create",
+                            "reasoning",
+                        ):
+                            model.pop(field, None)
+                    if not model.get("raw_models"):
+                        model.pop("raw_models", None)
                 target[f"{prefix}_models"] = sorted(
                     by_model.values(),
                     key=lambda item: (-safe_int(item.get("tokens")), str(item.get("model"))),
@@ -915,12 +1148,23 @@ def merge_local_fragments(
             models = models if isinstance(models, list) else []
             attributed_tokens = sum(safe_int(model.get("tokens")) for model in models)
             attributed_cost = sum(safe_float(model.get("cost")) for model in models)
-            remainder_tokens = max(
-                0, safe_int(row.get(f"{prefix}_tokens")) - attributed_tokens
-            )
-            remainder_cost = max(
-                0.0, safe_float(row.get(f"{prefix}_cost")) - attributed_cost
-            )
+            target_tokens = safe_int(row.get(f"{prefix}_tokens"))
+            target_cost = safe_float(row.get(f"{prefix}_cost"))
+            cost_tolerance = max(1e-9, abs(target_cost) * 1e-9)
+            if attributed_tokens > target_tokens:
+                raise ValueError(
+                    f"model tokens exceed {prefix} total for {date_key}: "
+                    f"{attributed_tokens} > {target_tokens}"
+                )
+            if attributed_cost - target_cost > cost_tolerance:
+                raise ValueError(
+                    f"model cost exceeds {prefix} total for {date_key}: "
+                    f"{attributed_cost} > {target_cost}"
+                )
+            remainder_tokens = target_tokens - attributed_tokens
+            remainder_cost = target_cost - attributed_cost
+            if abs(remainder_cost) <= cost_tolerance:
+                remainder_cost = 0.0
             if remainder_tokens or remainder_cost > 1e-9:
                 models = [
                     *models,
@@ -934,6 +1178,18 @@ def merge_local_fragments(
                 models,
                 key=lambda item: (-safe_int(item.get("tokens")), str(item.get("model"))),
             )
+            final_model_tokens = sum(
+                safe_int(model.get("tokens")) for model in row[f"{prefix}_models"]
+            )
+            final_model_cost = sum(
+                safe_float(model.get("cost")) for model in row[f"{prefix}_models"]
+            )
+            if final_model_tokens != target_tokens or abs(
+                final_model_cost - target_cost
+            ) > cost_tolerance:
+                raise ValueError(
+                    f"model reconciliation failed for {prefix} {date_key}"
+                )
         rows.append(row)
     seen: set[str] = set()
     ordered: list[str] = []
@@ -967,6 +1223,8 @@ def apply_cursor_points(
     by_date = {str(r["date"]): dict(r) for r in daily_rows if isinstance(r, dict) and r.get("date")}
     today_key = today or ""
     regression_dates: set[str] = set()
+    regression_reasons: dict[str, str] = {}
+    model_backfilled_dates: set[str] = set()
 
     for point in cursor_pts:
         if not isinstance(point, dict):
@@ -975,25 +1233,87 @@ def apply_cursor_points(
         if not date_key:
             continue
         row = by_date.setdefault(date_key, empty_daily_row(date_key))
+        if point.get("snapshot_complete") is False:
+            regression_dates.add(date_key)
+            regression_reasons[date_key] = "incomplete_snapshot"
+            continue
+        point_tokens = safe_int(point.get("tokens"))
+        component_keys = ("input", "cache_write", "cache_read", "output")
+        if any(point.get(key) is not None for key in component_keys) and sum(
+            safe_int(point.get(key)) for key in component_keys
+        ) != point_tokens:
+            regression_dates.add(date_key)
+            regression_reasons[date_key] = "component_mismatch"
+            continue
+        point_models = point.get("models")
+        if isinstance(point_models, list) and point_models:
+            model_tokens = sum(
+                safe_int(model.get("tokens"))
+                for model in point_models
+                if isinstance(model, dict)
+            )
+            model_cost = sum(
+                safe_float(model.get("cost"))
+                for model in point_models
+                if isinstance(model, dict)
+            )
+            point_cost = safe_float(point.get("cost"))
+            if model_tokens != point_tokens or abs(model_cost - point_cost) > max(
+                1e-9, abs(point_cost) * 1e-9
+            ):
+                regression_dates.add(date_key)
+                regression_reasons[date_key] = "model_mismatch"
+                continue
         if (
             freeze_cursor_history
             and cursor_mutable_from
             and date_key < cursor_mutable_from
             and (safe_int(row.get("cursor_tokens")) or safe_float(row.get("cursor_cost")))
         ):
+            existing_models = row.get("cursor_models")
+            legacy_models = not isinstance(existing_models, list) or not existing_models or all(
+                str(model.get("model") or "") == "Legacy unknown"
+                for model in existing_models
+                if isinstance(model, dict)
+            )
+            same_tokens = point_tokens == safe_int(row.get("cursor_tokens"))
+            existing_cost = safe_float(row.get("cursor_cost"))
+            same_cost = abs(safe_float(point.get("cost")) - existing_cost) <= max(
+                1e-9, abs(existing_cost) * 1e-9
+            )
+            if legacy_models and same_tokens and same_cost and point_models:
+                row["cursor_models"] = [
+                    dict(model) for model in point_models if isinstance(model, dict)
+                ]
+                row["cursor_snapshot_complete"] = True
+                row["cursor_pricing_version"] = str(
+                    point.get("pricing_version") or "cursor-billed"
+                )
+                row["cursor_pricing_complete"] = True
+                row["cursor_pricing_provenance"] = str(
+                    point.get("pricing_provenance") or "billed-dashboard"
+                )
+                model_backfilled_dates.add(date_key)
+            elif legacy_models and point_models:
+                regression_dates.add(date_key)
+                regression_reasons[date_key] = "frozen_model_backfill_mismatch"
             continue
         if today_key and date_key > today_key:
             continue
-        if safe_int(point.get("tokens")) < safe_int(row.get("cursor_tokens")):
+        if point_tokens < safe_int(row.get("cursor_tokens")):
             # A partial Dashboard page must not replace a higher snapshot.  The
             # cursor boundary will remain open when the API reports incomplete.
             regression_dates.add(date_key)
+            regression_reasons[date_key] = "token_regression"
             continue
         apply_tool_point(row, "cursor", point)
 
     if reconciliation_stats is not None:
         reconciliation_stats["regression_dates"] = sorted(regression_dates)
         reconciliation_stats["regression_kept"] = len(regression_dates)
+        reconciliation_stats["regression_reasons"] = regression_reasons
+        reconciliation_stats["model_backfilled_dates"] = sorted(model_backfilled_dates)
+        reconciliation_stats["model_backfilled"] = len(model_backfilled_dates)
 
     rows: list[dict[str, Any]] = []
     for date_key in sorted(by_date):

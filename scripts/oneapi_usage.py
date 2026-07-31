@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -31,11 +32,28 @@ DEFAULT_STATE_PATH = str(
 QUOTA_PER_CNY = 250_000
 USD_PER_CNY = 0.14
 ACCOUNTING_VERSION = 2
+DEFAULT_DAYS = 5
+OWNERSHIP_RULE = "exclude_gpt_codex_and_claude_model_families"
+OWNERSHIP_RULE_VERSION = 1
+ACCOUNT_SCOPE = {
+    "kind": "account",
+    "scope_id": "oneapi:self",
+    "account_id": "self",
+    "endpoint": "/api/log/self/",
+    "merge_strategy": "latest_complete_snapshot",
+}
 
-CLAUDE_MODEL_RE = re.compile(r"(?:^|[/,:])claude(?:[-_.]|$)", re.IGNORECASE)
+CLAUDE_MODEL_RE = re.compile(
+    r"(?:^|[/,.:\\])claude(?=[-_.]|$)",
+    re.IGNORECASE,
+)
 CODEX_MODEL_RE = re.compile(
-    r"(?:^|[/,:])(?:gpt|chatgpt|codex)(?:[-_.]|$)|"
-    r"(?:^|[/,:])o\d+(?:[-_.]|$)",
+    r"(?:^|[/,.:\\])(?:gpt|chatgpt|codex)(?=[-_.]|$)|"
+    r"(?:^|[/,.:\\])o\d+(?=[-_.]|$)",
+    re.IGNORECASE,
+)
+OWNED_MODEL_TOKEN_RE = re.compile(
+    r"(?:^|[/,.:\\])(?P<model>(?:claude|gpt|chatgpt|codex|o\d+)(?:[-_.].*)?)$",
     re.IGNORECASE,
 )
 
@@ -64,6 +82,18 @@ def quota_to_usd(quota: Any) -> float:
     return quota_to_cny(quota) * USD_PER_CNY
 
 
+def canonical_model_name(model_name: Any) -> str:
+    """Return a stable model label while removing ownership-provider prefixes."""
+    raw = str(model_name or "").strip()
+    if not raw:
+        return ""
+    normalized = re.sub(r"\s+", " ", raw.replace("\\", "/")).casefold()
+    owned = OWNED_MODEL_TOKEN_RE.search(normalized)
+    if owned:
+        return owned.group("model")
+    return normalized
+
+
 def classify_model(model_name: Any) -> str:
     model = str(model_name or "").strip()
     if not model:
@@ -73,6 +103,72 @@ def classify_model(model_name: Any) -> str:
     if CODEX_MODEL_RE.search(model):
         return "codex"
     return "oneapi"
+
+
+def window_calendar_days(start: str, end: str) -> int:
+    try:
+        first = dt.date.fromisoformat(start)
+        last = dt.date.fromisoformat(end)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, (last - first).days + 1)
+
+
+def snapshot_id_for_records(
+    records: list[dict[str, Any]],
+    *,
+    timezone: str,
+    window_start: str,
+    window_end: str,
+) -> str:
+    """Hash stable accounting inputs; browser/session details never enter it."""
+    normalized_records = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        raw_model = str(record.get("model_name") or "").strip()
+        normalized_records.append(
+            {
+                "request_id": str(
+                    record.get("request_id") or record.get("id") or ""
+                ),
+                "created_at": safe_int(record.get("created_at")),
+                "raw_model": raw_model,
+                "canonical_model": canonical_model_name(raw_model),
+                "owner": classify_model(raw_model),
+                "input_tokens": safe_int(record.get("prompt_tokens")),
+                "output_tokens": safe_int(record.get("completion_tokens")),
+                "cache_read_tokens": safe_int(record.get("cache_read_tokens")),
+                "cache_write_tokens": safe_int(
+                    record.get("cache_write_tokens")
+                ),
+                "quota": safe_int(record.get("quota")),
+            }
+        )
+    normalized_records.sort(
+        key=lambda item: json.dumps(
+            item,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
+    content = {
+        "snapshot_schema": 1,
+        "accounting_version": ACCOUNTING_VERSION,
+        "ownership_rule_version": OWNERSHIP_RULE_VERSION,
+        "scope": ACCOUNT_SCOPE,
+        "timezone": timezone,
+        "window": {"start": window_start, "end": window_end},
+        "records": normalized_records,
+    }
+    encoded = json.dumps(
+        content,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def record_tokens(record: dict[str, Any]) -> int:
@@ -93,8 +189,19 @@ def aggregate_records(
 ) -> dict[str, Any]:
     """Aggregate only One API traffic not owned by Codex or Claude Code."""
     tz = resolve_tz(timezone)
-    by_date_model: dict[str, dict[str, dict[str, int]]] = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(int))
+    by_date_model: dict[str, dict[str, dict[str, Any]]] = defaultdict(
+        lambda: defaultdict(
+            lambda: {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read_tokens": 0,
+                "cache_write_tokens": 0,
+                "total_tokens": 0,
+                "count": 0,
+                "quota_total": 0,
+                "raw_models": set(),
+            }
+        )
     )
     excluded: dict[str, dict[str, int]] = {
         "codex": {"requests": 0, "tokens": 0, "quota": 0},
@@ -130,8 +237,10 @@ def aggregate_records(
             unclassified["quota"] += quota
             continue
         date_key = dt.datetime.fromtimestamp(created_at, tz=tz).strftime("%Y-%m-%d")
-        model = str(record.get("model_name") or "").strip()
-        acc = by_date_model[date_key][model]
+        raw_model = str(record.get("model_name") or "").strip()
+        canonical_model = canonical_model_name(raw_model)
+        acc = by_date_model[date_key][canonical_model]
+        acc["raw_models"].add(raw_model)
         acc["input_tokens"] += safe_int(record.get("prompt_tokens"))
         acc["output_tokens"] += safe_int(record.get("completion_tokens"))
         acc["cache_read_tokens"] += safe_int(record.get("cache_read_tokens"))
@@ -176,12 +285,32 @@ def aggregate_records(
                 "model_breakdowns": [
                     {
                         "model": model_name,
-                        **model_totals,
-                        "cost_usd": quota_to_usd(model_totals["quota_total"]),
+                        "canonical_model": model_name,
+                        "raw_model": sorted(model_totals["raw_models"])[0],
+                        "raw_models": sorted(model_totals["raw_models"]),
+                        "ownership": "oneapi",
+                        "ownership_rule_version": OWNERSHIP_RULE_VERSION,
+                        "input_tokens": model_totals["input_tokens"],
+                        "output_tokens": model_totals["output_tokens"],
+                        "cache_read_tokens": model_totals[
+                            "cache_read_tokens"
+                        ],
+                        "cache_write_tokens": model_totals[
+                            "cache_write_tokens"
+                        ],
+                        "total_tokens": model_totals["total_tokens"],
+                        "count": model_totals["count"],
+                        "quota_total": model_totals["quota_total"],
+                        "cost_usd": quota_to_usd(
+                            model_totals["quota_total"]
+                        ),
                     }
                     for model_name, model_totals in sorted(
                         models.items(),
-                        key=lambda item: -item[1]["total_tokens"],
+                        key=lambda item: (
+                            -item[1]["total_tokens"],
+                            item[0],
+                        ),
                     )
                 ],
             }
@@ -196,15 +325,32 @@ def aggregate_records(
 
     first = daily[0]["date"] if daily else ""
     last = daily[-1]["date"] if daily else ""
+    calendar_days = window_calendar_days(window_start, window_end)
+    window_complete = bool(window_start and window_end and calendar_days)
     return {
         "available": True,
-        "complete": True,
+        "complete": window_complete,
         "accounting_version": ACCOUNTING_VERSION,
-        "ownership_rule": "exclude_gpt_codex_and_claude_model_families",
+        "captured_at": dt.datetime.now(tz=tz).isoformat(timespec="microseconds"),
+        "snapshot_id": snapshot_id_for_records(
+            records,
+            timezone=timezone,
+            window_start=window_start,
+            window_end=window_end,
+        ),
+        "scope": dict(ACCOUNT_SCOPE),
+        "ownership_rule": OWNERSHIP_RULE,
+        "ownership_rule_version": OWNERSHIP_RULE_VERSION,
         "timezone": timezone,
         "request_count": len(records),
         "included_request_count": total_requests,
-        "window": {"start": window_start, "end": window_end},
+        "window": {
+            "start": window_start,
+            "end": window_end,
+            "timezone": timezone,
+            "calendar_days": calendar_days,
+            "complete": window_complete,
+        },
         "history": {"first": first, "last": last},
         "raw_totals": {
             "total_tokens": raw_tokens,
@@ -376,8 +522,10 @@ def collect_oneapi(
     state_path: str = DEFAULT_STATE_PATH,
     since: str = "",
     until: str = "",
-    days: int = 2,
+    days: int = DEFAULT_DAYS,
 ) -> dict[str, Any]:
+    if days < 1:
+        raise ValueError("days must be at least 1")
     tz = resolve_tz(timezone)
     now = dt.datetime.now(tz=tz)
     end_date = dt.date.fromisoformat(until) if until else now.date()
@@ -386,6 +534,8 @@ def collect_oneapi(
         if since
         else end_date - dt.timedelta(days=days - 1)
     )
+    if start_date > end_date:
+        raise ValueError("since must not be after until")
     end_time = dt.time.max if until else now.time()
     end_ts = int(
         dt.datetime.combine(end_date, end_time, tzinfo=tz).timestamp()
@@ -422,6 +572,7 @@ def collect_oneapi(
 
     records: list[dict[str, Any]] = []
     seen: set[str] = set()
+    duplicates_removed = 0
     page = 0
     pages = 0
     rate_limit_count = 0
@@ -485,6 +636,7 @@ def collect_oneapi(
                     record.get("request_id") or record.get("id") or ""
                 )
                 if request_id and request_id in seen:
+                    duplicates_removed += 1
                     continue
                 if request_id:
                     seen.add(request_id)
@@ -543,6 +695,13 @@ def collect_oneapi(
     )
     result["pages"] = pages
     result["rate_limit_retries"] = rate_limit_count
+    result["pagination"] = {
+        "complete": True,
+        "pages": pages,
+        "page_size": PAGE_SIZE,
+        "records_after_deduplication": len(records),
+        "duplicates_removed": duplicates_removed,
+    }
     return result
 
 
@@ -552,7 +711,15 @@ if __name__ == "__main__":
     p.add_argument("--state-path", default=DEFAULT_STATE_PATH)
     p.add_argument("--since", default="")
     p.add_argument("--until", default="")
-    p.add_argument("--days", type=int, default=2, help="Lookback days from today (default 2). Ignored when --since or --until is set.")
+    p.add_argument(
+        "--days",
+        type=int,
+        default=DEFAULT_DAYS,
+        help=(
+            "Lookback calendar days from today (default 5). "
+            "Ignored when --since is set."
+        ),
+    )
     a = p.parse_args()
     try:
         r = collect_oneapi(a.timezone, a.state_path, a.since, a.until, days=a.days)

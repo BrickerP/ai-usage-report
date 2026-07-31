@@ -14,6 +14,7 @@ import type {
   ToolId,
 } from '../lib/usage'
 import {
+  modelSeriesMembers,
   modelSeriesPoint,
   num,
   TOOLS,
@@ -290,6 +291,17 @@ export function UsageCharts({
                 lines.push(
                   `${escapeHtml(label)}: <strong>${fmtExact(point.tokens)}</strong> · ${fmtTooltipUsd(point.cost)}`,
                 )
+                if (spec.kind === 'other') {
+                  for (const model of modelSeriesMembers(
+                    row,
+                    activeTool.id,
+                    spec,
+                  )) {
+                    lines.push(
+                      `<span style="padding-left:10px;color:#475569">↳ ${escapeHtml(model.model)}: <strong>${fmtExact(model.tokens)}</strong> · ${fmtTooltipUsd(model.cost)}</span>`,
+                    )
+                  }
+                }
               }
               lines.push(
                 `<div style="margin-top:8px">Tool total: <strong>${fmtExact(num(row, activeTool.tokenKey))}</strong> · ${fmtTooltipUsd(num(row, activeTool.costKey))}</div>`,

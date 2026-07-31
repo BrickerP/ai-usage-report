@@ -57,6 +57,8 @@ export type DailyRow = {
 }
 
 export type UsagePayload = {
+  schema_version?: number | string
+  pricing_version?: number | string
   generated_at?: string | null
   timezone?: string
   machine_id?: string
@@ -96,6 +98,20 @@ export type ModelSeriesSelection = {
   series: ModelSeriesSpec[]
 }
 
+type BreakdownSpec = {
+  key: keyof DailyRow
+  label: string
+  subsetOf?: keyof DailyRow
+  excludeSubset?: keyof DailyRow
+}
+
+export type RangeDescription = {
+  start: string
+  end: string
+  calendarDays: number
+  recordedDays: number
+}
+
 export const TOOLS: Array<{
   id: ToolId
   label: string
@@ -104,7 +120,7 @@ export const TOOLS: Array<{
   tokenKey: keyof DailyRow
   costKey: keyof DailyRow
   modelKey: keyof DailyRow
-  breakdown: Array<{ key: keyof DailyRow; label: string }>
+  breakdown: BreakdownSpec[]
   cacheKeys: Array<keyof DailyRow>
 }> = [
   {
@@ -118,8 +134,16 @@ export const TOOLS: Array<{
     breakdown: [
       { key: 'codex_input', label: 'Input' },
       { key: 'codex_cache_read', label: 'Cache read' },
-      { key: 'codex_output', label: 'Output' },
-      { key: 'codex_reasoning', label: 'Reasoning' },
+      {
+        key: 'codex_output',
+        label: 'Output (non-reasoning)',
+        excludeSubset: 'codex_reasoning',
+      },
+      {
+        key: 'codex_reasoning',
+        label: 'Reasoning (of output)',
+        subsetOf: 'codex_output',
+      },
     ],
     cacheKeys: ['codex_cache_read'],
   },
@@ -252,6 +276,24 @@ export function num(row: DailyRow, key: keyof DailyRow): number {
   return Number(row[key]) || 0
 }
 
+export function breakdownValue(
+  row: DailyRow,
+  part: BreakdownSpec,
+): number {
+  const value = num(row, part.key)
+  if (part.subsetOf) {
+    return Math.min(Math.max(0, value), Math.max(0, num(row, part.subsetOf)))
+  }
+  if (part.excludeSubset) {
+    const subset = Math.min(
+      Math.max(0, num(row, part.excludeSubset)),
+      Math.max(0, value),
+    )
+    return Math.max(0, value - subset)
+  }
+  return value
+}
+
 export function rowCache(row: DailyRow): number {
   return (
     num(row, 'codex_cache_read') +
@@ -277,7 +319,7 @@ export function summarizeRange(rows: DailyRow[]) {
       t += num(row, tool.tokenKey)
       c += num(row, tool.costKey)
       tool.breakdown.forEach((b, i) => {
-        parts[i].value += num(row, b.key)
+        parts[i].value += breakdownValue(row, b)
       })
       const models = row[tool.modelKey]
       if (Array.isArray(models)) {
@@ -401,20 +443,97 @@ export function modelSeriesPoint(
   toolId: ToolId,
   series: ModelSeriesSpec,
 ): Pick<ModelUsage, 'tokens' | 'cost'> {
+  return modelSeriesMembers(row, toolId, series).reduce(
+    (total, model) => ({
+      tokens: total.tokens + model.tokens,
+      cost: total.cost + model.cost,
+    }),
+    { tokens: 0, cost: 0 },
+  )
+}
+
+export function modelSeriesMembers(
+  row: Partial<DailyRow>,
+  toolId: ToolId,
+  series: ModelSeriesSpec,
+): ModelUsage[] {
   const tool = TOOLS.find((candidate) => candidate.id === toolId)
-  if (!tool) return { tokens: 0, cost: 0 }
+  if (!tool) return []
   const models = row[tool.modelKey]
-  if (!Array.isArray(models)) return { tokens: 0, cost: 0 }
+  if (!Array.isArray(models)) return []
 
   const members = new Set(series.models)
-  let tokens = 0
-  let cost = 0
+  const result = new Map<string, ModelUsage>()
   for (const model of models as ModelUsage[]) {
-    if (!members.has(String(model.model || '').trim())) continue
-    tokens += Number(model.tokens) || 0
-    cost += Number(model.cost) || 0
+    const name = String(model.model || '').trim()
+    if (!members.has(name)) continue
+    const current = result.get(name) ?? { model: name, tokens: 0, cost: 0 }
+    current.tokens += Number(model.tokens) || 0
+    current.cost += Number(model.cost) || 0
+    result.set(name, current)
   }
-  return { tokens, cost }
+  return [...result.values()].sort(
+    (a, b) => b.tokens - a.tokens || a.model.localeCompare(b.model),
+  )
+}
+
+export function percentageTenths(values: number[]): number[] {
+  const weights = values.map((value) =>
+    Number.isFinite(value) && value > 0 ? value : 0,
+  )
+  const total = weights.reduce((sum, value) => sum + value, 0)
+  if (!(total > 0) || !Number.isFinite(total)) {
+    return weights.map(() => 0)
+  }
+
+  const exact = weights.map((value) => (value / total) * 1000)
+  const allocated = exact.map(Math.floor)
+  let remaining = 1000 - allocated.reduce((sum, value) => sum + value, 0)
+  const order = exact
+    .map((value, index) => ({ index, remainder: value - allocated[index] }))
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index)
+
+  for (let index = 0; index < remaining; index += 1) {
+    allocated[order[index % order.length].index] += 1
+  }
+  return allocated
+}
+
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
+const DAY_MS = 86_400_000
+
+function dateOrdinal(value: string): number | null {
+  const match = ISO_DATE_PATTERN.exec(value)
+  if (!match) return null
+  const ordinal = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return new Date(ordinal).toISOString().slice(0, 10) === value
+    ? ordinal
+    : null
+}
+
+function shiftedDate(value: string, days: number): string | null {
+  const ordinal = dateOrdinal(value)
+  if (ordinal === null) return null
+  return new Date(ordinal + days * DAY_MS).toISOString().slice(0, 10)
+}
+
+export function describeRange(
+  rows: Array<Pick<DailyRow, 'date'>>,
+  preset: '7' | '30' | '90' | 'all',
+): RangeDescription | null {
+  if (!rows.length) return null
+  const end = rows[rows.length - 1].date
+  const start =
+    preset === 'all'
+      ? rows[0].date
+      : shiftedDate(end, 1 - Number(preset)) ?? rows[0].date
+  const startOrdinal = dateOrdinal(start)
+  const endOrdinal = dateOrdinal(end)
+  const calendarDays =
+    startOrdinal !== null && endOrdinal !== null && endOrdinal >= startOrdinal
+      ? Math.floor((endOrdinal - startOrdinal) / DAY_MS) + 1
+      : rows.length
+  return { start, end, calendarDays, recordedDays: rows.length }
 }
 
 export function indexForPreset(
@@ -425,7 +544,10 @@ export function indexForPreset(
   if (!n) return [0, -1]
   if (preset === 'all') return [0, n - 1]
   const days = Number(preset)
-  const i0 = Math.max(0, n - days)
+  const firstDate = shiftedDate(daily[n - 1].date, 1 - days)
+  if (!firstDate) return [Math.max(0, n - days), n - 1]
+  const candidate = daily.findIndex((row) => row.date >= firstDate)
+  const i0 = candidate < 0 ? n - 1 : candidate
   return [i0, n - 1]
 }
 

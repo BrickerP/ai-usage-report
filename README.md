@@ -67,17 +67,18 @@ npm run publish:pages
 
 What happens:
 
-1. `git pull --rebase` — pick up the other Mac’s `public/machines/*.json`
-2. Collect this Mac into the durable ledger `public/machines/<your-id>.json`
+1. Collect this Mac into the durable ledger `public/machines/<your-id>.json`
    - **First run** on a machine: seed full local history once
    - **Later runs**: re-read `mutable_from` through today, then keep yesterday + today open
    - If the Mac was off for days, the old boundary remains and every missed day is recovered
    - A lower source snapshot is never allowed to overwrite the stored high-water value
-3. Fetch Cursor Dashboard API (account-level; it has its own `cursor_mutable_from` boundary)
-4. Fetch the latest five calendar days from One API and retain only residual
-   non-GPT/Codex and non-Claude models; preserve the complete prior model timeline
-   outside that window
-5. SUM local tools across all fragments and reconcile account-level sources → write `public/usage.json`
+2. `git pull --rebase` — pick up the other Mac’s fragment and latest account snapshots
+3. After the pull, fetch and atomically cache a complete five-calendar-day One API
+   account snapshot. Retain only residual non-GPT/Codex and non-Claude models;
+   preserve the complete prior model timeline outside that window
+4. Fetch Cursor Dashboard API (account-level; it has its own `cursor_mutable_from` boundary)
+5. SUM local tools across all fragments and reconcile each account-level source by
+   its latest complete snapshot → write `public/usage.json`
 6. Build + commit + push
 7. If push races the other Mac: pull → **re-merge** → rebuild → push again
 
@@ -94,7 +95,7 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 |------|------|
 | Codex / Claude Code | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected; report = SUM across `machines/*.json` |
 | Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
-| One API | Account-level residual gateway series; exclude GPT/Codex and Claude model families, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |
+| One API | Account-level residual gateway series; collect after pull, exclude GPT/Codex and Claude model families, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |
 | Ducc | Claude wrapper → counted under Claude Code |
 
 The non-overlap rule assumes Cursor reports its own cloud usage and
@@ -168,6 +169,7 @@ Do not use `--force-reseed` for this migration.
 | `public/machines/<id>.json` | Per-Mac Codex/Claude fragment plus one-time local Comate history |
 | `scripts/generate_readme_cards.mjs` | Dynamic summary + weekly Skyline SVG generator |
 | `scripts/ai_usage_comparison_image.py` | Collect + merge |
+| `scripts/model_prices.v1.json` | Versioned Codex/Claude estimate ledger |
 | `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, and aggregation |
 | `scripts/comate_usage.py` | Local Comate session parser |
 | `scripts/machine_fragments.py` | Fragment I/O + SUM merge |
@@ -184,9 +186,18 @@ Do not use `--force-reseed` for this migration.
 - One API: management log API through a saved `chrome-use` UUAP session. GPT/Codex
   and Claude model families are excluded; other named models such as Grok,
   DeepSeek, GLM, Kimi, and MiniMax form the residual series. Empty model names are
-  excluded as unclassified.
-- Costs: ccusage LiteLLM pricing for Codex/Claude; Cursor API for Cursor; One API
-  quota converted at 250,000 units/CNY and estimated at 0.14 USD/CNY
+  excluded as unclassified. Ownership matching recognizes provider prefixes
+  separated by `/`, `.`, `:`, `,`, or `\\`, so names such as
+  `anthropic.claude-*`, `openai.gpt-*`, and `provider.o3` cannot leak into the
+  residual series. Each snapshot records its account scope, timezone-aware
+  capture time, ownership-rule version, complete calendar window, and a stable
+  SHA-256 content id; model rows retain canonical and raw labels.
+- Costs: the checked-in, versioned model-price ledger for reproducible
+  Codex/Claude estimates; unresolved historical models retain any collector
+  estimate, or remain unpriced, with explicit `legacy`/`unpriced` provenance
+  rather than being presented as part of the pinned ledger.
+  Cursor uses its account API; One API quota is converted at 250,000 units/CNY
+  and estimated at the pinned 0.14 USD/CNY rate.
 
 Save or refresh the One API browser state after logging in manually:
 
@@ -200,7 +211,10 @@ chmod 600 "$HOME/Library/Application Support/ai-usage-report/oneapi-chrome-state
 The default state location is persistent across reboots. Use
 `ONEAPI_STATE_PATH` to choose another state file. Collection is complete-or-
 nothing: rate-limit or authentication failures retain the prior published One
-API series instead of writing a partial or zero snapshot. Set `CHROME_USE_BIN`
+API series instead of writing a partial or zero snapshot. The publisher collects
+this account snapshot after `git pull` and installs its cache with an atomic
+rename, preventing an older pre-pull or half-written cache from replacing newer
+remote data. Set `CHROME_USE_BIN`
 when the executable is outside the LaunchAgent `PATH`; otherwise the collector
 also checks `~/.local/bin/chrome-use`.
 
@@ -230,8 +244,9 @@ Recommended LaunchAgent settings:
   second Mac by several minutes to reduce avoidable push races.
 
 `publish.sh` captures the machine-local fragment **before** Git fetch/pull, then
-pulls, refreshes Cursor, merges, builds, and pushes. If GitHub or the build is
-down, `launchd-run.sh` retries the complete pipeline without losing the local
+pulls, collects the complete One API account window, refreshes Cursor, merges,
+builds, and pushes. If GitHub or the build is down, `launchd-run.sh` retries the
+complete pipeline without losing the local
 snapshot. Every run refreshes at least today + yesterday, while an older persisted
 boundary expands the recovery window across any missed days. Local source logs
 must still be retained until at least one later successful reconciliation; no

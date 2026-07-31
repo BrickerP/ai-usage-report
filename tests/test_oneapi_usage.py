@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import inspect
 import json
 import subprocess
 import tempfile
@@ -62,20 +63,99 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
                 record("claude-opus-5", prompt=300, quota=3000),
                 record("grok-4.5", prompt=400, quota=4000),
                 record("deepseek-v4-flash", cache_read=500, quota=5000),
+                record("anthropic.claude-opus-5", prompt=600, quota=6000),
+                record("openai.gpt-5.6-sol", prompt=700, quota=7000),
+                record("provider.o3", prompt=800, quota=8000),
+                record("provider.deepseek-v4", prompt=50, quota=500),
             ],
             timezone="Asia/Shanghai",
             window_start="2026-07-29",
             window_end="2026-07-29",
         )
 
-        self.assertEqual(result["totals"]["total_tokens"], 900)
-        self.assertEqual(result["totals"]["requests"], 2)
+        self.assertEqual(result["totals"]["total_tokens"], 950)
+        self.assertEqual(result["totals"]["requests"], 3)
         self.assertEqual(
             [row["model"] for row in result["daily_timeline"][0]["model_breakdowns"]],
-            ["deepseek-v4-flash", "grok-4.5"],
+            ["deepseek-v4-flash", "grok-4.5", "provider.deepseek-v4"],
         )
-        self.assertEqual(result["excluded"]["codex"]["requests"], 2)
-        self.assertEqual(result["excluded"]["claude"]["requests"], 1)
+        self.assertEqual(result["excluded"]["codex"]["requests"], 4)
+        self.assertEqual(result["excluded"]["claude"]["requests"], 2)
+
+    def test_provider_prefixed_owned_models_have_stable_canonical_names(self):
+        cases = {
+            "anthropic.claude-opus-5": ("claude", "claude-opus-5"),
+            "openai/gpt-5.6-sol": ("codex", "gpt-5.6-sol"),
+            "gateway:codex-mini": ("codex", "codex-mini"),
+            "provider.o3": ("codex", "o3"),
+        }
+        for raw, expected in cases.items():
+            with self.subTest(raw=raw):
+                self.assertEqual(
+                    (
+                        oneapi_usage.classify_model(raw),
+                        oneapi_usage.canonical_model_name(raw),
+                    ),
+                    expected,
+                )
+
+        for residual in ("claudette-v1", "gptx-1", "provider.oasis-v2"):
+            with self.subTest(residual=residual):
+                self.assertEqual(oneapi_usage.classify_model(residual), "oneapi")
+
+    def test_snapshot_metadata_is_account_scoped_complete_and_content_stable(self):
+        records = [
+            record("DeepSeek-V4", prompt=10, quota=100),
+            record("Grok-4.5", output=20, quota=200),
+        ]
+        first = oneapi_usage.aggregate_records(
+            records,
+            timezone="Asia/Shanghai",
+            window_start="2026-07-27",
+            window_end="2026-07-31",
+        )
+        reordered = oneapi_usage.aggregate_records(
+            list(reversed(records)),
+            timezone="Asia/Shanghai",
+            window_start="2026-07-27",
+            window_end="2026-07-31",
+        )
+
+        self.assertEqual(first["snapshot_id"], reordered["snapshot_id"])
+        self.assertRegex(first["snapshot_id"], r"^sha256:[0-9a-f]{64}$")
+        self.assertEqual(first["scope"]["kind"], "account")
+        self.assertEqual(first["scope"]["scope_id"], "oneapi:self")
+        self.assertEqual(
+            first["ownership_rule_version"],
+            oneapi_usage.OWNERSHIP_RULE_VERSION,
+        )
+        self.assertEqual(
+            first["window"],
+            {
+                "start": "2026-07-27",
+                "end": "2026-07-31",
+                "timezone": "Asia/Shanghai",
+                "calendar_days": 5,
+                "complete": True,
+            },
+        )
+        captured = first["captured_at"]
+        self.assertRegex(captured, r"[+-]\d\d:\d\d$")
+        models = first["daily_timeline"][0]["model_breakdowns"]
+        self.assertEqual(models[0]["canonical_model"], "grok-4.5")
+        self.assertEqual(models[0]["raw_model"], "Grok-4.5")
+        self.assertEqual(
+            models[0]["ownership_rule_version"],
+            oneapi_usage.OWNERSHIP_RULE_VERSION,
+        )
+
+        changed = oneapi_usage.aggregate_records(
+            [record("DeepSeek-V4", prompt=11, quota=100), records[1]],
+            timezone="Asia/Shanghai",
+            window_start="2026-07-27",
+            window_end="2026-07-31",
+        )
+        self.assertNotEqual(first["snapshot_id"], changed["snapshot_id"])
 
     def test_quota_conversion_uses_oneapi_display_unit(self):
         self.assertAlmostEqual(oneapi_usage.quota_to_cny(212_468), 0.849872)
@@ -111,6 +191,16 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
 
 
 class OneApiBrowserCollectionTests(unittest.TestCase):
+    def test_default_collection_window_is_five_calendar_days(self):
+        default = inspect.signature(oneapi_usage.collect_oneapi).parameters[
+            "days"
+        ].default
+        self.assertEqual(default, 5)
+        self.assertEqual(oneapi_usage.DEFAULT_DAYS, 5)
+
+        with self.assertRaisesRegex(ValueError, "at least 1"):
+            oneapi_usage.collect_oneapi(state_path="missing.json", days=0)
+
     def test_explicit_chrome_use_precedes_path_and_local_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
@@ -387,8 +477,27 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
         sleep.assert_called_once()
         self.assertEqual(result["totals"]["requests"], 2)
         self.assertEqual(result["totals"]["total_tokens"], 300)
+        self.assertEqual(result["pagination"]["duplicates_removed"], 1)
+        self.assertTrue(result["pagination"]["complete"])
         self.assertIn("const START_PAGE = 0", run.call_args_list[1].kwargs["input"])
         self.assertIn("const START_PAGE = 7", run.call_args_list[2].kwargs["input"])
+
+
+class OneApiPublishFlowTests(unittest.TestCase):
+    def test_account_snapshot_is_atomic_five_day_and_collected_after_pull(self):
+        source = (ROOT / "scripts" / "publish.sh").read_text(encoding="utf-8")
+        main = source.index("# Capture local sources before touching the network")
+        pull = source.index("\npull_latest", main)
+        collect = source.index("collect_oneapi_cache", pull)
+        merge = source.index("remerge_usage", collect)
+
+        self.assertLess(pull, collect)
+        self.assertLess(collect, merge)
+        self.assertIn("--days 5", source)
+        self.assertIn("mktemp", source)
+        self.assertIn('mv -f -- "$temp_path" "$cache_path"', source)
+        self.assertNotIn('> "$cache_path"', source)
+        self.assertNotIn('rm -f "$cache_path"', source)
 
 
 class OneApiReconciliationTests(unittest.TestCase):
@@ -403,6 +512,39 @@ class OneApiReconciliationTests(unittest.TestCase):
             }
         )
         return row
+
+    def test_complete_cache_must_satisfy_snapshot_contract(self):
+        snapshot = oneapi_usage.aggregate_records(
+            [record("deepseek-v4", prompt=10, quota=100)],
+            timezone="Asia/Shanghai",
+            window_start="2026-07-27",
+            window_end="2026-07-31",
+        )
+        snapshot["captured_at"] = "2026-07-31T12:00:00+08:00"
+        snapshot["pagination"] = {
+            "complete": True,
+            "records_after_deduplication": snapshot["request_count"],
+        }
+
+        self.assertIs(
+            usage_report.validate_oneapi_snapshot(
+                snapshot,
+                timezone="Asia/Shanghai",
+                today="2026-07-31",
+                calendar_days=5,
+            ),
+            snapshot,
+        )
+
+        broken = dict(snapshot)
+        broken["pagination"] = {"complete": False}
+        with self.assertRaisesRegex(ValueError, "pagination"):
+            usage_report.validate_oneapi_snapshot(
+                broken,
+                timezone="Asia/Shanghai",
+                today="2026-07-31",
+                calendar_days=5,
+            )
 
     def test_unavailable_collection_preserves_prior_oneapi_history(self):
         current = [usage_report.empty_daily_row("2026-07-29")]
@@ -519,18 +661,30 @@ class OneApiReconciliationTests(unittest.TestCase):
         )
         self.assertEqual(result["totals"]["total_tokens"], 59)
 
-    def test_model_remainder_scales_to_card_total(self):
+    def test_model_over_attribution_is_rejected_instead_of_scaled(self):
+        with self.assertRaisesRegex(ValueError, "exceed"):
+            usage_report.models_with_remainder(
+                [
+                    {"model": "a", "tokens": 80, "cost": 8},
+                    {"model": "b", "tokens": 40, "cost": 4},
+                ],
+                total_tokens=90,
+                total_cost=9,
+            )
+
+    def test_positive_model_remainder_is_labeled_legacy_unknown(self):
         models = usage_report.models_with_remainder(
-            [
-                {"model": "a", "tokens": 80, "cost": 8},
-                {"model": "b", "tokens": 40, "cost": 4},
-            ],
+            [{"model": "known", "tokens": 80, "cost": 8}],
             total_tokens=90,
             total_cost=9,
         )
 
         self.assertEqual(sum(model["tokens"] for model in models), 90)
         self.assertAlmostEqual(sum(model["cost"] for model in models), 9)
+        self.assertIn(
+            {"model": "Legacy unknown", "tokens": 10, "cost": 1.0},
+            models,
+        )
 
 
 class SourceStatusTests(unittest.TestCase):
