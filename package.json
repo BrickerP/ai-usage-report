@@ -10,9 +10,9 @@
     "lint": "oxlint",
     "test:frontend": "node --test tests/*.test.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
-    "collect": "python3 scripts/ai_usage_comparison_image.py --json-out public/usage.json --machines-dir public/machines",
-    "collect:backfill-codex-cache": "python3 scripts/ai_usage_comparison_image.py --json-out public/usage.json --machines-dir public/machines --backfill-codex-cache",
-    "collect:merge-only": "python3 scripts/ai_usage_comparison_image.py --json-out public/usage.json --machines-dir public/machines --merge-only",
+    "collect": "python3 scripts/usage_pipeline.py --json-out public/usage.json --machines-dir public/machines",
+    "collect:backfill-codex-cache": "python3 scripts/usage_pipeline.py --json-out public/usage.json --machines-dir public/machines --backfill-codex-cache",
+    "collect:merge-only": "python3 scripts/usage_pipeline.py --json-out public/usage.json --machines-dir public/machines --merge-only",
     "publish:pages": "bash scripts/publish.sh",
     "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"
   },

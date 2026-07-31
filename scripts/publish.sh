@@ -264,7 +264,7 @@ collect_local_usage() {
   if [[ -n "${AI_USAGE_MACHINE_ID:-}" ]]; then
     extra_args+=(--machine-id "$AI_USAGE_MACHINE_ID")
   fi
-  python3 "$ROOT/scripts/ai_usage_comparison_image.py" \
+  python3 "$ROOT/scripts/usage_pipeline.py" \
     --machines-dir "$ROOT/public/machines" \
     --timezone "$AI_USAGE_TIMEZONE" \
     --collect-local-only \
@@ -273,7 +273,7 @@ collect_local_usage() {
 
 backfill_codex_cache() {
   log "backfilling frozen Codex cache fields for ${AI_USAGE_MACHINE_ID}"
-  python3 "$ROOT/scripts/ai_usage_comparison_image.py" \
+  python3 "$ROOT/scripts/usage_pipeline.py" \
     --json-out "$ROOT/public/usage.json" \
     --machines-dir "$ROOT/public/machines" \
     --timezone "$AI_USAGE_TIMEZONE" \
@@ -427,7 +427,7 @@ remerge_usage() {
     extra_args+=(--skip-oneapi-live)
   fi
   log "re-merging machines/*.json + Cursor API → usage.json"
-  python3 "$ROOT/scripts/ai_usage_comparison_image.py" \
+  python3 "$ROOT/scripts/usage_pipeline.py" \
     --json-out "$ROOT/public/usage.json" \
     --machines-dir "$ROOT/public/machines" \
     --timezone "$AI_USAGE_TIMEZONE" \

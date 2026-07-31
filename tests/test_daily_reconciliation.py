@@ -24,8 +24,8 @@ def load_module(name: str, path: Path):
 
 
 usage_report = load_module(
-    "ai_usage_comparison_image_reconciliation_test",
-    ROOT / "scripts" / "ai_usage_comparison_image.py",
+    "usage_pipeline_reconciliation_test",
+    ROOT / "scripts" / "usage_pipeline.py",
 )
 machine_fragments = usage_report.machine_fragments
 
@@ -1013,7 +1013,7 @@ fi
             (repo / "scripts" / "publish.sh").write_bytes(
                 (ROOT / "scripts" / "publish.sh").read_bytes()
             )
-            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+            (repo / "scripts" / "usage_pipeline.py").write_text(
                 """#!/usr/bin/env python3
 import os
 import sys
@@ -1124,7 +1124,7 @@ with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
             (repo / "scripts" / "publish.sh").write_bytes(
                 (ROOT / "scripts" / "publish.sh").read_bytes()
             )
-            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+            (repo / "scripts" / "usage_pipeline.py").write_text(
                 """#!/usr/bin/env python3
 import os
 from pathlib import Path
@@ -1206,7 +1206,7 @@ with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
             (repo / "scripts" / "publish.sh").write_bytes(
                 (ROOT / "scripts" / "publish.sh").read_bytes()
             )
-            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+            (repo / "scripts" / "usage_pipeline.py").write_text(
                 """#!/usr/bin/env python3
 import os
 from pathlib import Path
@@ -1274,7 +1274,7 @@ Path(os.environ["TEST_EVENTS"]).write_text("collector-ran\\n", encoding="utf-8")
             (repo / "scripts" / "publish.sh").write_bytes(
                 (ROOT / "scripts" / "publish.sh").read_bytes()
             )
-            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+            (repo / "scripts" / "usage_pipeline.py").write_text(
                 """#!/usr/bin/env python3
 import os
 from pathlib import Path
@@ -1346,7 +1346,7 @@ with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
             (repo / "scripts" / "publish.sh").write_bytes(
                 (ROOT / "scripts" / "publish.sh").read_bytes()
             )
-            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+            (repo / "scripts" / "usage_pipeline.py").write_text(
                 """#!/usr/bin/env python3
 import os
 from pathlib import Path
@@ -1438,7 +1438,7 @@ Path(os.environ["TEST_EVENTS"]).write_text("collector-ran\\n", encoding="utf-8")
             (repo / "scripts" / "publish.sh").write_bytes(
                 (ROOT / "scripts" / "publish.sh").read_bytes()
             )
-            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+            (repo / "scripts" / "usage_pipeline.py").write_text(
                 """#!/usr/bin/env python3
 import sys
 from pathlib import Path
@@ -1592,7 +1592,7 @@ done
             (repo / "scripts" / "publish.sh").write_bytes(
                 (ROOT / "scripts" / "publish.sh").read_bytes()
             )
-            (repo / "scripts" / "ai_usage_comparison_image.py").write_text(
+            (repo / "scripts" / "usage_pipeline.py").write_text(
                 "# no-op collector for retrying an existing local commit\n",
                 encoding="utf-8",
             )

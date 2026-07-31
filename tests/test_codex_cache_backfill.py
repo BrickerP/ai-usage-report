@@ -25,8 +25,8 @@ def load_module(name: str, path: Path):
 
 
 usage_report = load_module(
-    "ai_usage_comparison_image_under_test",
-    ROOT / "scripts" / "ai_usage_comparison_image.py",
+    "usage_pipeline_cache_backfill_test",
+    ROOT / "scripts" / "usage_pipeline.py",
 )
 machine_fragments = usage_report.machine_fragments
 

@@ -18,8 +18,8 @@ def load_module(name: str, path: Path):
 
 
 usage_report = load_module(
-    "ai_usage_comparison_image_pricing_retry_test",
-    ROOT / "scripts" / "ai_usage_comparison_image.py",
+    "usage_pipeline_pricing_retry_test",
+    ROOT / "scripts" / "usage_pipeline.py",
 )
 
 

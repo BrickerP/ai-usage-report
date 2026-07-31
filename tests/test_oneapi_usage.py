@@ -27,8 +27,8 @@ oneapi_usage = load_module(
     ROOT / "scripts" / "oneapi_usage.py",
 )
 usage_report = load_module(
-    "ai_usage_comparison_image_under_test",
-    ROOT / "scripts" / "ai_usage_comparison_image.py",
+    "usage_pipeline_oneapi_test",
+    ROOT / "scripts" / "usage_pipeline.py",
 )
 
 
@@ -1740,7 +1740,7 @@ class SourceStatusTests(unittest.TestCase):
                     usage_report.sys,
                     "argv",
                     [
-                        "ai_usage_comparison_image.py",
+                        "usage_pipeline.py",
                         "--json-out",
                         str(output),
                         "--machine-id",
@@ -1809,7 +1809,7 @@ class SourceStatusTests(unittest.TestCase):
                     usage_report.sys,
                     "argv",
                     [
-                        "ai_usage_comparison_image.py",
+                        "usage_pipeline.py",
                         "--json-out",
                         str(output),
                         "--machine-id",

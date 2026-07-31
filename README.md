@@ -144,7 +144,7 @@ export AI_USAGE_MACHINE_ID=mac-home
 export AI_USAGE_TIMEZONE=Asia/Shanghai
 
 # Validate first; does not write or publish.
-python3 scripts/ai_usage_comparison_image.py \
+python3 scripts/usage_pipeline.py \
   --json-out public/usage.json \
   --machines-dir public/machines \
   --machine-id "$AI_USAGE_MACHINE_ID" \
@@ -168,11 +168,15 @@ Do not use `--force-reseed` for this migration.
 | `public/ai-usage-card-{light,dark}.svg` | Generated static GitHub README cards |
 | `public/machines/<id>.json` | Per-Mac Codex/Claude fragment plus one-time local Comate history |
 | `scripts/generate_readme_cards.mjs` | Dynamic summary + weekly Skyline SVG generator |
-| `scripts/ai_usage_comparison_image.py` | Collect + merge |
+| `scripts/usage_pipeline.py` | Collect + merge |
+| `scripts/ai_usage_comparison_image.py` | Compatibility CLI for the former collector name |
 | `scripts/model_prices.v1.json` | Versioned Codex/Claude estimate ledger |
+| `scripts/cursor_usage_api.py` | Cursor session, API, redaction, and event normalization library |
+| `scripts/cursor_usage_api_probe.py` | Manual Cursor diagnostic export CLI |
 | `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, and aggregation |
 | `scripts/comate_usage.py` | Local Comate session parser |
 | `scripts/machine_fragments.py` | Fragment I/O + SUM merge |
+| `scripts/legacy_report_renderer.py` | Legacy `--out` / `--png` report rendering |
 | `scripts/publish.sh` | Pull → collect → build → push (+ re-merge on conflict) |
 | `docs/` | Built GitHub Pages output |
 
