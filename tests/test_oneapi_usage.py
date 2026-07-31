@@ -54,6 +54,101 @@ def record(
     }
 
 
+def browser_completed(payload: dict, *, returncode: int = 0, stderr: str = ""):
+    return subprocess.CompletedProcess(
+        [],
+        returncode,
+        stdout=json.dumps(json.dumps(payload)),
+        stderr=stderr,
+    )
+
+
+def auth_completed(*, authenticated: bool, error_code: str = ""):
+    return browser_completed(
+        {
+            "_authenticated": authenticated,
+            "_error_code": error_code,
+        }
+    )
+
+
+def saved_browser_state(*, expiry: float = 2_000_000_000) -> dict:
+    return {
+        "cookies": [
+            {
+                "name": "session",
+                "value": "test-session-value",
+                "domain": "oneapi-comate.baidu-int.com",
+                "path": "/",
+                "expires": expiry,
+                "httpOnly": True,
+                "secure": False,
+            },
+            {
+                "name": "SECURE_ZT_GW_TOKEN",
+                "value": "test-gateway-value",
+                "domain": ".oneapi-comate.baidu-int.com",
+                "path": "/",
+                "expires": expiry + 3600,
+                "httpOnly": True,
+                "secure": True,
+            },
+            {
+                "name": "UUAPTGC",
+                "value": "test-uuap-value",
+                "domain": ".uuap.baidu.com",
+                "path": "/",
+                "expires": expiry + 7200,
+                "httpOnly": True,
+                "secure": True,
+            },
+            {
+                "name": "USER_BIND_TOKEN",
+                "value": "test-binding-value",
+                "domain": ".uuap.baidu.com",
+                "expires": expiry + 7200,
+            },
+            {
+                "name": "UUAP_TRACE_TOKEN",
+                "value": "test-trace-value",
+                "domain": ".baidu-int.com",
+                "expires": expiry + 7200,
+            },
+            {
+                "name": "X-MFA-AUTH",
+                "value": "test-mfa-value",
+                "domain": ".baidu-int.com",
+                "expires": expiry + 7200,
+            },
+            {
+                "name": "SECURE_ZT_EXTRA_INFO",
+                "value": "test-zt-context-value",
+                "domain": ".baidu-int.com",
+                "expires": expiry + 7200,
+            },
+            {
+                "name": "ZT_EXTRA_INFO",
+                "value": "test-zt-context-value-2",
+                "domain": ".baidu.com",
+                "expires": expiry + 7200,
+            },
+            {
+                "name": "session",
+                "value": "unrelated-session",
+                "domain": ".example.com",
+                "expires": expiry + 7200,
+            },
+        ],
+        "origins": [
+            {
+                "origin": "https://oneapi-comate.baidu-int.com",
+                "localStorage": [],
+            },
+            {"origin": "https://example.com", "localStorage": []},
+        ],
+    }
+
+
 class OneApiExclusiveAggregationTests(unittest.TestCase):
     def test_excludes_codex_and_claude_families_but_keeps_other_models(self):
         result = oneapi_usage.aggregate_records(
@@ -319,39 +414,46 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
     def test_collection_loads_saved_state_in_an_isolated_session(self):
         with tempfile.TemporaryDirectory() as tmp:
             state_path = Path(tmp) / "state.json"
-            state_path.write_text("{}", encoding="utf-8")
-            browser_result = json.dumps(
-                {
-                    "_complete": True,
-                    "_pages": 1,
-                    "_records": [
-                        record(
-                            "deepseek-v4-flash",
-                            prompt=100,
-                            quota=250_000,
-                        )
-                    ],
-                }
+            state_path.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
             )
+            browser_result = {
+                "_complete": True,
+                "_pages": 1,
+                "_records": [
+                    record(
+                        "deepseek-v4-flash",
+                        prompt=100,
+                        quota=250_000,
+                    )
+                ],
+            }
             completed = [
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
-                subprocess.CompletedProcess(
-                    [],
-                    0,
-                    stdout=json.dumps(browser_result),
-                    stderr="",
-                ),
+                auth_completed(authenticated=True),
+                browser_completed(browser_result),
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
             ]
 
-            with mock.patch.object(
-                oneapi_usage.subprocess,
-                "run",
-                side_effect=completed,
-            ) as run, mock.patch.object(
-                oneapi_usage,
-                "chrome_use_path",
-                return_value="/usr/bin/true",
+            with (
+                mock.patch.object(
+                    oneapi_usage.subprocess,
+                    "run",
+                    side_effect=completed,
+                ) as run,
+                mock.patch.object(
+                    oneapi_usage,
+                    "chrome_use_path",
+                    return_value="/usr/bin/true",
+                ),
+                mock.patch.object(
+                    oneapi_usage,
+                    "save_session_state_atomic",
+                    return_value={
+                        "state_refreshed": True,
+                        "warning": "",
+                    },
+                ) as save_state,
             ):
                 result = oneapi_usage.collect_oneapi(
                     timezone="Asia/Shanghai",
@@ -361,20 +463,30 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
                 )
 
         open_command = run.call_args_list[0].args[0]
-        eval_command = run.call_args_list[1].args[0]
-        close_command = run.call_args_list[2].args[0]
+        auth_command = run.call_args_list[1].args[0]
+        eval_command = run.call_args_list[2].args[0]
+        close_command = run.call_args_list[3].args[0]
+        self.assertIn("--launch", open_command)
         self.assertIn("--state", open_command)
-        self.assertIn(str(state_path), open_command)
+        launch_state = Path(open_command[open_command.index("--state") + 1])
+        self.assertNotEqual(launch_state, state_path)
+        self.assertFalse(launch_state.exists())
         self.assertIn("--session", open_command)
+        self.assertIn("--session", auth_command)
         self.assertIn("--session", eval_command)
         self.assertIn("--session", close_command)
+        save_state.assert_called_once()
         self.assertEqual(result["totals"]["total_tokens"], 100)
         self.assertTrue(result["complete"])
+        self.assertTrue(result["session_health"]["state_refreshed"])
+        self.assertFalse(result["session_health"]["silent_sso_attempted"])
 
     def test_incomplete_browser_result_is_rejected_instead_of_published(self):
         with tempfile.TemporaryDirectory() as tmp:
             state_path = Path(tmp) / "state.json"
-            state_path.write_text("{}", encoding="utf-8")
+            state_path.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
+            )
             browser_result = json.dumps(
                 {
                     "_complete": False,
@@ -386,23 +498,27 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
             )
             completed = [
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
-                subprocess.CompletedProcess(
-                    [],
-                    0,
-                    stdout=json.dumps(browser_result),
-                    stderr="",
-                ),
+                auth_completed(authenticated=True),
+                browser_completed(json.loads(browser_result)),
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
             ]
 
-            with mock.patch.object(
-                oneapi_usage.subprocess,
-                "run",
-                side_effect=completed,
-            ), mock.patch.object(
-                oneapi_usage,
-                "chrome_use_path",
-                return_value="/usr/bin/true",
+            with (
+                mock.patch.object(
+                    oneapi_usage.subprocess,
+                    "run",
+                    side_effect=completed,
+                ),
+                mock.patch.object(
+                    oneapi_usage,
+                    "chrome_use_path",
+                    return_value="/usr/bin/true",
+                ),
+                mock.patch.object(
+                    oneapi_usage,
+                    "save_session_state_atomic",
+                    return_value={"state_refreshed": True, "warning": ""},
+                ),
             ):
                 with self.assertRaisesRegex(RuntimeError, "incomplete"):
                     oneapi_usage.collect_oneapi(
@@ -415,41 +531,30 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
     def test_rate_limited_batch_resumes_from_failed_page_and_deduplicates(self):
         with tempfile.TemporaryDirectory() as tmp:
             state_path = Path(tmp) / "state.json"
-            state_path.write_text("{}", encoding="utf-8")
+            state_path.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
+            )
             first = record("deepseek-v4-flash", prompt=100, quota=1000)
             second = record("grok-4.5", prompt=200, quota=2000)
             completed = [
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
-                subprocess.CompletedProcess(
-                    [],
-                    0,
-                    stdout=json.dumps(
-                        json.dumps(
-                            {
-                                "_complete": False,
-                                "_rate_limited": True,
-                                "_next_page": 7,
-                                "_pages": 7,
-                                "_records": [first],
-                            }
-                        )
-                    ),
-                    stderr="",
+                auth_completed(authenticated=True),
+                browser_completed(
+                    {
+                        "_complete": False,
+                        "_rate_limited": True,
+                        "_next_page": 7,
+                        "_pages": 7,
+                        "_records": [first],
+                    }
                 ),
-                subprocess.CompletedProcess(
-                    [],
-                    0,
-                    stdout=json.dumps(
-                        json.dumps(
-                            {
-                                "_complete": True,
-                                "_next_page": 8,
-                                "_pages": 1,
-                                "_records": [first, second],
-                            }
-                        )
-                    ),
-                    stderr="",
+                browser_completed(
+                    {
+                        "_complete": True,
+                        "_next_page": 8,
+                        "_pages": 1,
+                        "_records": [first, second],
+                    }
                 ),
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
             ]
@@ -465,6 +570,11 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
                     "chrome_use_path",
                     return_value="/usr/bin/true",
                 ),
+                mock.patch.object(
+                    oneapi_usage,
+                    "save_session_state_atomic",
+                    return_value={"state_refreshed": True, "warning": ""},
+                ),
                 mock.patch.object(oneapi_usage.time, "sleep") as sleep,
             ):
                 result = oneapi_usage.collect_oneapi(
@@ -479,8 +589,333 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
         self.assertEqual(result["totals"]["total_tokens"], 300)
         self.assertEqual(result["pagination"]["duplicates_removed"], 1)
         self.assertTrue(result["pagination"]["complete"])
-        self.assertIn("const START_PAGE = 0", run.call_args_list[1].kwargs["input"])
-        self.assertIn("const START_PAGE = 7", run.call_args_list[2].kwargs["input"])
+        self.assertIn("const START_PAGE = 0", run.call_args_list[2].kwargs["input"])
+        self.assertIn("const START_PAGE = 7", run.call_args_list[3].kwargs["input"])
+
+    def test_initial_auth_failure_attempts_silent_sso_once_then_succeeds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            state_path.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
+            )
+            completed = [
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                auth_completed(
+                    authenticated=False,
+                    error_code="oneapi_reauth_required",
+                ),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                auth_completed(authenticated=True),
+                browser_completed(
+                    {
+                        "_complete": True,
+                        "_pages": 1,
+                        "_records": [record("grok-4.5", prompt=10)],
+                    }
+                ),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+            ]
+            with (
+                mock.patch.object(
+                    oneapi_usage.subprocess,
+                    "run",
+                    side_effect=completed,
+                ) as run,
+                mock.patch.object(
+                    oneapi_usage,
+                    "chrome_use_path",
+                    return_value="/usr/bin/true",
+                ),
+                mock.patch.object(
+                    oneapi_usage,
+                    "save_session_state_atomic",
+                    return_value={"state_refreshed": True, "warning": ""},
+                ) as save_state,
+                mock.patch.object(oneapi_usage.time, "sleep") as sleep,
+            ):
+                result = oneapi_usage.collect_oneapi(
+                    timezone="Asia/Shanghai",
+                    state_path=str(state_path),
+                    since="2026-07-29",
+                    until="2026-07-29",
+                )
+
+        log_opens = [
+            call.args[0]
+            for call in run.call_args_list
+            if call.args and call.args[0][-2:] == ["open", oneapi_usage.ONEAPI_BASE + "/log"]
+        ]
+        self.assertEqual(len(log_opens), 1)
+        sleep.assert_called_once_with(2)
+        self.assertEqual(
+            sum(
+                1
+                for call in run.call_args_list
+                if call.args
+                and call.args[0][-2:]
+                == ["open", oneapi_usage.ONEAPI_BASE + "/api/user/self"]
+            ),
+            2,
+        )
+        save_state.assert_called_once()
+        self.assertTrue(result["session_health"]["silent_sso_attempted"])
+
+    def test_reauth_required_after_one_silent_sso_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            state_path.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
+            )
+            completed = [
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                auth_completed(
+                    authenticated=False,
+                    error_code="oneapi_reauth_required",
+                ),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                auth_completed(
+                    authenticated=False,
+                    error_code="oneapi_reauth_required",
+                ),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+            ]
+            with (
+                mock.patch.object(
+                    oneapi_usage.subprocess,
+                    "run",
+                    side_effect=completed,
+                ) as run,
+                mock.patch.object(
+                    oneapi_usage,
+                    "chrome_use_path",
+                    return_value="/usr/bin/true",
+                ),
+                mock.patch.object(oneapi_usage.time, "sleep"),
+            ):
+                with self.assertRaises(oneapi_usage.OneApiReauthRequired) as raised:
+                    oneapi_usage.collect_oneapi(
+                        state_path=str(state_path),
+                        since="2026-07-29",
+                        until="2026-07-29",
+                    )
+
+        self.assertEqual(
+            raised.exception.error_code,
+            "oneapi_reauth_required",
+        )
+        self.assertTrue(raised.exception.metadata["silent_sso_attempted"])
+        self.assertEqual(
+            sum(
+                1
+                for call in run.call_args_list
+                if call.args
+                and call.args[0][-2:]
+                == ["open", oneapi_usage.ONEAPI_BASE + "/log"]
+            ),
+            1,
+        )
+
+    def test_network_auth_failure_does_not_attempt_silent_sso(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            state_path.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
+            )
+            completed = [
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                auth_completed(
+                    authenticated=False,
+                    error_code="oneapi_network_unavailable",
+                ),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+            ]
+            with (
+                mock.patch.object(
+                    oneapi_usage.subprocess,
+                    "run",
+                    side_effect=completed,
+                ) as run,
+                mock.patch.object(
+                    oneapi_usage,
+                    "chrome_use_path",
+                    return_value="/usr/bin/true",
+                ),
+            ):
+                with self.assertRaises(oneapi_usage.OneApiNetworkUnavailable):
+                    oneapi_usage.collect_oneapi(
+                        state_path=str(state_path),
+                        since="2026-07-29",
+                        until="2026-07-29",
+                    )
+
+        self.assertFalse(
+            any(
+                call.args
+                and call.args[0][-2:]
+                == ["open", oneapi_usage.ONEAPI_BASE + "/log"]
+                for call in run.call_args_list
+            )
+        )
+
+    def test_daemon_failure_has_distinct_code_without_raw_stderr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            state_path.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
+            )
+            failure = subprocess.CompletedProcess(
+                [],
+                1,
+                stdout="",
+                stderr="Failed to connect to daemon token=must-not-escape",
+            )
+            with (
+                mock.patch.object(
+                    oneapi_usage.subprocess,
+                    "run",
+                    return_value=failure,
+                ),
+                mock.patch.object(
+                    oneapi_usage,
+                    "chrome_use_path",
+                    return_value="/usr/bin/false",
+                ),
+            ):
+                with self.assertRaises(oneapi_usage.OneApiBrowserUnavailable) as raised:
+                    oneapi_usage.collect_oneapi(
+                        state_path=str(state_path),
+                        since="2026-07-29",
+                        until="2026-07-29",
+                    )
+
+        self.assertEqual(
+            raised.exception.error_code,
+            "oneapi_browser_unavailable",
+        )
+        self.assertNotIn("must-not-escape", str(raised.exception))
+
+    def test_state_save_is_validated_secured_and_atomically_replaced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            state_path.write_text('{"old": true}\n', encoding="utf-8")
+            now = oneapi_usage.dt.datetime(
+                2026,
+                7,
+                31,
+                12,
+                tzinfo=oneapi_usage.dt.timezone.utc,
+            )
+            saved = saved_browser_state(
+                expiry=now.timestamp() + 47 * 3600,
+            )
+
+            def save_state(command, **_kwargs):
+                Path(command[-1]).write_text(
+                    json.dumps(saved),
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+            with mock.patch.object(
+                oneapi_usage.subprocess,
+                "run",
+                side_effect=save_state,
+            ):
+                health = oneapi_usage.save_session_state_atomic(
+                    "/usr/bin/true",
+                    "oneapi-test",
+                    str(state_path),
+                    now=now,
+                )
+
+            persisted = json.loads(state_path.read_text(encoding="utf-8"))
+            persisted_names = {cookie["name"] for cookie in persisted["cookies"]}
+            self.assertIn("session", persisted_names)
+            self.assertIn("USER_BIND_TOKEN", persisted_names)
+            self.assertIn("X-MFA-AUTH", persisted_names)
+            self.assertIn("SECURE_ZT_EXTRA_INFO", persisted_names)
+            self.assertIn("UUAP_TRACE_TOKEN", persisted_names)
+            self.assertNotIn("unrelated-session", {
+                cookie["value"] for cookie in persisted["cookies"]
+            })
+            self.assertEqual(
+                [origin["origin"] for origin in persisted["origins"]],
+                [oneapi_usage.ONEAPI_BASE],
+            )
+            self.assertEqual(state_path.stat().st_mode & 0o777, 0o600)
+            self.assertTrue(health["state_refreshed"])
+            self.assertEqual(health["warning"], "oneapi_auth_expiring")
+            self.assertIn("oneapi_session", health["expiring_components"])
+
+    def test_launch_state_is_scoped_before_isolated_browser_start(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "state.json"
+            source.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
+            )
+            launch_state = oneapi_usage._scoped_launch_state(str(source))
+            try:
+                scoped = json.loads(launch_state.read_text(encoding="utf-8"))
+                self.assertEqual(launch_state.stat().st_mode & 0o777, 0o600)
+                self.assertNotIn(
+                    "unrelated-session",
+                    {cookie["value"] for cookie in scoped["cookies"]},
+                )
+                self.assertEqual(
+                    [origin["origin"] for origin in scoped["origins"]],
+                    [oneapi_usage.ONEAPI_BASE],
+                )
+            finally:
+                launch_state.unlink(missing_ok=True)
+
+    def test_invalid_state_save_preserves_previous_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            original = '{"old": true}\n'
+            state_path.write_text(original, encoding="utf-8")
+
+            def save_invalid(command, **_kwargs):
+                Path(command[-1]).write_text(
+                    json.dumps({"cookies": [], "origins": []}),
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess([], 0, stdout="", stderr="")
+
+            with mock.patch.object(
+                oneapi_usage.subprocess,
+                "run",
+                side_effect=save_invalid,
+            ):
+                with self.assertRaises(oneapi_usage.OneApiRefreshFailed):
+                    oneapi_usage.save_session_state_atomic(
+                        "/usr/bin/true",
+                        "oneapi-test",
+                        str(state_path),
+                    )
+
+            self.assertEqual(state_path.read_text(encoding="utf-8"), original)
+
+    def test_reauth_status_requests_one_daily_deduplicated_notification(self):
+        error = oneapi_usage.OneApiReauthRequired(
+            "One API authentication check failed",
+            metadata={"silent_sso_attempted": True},
+        )
+        status = oneapi_usage.failed_status_metadata(
+            error,
+            timezone="Asia/Shanghai",
+        )
+
+        self.assertEqual(status["status"], "reauth_required")
+        self.assertEqual(status["error_code"], "oneapi_reauth_required")
+        self.assertTrue(status["notification"]["required"])
+        self.assertRegex(
+            status["notification"]["dedupe_key"],
+            r"^oneapi_reauth_required:\d{4}-\d{2}-\d{2}$",
+        )
+        self.assertNotIn("cookie", json.dumps(status).lower())
+        self.assertNotIn("token", json.dumps(status).lower())
 
 
 class OneApiPublishFlowTests(unittest.TestCase):
@@ -493,7 +928,10 @@ class OneApiPublishFlowTests(unittest.TestCase):
 
         self.assertLess(pull, collect)
         self.assertLess(collect, merge)
+        self.assertIn("--skip-oneapi-live", source)
+        self.assertNotIn("passing the existing One API cache", source)
         self.assertIn("--days 5", source)
+        self.assertIn('--status-out "$ONEAPI_STATUS_PATH"', source)
         self.assertIn("mktemp", source)
         self.assertIn('mv -f -- "$temp_path" "$cache_path"', source)
         self.assertNotIn('> "$cache_path"', source)
@@ -688,6 +1126,99 @@ class OneApiReconciliationTests(unittest.TestCase):
 
 
 class SourceStatusTests(unittest.TestCase):
+    def test_public_oneapi_status_preserves_actionable_failure_codes(self):
+        for error_code in (
+            "oneapi_reauth_required",
+            "oneapi_browser_unavailable",
+            "oneapi_network_unavailable",
+        ):
+            with self.subTest(error_code=error_code):
+                self.assertEqual(
+                    usage_report.public_source_error("oneapi", error_code),
+                    error_code,
+                )
+
+    def test_merge_does_not_retry_oneapi_after_publish_collection_failed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            machines = root / "machines"
+            machines.mkdir()
+            (machines / "mac-test.json").write_text(
+                json.dumps(
+                    {
+                        "machine_id": "mac-test",
+                        "hostname": "mac-test.local",
+                        "timezone": "Asia/Shanghai",
+                        "daily": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            usage_path = root / "usage.json"
+            usage_path.write_text(
+                json.dumps(
+                    {
+                        "timezone": "Asia/Shanghai",
+                        "cursor_pricing_version": usage_report.CURSOR_PRICING_VERSION,
+                        "daily": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            state_path = root / "oneapi-state.json"
+            state_path.write_text("{}", encoding="utf-8")
+            status_path = root / "oneapi-status.json"
+            status_path.write_text(
+                json.dumps({"error_code": "oneapi_reauth_required"}),
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch.object(
+                    usage_report,
+                    "local_today",
+                    return_value="2026-07-31",
+                ),
+                mock.patch.object(
+                    usage_report,
+                    "fetch_cursor_usage",
+                    return_value={
+                        "available": False,
+                        "complete": False,
+                        "error": "missing local Cursor access token",
+                    },
+                ),
+                mock.patch.object(
+                    usage_report.oneapi_usage,
+                    "collect_oneapi",
+                ) as collect_oneapi,
+                mock.patch.dict(
+                    usage_report.os.environ,
+                    {
+                        "ONEAPI_STATE_PATH": str(state_path),
+                        "ONEAPI_STATUS_PATH": str(status_path),
+                    },
+                    clear=False,
+                ),
+            ):
+                result = usage_report.collect_usage(
+                    root,
+                    "Asia/Shanghai",
+                    root / "scratch",
+                    500,
+                    machine_id="mac-test",
+                    machines_dir=machines,
+                    merge_only=True,
+                    usage_json_path=usage_path,
+                    skip_oneapi_live=True,
+                )
+
+        collect_oneapi.assert_not_called()
+        self.assertEqual(
+            result["source_status"]["oneapi"]["error"],
+            "oneapi_reauth_required",
+        )
+
     def test_reconciles_all_sources_and_preserves_last_success_when_stale(self):
         attempted_at = "2026-07-30T12:00:00+08:00"
         prior = {

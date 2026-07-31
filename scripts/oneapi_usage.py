@@ -12,6 +12,7 @@ import re
 import subprocess
 import shutil
 import sys
+import tempfile
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -33,6 +34,8 @@ QUOTA_PER_CNY = 250_000
 USD_PER_CNY = 0.14
 ACCOUNTING_VERSION = 2
 DEFAULT_DAYS = 5
+AUTH_EXPIRY_WARNING_HOURS = 48
+STATUS_VERSION = 1
 OWNERSHIP_RULE = "exclude_gpt_codex_and_claude_model_families"
 OWNERSHIP_RULE_VERSION = 1
 ACCOUNT_SCOPE = {
@@ -42,6 +45,45 @@ ACCOUNT_SCOPE = {
     "endpoint": "/api/log/self/",
     "merge_strategy": "latest_complete_snapshot",
 }
+
+
+class OneApiCollectorError(RuntimeError):
+    error_code = "oneapi_refresh_failed"
+    exit_code = 1
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.metadata = dict(metadata or {})
+
+
+class OneApiReauthRequired(OneApiCollectorError):
+    error_code = "oneapi_reauth_required"
+    exit_code = 20
+
+
+class OneApiBrowserUnavailable(OneApiCollectorError):
+    error_code = "oneapi_browser_unavailable"
+    exit_code = 21
+
+
+class OneApiNetworkUnavailable(OneApiCollectorError):
+    error_code = "oneapi_network_unavailable"
+    exit_code = 22
+
+
+class OneApiStateUnavailable(OneApiCollectorError):
+    error_code = "oneapi_state_unavailable"
+    exit_code = 23
+
+
+class OneApiRefreshFailed(OneApiCollectorError):
+    error_code = "oneapi_refresh_failed"
+    exit_code = 1
 
 CLAUDE_MODEL_RE = re.compile(
     r"(?:^|[/,.:\\])claude(?=[-_.]|$)",
@@ -399,6 +441,383 @@ def chrome_use_path() -> str:
     )
 
 
+def _auth_cookie_component(cookie: dict[str, Any]) -> str:
+    name = str(cookie.get("name") or "")
+    domain = str(cookie.get("domain") or "").lower().lstrip(".")
+    if name == "session" and domain == "oneapi-comate.baidu-int.com":
+        return "oneapi_session"
+    if (
+        name == "SECURE_ZT_GW_TOKEN"
+        and domain == "oneapi-comate.baidu-int.com"
+    ):
+        return "oneapi_gateway"
+    if name in {"SECURE_UUAP_P_TOKEN", "UUAP_P_TOKEN"} and domain in {
+        "baidu-int.com",
+        "baidu.com",
+    }:
+        return "uuap_primary"
+    if name == "UUAP_TRACE_TOKEN" and domain in {
+        "baidu-int.com",
+        "baidu.com",
+    }:
+        return "uuap_trace"
+    if name in {"UUAPTGC", "UUAP-SESS-ID"} and domain == "uuap.baidu.com":
+        return "uuap_session"
+    if name == "USER_BIND_TOKEN" and domain == "uuap.baidu.com":
+        return "uuap_binding"
+    if name == "X-MFA-AUTH" and domain == "baidu-int.com":
+        return "uuap_mfa"
+    if name in {"SECURE_ZT_EXTRA_INFO", "ZT_EXTRA_INFO"} and domain in {
+        "baidu-int.com",
+        "baidu.com",
+    }:
+        return "zt_context"
+    return ""
+
+
+def _scoped_state_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    cookies = payload.get("cookies")
+    origins = payload.get("origins")
+    if not isinstance(cookies, list) or not isinstance(origins, list):
+        raise OneApiRefreshFailed(
+            "saved browser state is missing cookies or origins"
+        )
+    scoped = {
+        "cookies": [
+            cookie
+            for cookie in cookies
+            if isinstance(cookie, dict) and _auth_cookie_component(cookie)
+        ],
+        "origins": [
+            origin
+            for origin in origins
+            if isinstance(origin, dict) and origin.get("origin") == ONEAPI_BASE
+        ],
+    }
+    if not any(
+        _auth_cookie_component(cookie) in {"oneapi_session", "oneapi_gateway"}
+        and isinstance(cookie.get("value"), str)
+        and bool(cookie.get("value"))
+        for cookie in scoped["cookies"]
+    ):
+        raise OneApiRefreshFailed(
+            "saved browser state is missing One API authentication cookies"
+        )
+    return scoped
+
+
+def auth_expiry_metadata(
+    state_payload: dict[str, Any],
+    *,
+    now: dt.datetime | None = None,
+    warning_hours: int = AUTH_EXPIRY_WARNING_HOURS,
+) -> dict[str, Any]:
+    observed_at = now or dt.datetime.now(tz=dt.timezone.utc)
+    if observed_at.tzinfo is None:
+        observed_at = observed_at.replace(tzinfo=dt.timezone.utc)
+    observed_at = observed_at.astimezone(dt.timezone.utc)
+    threshold = observed_at + dt.timedelta(hours=warning_hours)
+    expiries: dict[str, float] = {}
+    cookies = state_payload.get("cookies")
+    if not isinstance(cookies, list):
+        cookies = []
+    for cookie in cookies:
+        if not isinstance(cookie, dict):
+            continue
+        component = _auth_cookie_component(cookie)
+        if not component:
+            continue
+        raw_expiry = cookie.get("expires")
+        if isinstance(raw_expiry, bool) or not isinstance(raw_expiry, (int, float)):
+            continue
+        expiry = float(raw_expiry)
+        if expiry <= 0:
+            continue
+        current = expiries.get(component)
+        if current is None or expiry < current:
+            expiries[component] = expiry
+
+    expiring_components = sorted(
+        component
+        for component, expiry in expiries.items()
+        if dt.datetime.fromtimestamp(expiry, tz=dt.timezone.utc) <= threshold
+    )
+    earliest = ""
+    if expiries:
+        earliest = (
+            dt.datetime.fromtimestamp(min(expiries.values()), tz=dt.timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z")
+        )
+    warning = "oneapi_auth_expiring" if expiring_components else ""
+    return {
+        "warning": warning,
+        "warning_before_hours": warning_hours,
+        "earliest_expiry_at": earliest,
+        "expiring_components": expiring_components,
+    }
+
+
+def _read_scoped_state(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise OneApiRefreshFailed(
+            "saved browser state failed structural validation"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise OneApiRefreshFailed("saved browser state is not an object")
+    return _scoped_state_payload(payload)
+
+
+def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.chmod(path, 0o600)
+
+
+def _scoped_launch_state(state_path: str) -> Path:
+    source = Path(state_path).expanduser()
+    scoped = _read_scoped_state(source)
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=f".{source.name}.launch.",
+        suffix=".json",
+        dir=str(source.parent),
+    )
+    os.close(fd)
+    temporary = Path(temporary_name)
+    try:
+        _write_private_json(temporary, scoped)
+        return temporary
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def _chrome_failure_type(stderr: str) -> type[OneApiCollectorError]:
+    lowered = stderr.lower()
+    browser_markers = (
+        "failed to connect",
+        "daemon",
+        "socket",
+        "no such file or directory",
+        "connection refused",
+    )
+    network_markers = (
+        "err_name_not_resolved",
+        "err_connection_timed_out",
+        "err_internet_disconnected",
+        "dns",
+        "network unreachable",
+    )
+    if any(marker in lowered for marker in browser_markers):
+        return OneApiBrowserUnavailable
+    if any(marker in lowered for marker in network_markers):
+        return OneApiNetworkUnavailable
+    return OneApiBrowserUnavailable
+
+
+def _run_chrome_command(
+    cu: str,
+    session_name: str,
+    args: list[str],
+    *,
+    phase: str,
+    timeout: int,
+    input_text: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        proc = subprocess.run(
+            [cu, "--session", session_name, *args],
+            input=input_text,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OneApiBrowserUnavailable(
+            f"chrome-use {phase} timed out"
+        ) from exc
+    except OSError as exc:
+        raise OneApiBrowserUnavailable(
+            f"chrome-use {phase} could not start"
+        ) from exc
+    if proc.returncode != 0:
+        failure_type = _chrome_failure_type(proc.stderr or "")
+        raise failure_type(f"chrome-use {phase} failed")
+    return proc
+
+
+def _decode_browser_object(raw: str, *, phase: str) -> dict[str, Any]:
+    if not raw.strip():
+        raise OneApiRefreshFailed(f"One API {phase} returned no result")
+    try:
+        value: Any = json.loads(raw)
+        if isinstance(value, str):
+            value = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise OneApiRefreshFailed(
+            f"One API {phase} returned invalid JSON"
+        ) from exc
+    if not isinstance(value, dict):
+        raise OneApiRefreshFailed(
+            f"One API {phase} returned an unexpected result"
+        )
+    return value
+
+
+def _evaluate_browser_object(
+    cu: str,
+    session_name: str,
+    js: str,
+    *,
+    phase: str,
+    timeout_ms: int,
+    process_timeout: int,
+) -> dict[str, Any]:
+    proc = _run_chrome_command(
+        cu,
+        session_name,
+        ["eval", "--stdin", "--timeout", str(timeout_ms)],
+        phase=phase,
+        timeout=process_timeout,
+        input_text=js,
+    )
+    return _decode_browser_object(proc.stdout, phase=phase)
+
+
+def _raise_browser_error(error_code: str, message: str) -> None:
+    error_types: dict[str, type[OneApiCollectorError]] = {
+        OneApiReauthRequired.error_code: OneApiReauthRequired,
+        OneApiBrowserUnavailable.error_code: OneApiBrowserUnavailable,
+        OneApiNetworkUnavailable.error_code: OneApiNetworkUnavailable,
+        OneApiRefreshFailed.error_code: OneApiRefreshFailed,
+    }
+    raise error_types.get(error_code, OneApiRefreshFailed)(message)
+
+
+AUTH_CHECK_JS = r"""
+(async () => {
+  const BASE = '%(base)s';
+  const expectedHost = new URL(BASE).hostname;
+  if (window.location.hostname !== expectedHost) {
+    return JSON.stringify({
+      _authenticated: false,
+      _error_code: 'oneapi_reauth_required',
+    });
+  }
+  try {
+    const response = await fetch(BASE + '/api/user/self', {
+      credentials: 'include',
+    });
+    if (response.status === 401 || response.status === 403) {
+      return JSON.stringify({
+        _authenticated: false,
+        _error_code: 'oneapi_reauth_required',
+      });
+    }
+    if (response.status >= 500) {
+      return JSON.stringify({
+        _authenticated: false,
+        _error_code: 'oneapi_network_unavailable',
+      });
+    }
+    if (!response.ok) {
+      return JSON.stringify({
+        _authenticated: false,
+        _error_code: 'oneapi_refresh_failed',
+      });
+    }
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      return JSON.stringify({
+        _authenticated: false,
+        _error_code: 'oneapi_reauth_required',
+      });
+    }
+    if (!payload || payload.success !== true) {
+      return JSON.stringify({
+        _authenticated: false,
+        _error_code: 'oneapi_reauth_required',
+      });
+    }
+    return JSON.stringify({_authenticated: true, _error_code: ''});
+  } catch (_error) {
+    return JSON.stringify({
+      _authenticated: false,
+      _error_code: 'oneapi_network_unavailable',
+    });
+  }
+})()
+"""
+
+
+def _check_authentication(cu: str, session_name: str) -> None:
+    result = _evaluate_browser_object(
+        cu,
+        session_name,
+        AUTH_CHECK_JS % {"base": ONEAPI_BASE},
+        phase="authentication check",
+        timeout_ms=30_000,
+        process_timeout=45,
+    )
+    if result.get("_authenticated") is True:
+        return
+    _raise_browser_error(
+        str(result.get("_error_code") or OneApiRefreshFailed.error_code),
+        "One API authentication check failed",
+    )
+
+
+def save_session_state_atomic(
+    cu: str,
+    session_name: str,
+    state_path: str,
+    *,
+    now: dt.datetime | None = None,
+) -> dict[str, Any]:
+    destination = Path(state_path).expanduser()
+    destination.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=str(destination.parent),
+    )
+    temporary = Path(temporary_name)
+    os.fchmod(fd, 0o600)
+    os.close(fd)
+    try:
+        _run_chrome_command(
+            cu,
+            session_name,
+            ["state", "save", str(temporary)],
+            phase="state save",
+            timeout=60,
+        )
+        os.chmod(temporary, 0o600)
+        saved_payload = _read_scoped_state(temporary)
+        _write_private_json(temporary, saved_payload)
+        saved_payload = _read_scoped_state(temporary)
+        os.replace(temporary, destination)
+        os.chmod(destination, 0o600)
+        return {
+            "state_refreshed": True,
+            **auth_expiry_metadata(saved_payload, now=now),
+        }
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 FETCH_BATCH_JS = r"""
 (async () => {
   const BASE = '%(base)s';
@@ -407,7 +826,6 @@ FETCH_BATCH_JS = r"""
   const PAGE_SIZE = %(page_size)d;
   const START_PAGE = %(start_page)d;
   const BATCH_PAGES = %(batch_pages)d;
-  const CHECK_AUTH = %(check_auth)s;
   const MAX_ATTEMPTS = 3;
   const PAGE_DELAY_MS = 600;
   const records = [];
@@ -418,45 +836,29 @@ FETCH_BATCH_JS = r"""
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
         const response = await fetch(url, {credentials: 'include'});
-        if (response.status === 429) {
+        if (response.status === 401 || response.status === 403) {
+          return {_error_code: 'oneapi_reauth_required'};
+        } else if (response.status === 429) {
           return {_rate_limited: true};
         } else if (response.status >= 500) {
-          lastError = 'http_' + response.status + '_' + label;
+          lastError = 'oneapi_network_unavailable';
         } else if (!response.ok) {
-          throw new Error('http_' + response.status + '_' + label);
+          return {_error_code: 'oneapi_refresh_failed'};
         } else {
           const payload = await response.json();
-          if (!payload.success) throw new Error('api_' + label);
+          if (!payload.success) {
+            return {_error_code: 'oneapi_refresh_failed'};
+          }
           return payload;
         }
-      } catch (error) {
-        lastError = String(error && error.message ? error.message : error);
+      } catch (_error) {
+        lastError = 'oneapi_network_unavailable';
       }
       if (attempt + 1 < MAX_ATTEMPTS) {
         await delay(500 * Math.pow(2, attempt));
       }
     }
-    throw new Error(lastError || 'fetch_failed_' + label);
-  }
-
-  if (CHECK_AUTH) {
-    try {
-      const response = await fetch(BASE + '/api/user/self', {
-        credentials: 'include',
-      });
-      const payload = response.ok ? await response.json() : {};
-      if (!response.ok || !payload.success) {
-        throw new Error('http_' + response.status);
-      }
-    } catch (error) {
-      return JSON.stringify({
-        _complete: false,
-        _e: 'not_authenticated:' + String(error.message || error),
-        _next_page: START_PAGE,
-        _pages: 0,
-        _records: [],
-      });
-    }
+    return {_error_code: lastError || 'oneapi_refresh_failed'};
   }
 
   let pages = 0;
@@ -466,15 +868,14 @@ FETCH_BATCH_JS = r"""
     page++
   ) {
     let payload;
-    try {
-      const url = BASE + '/api/log/self/?p=' + page
-        + '&type=0&model_name=&start_timestamp=' + START_TS
-        + '&end_timestamp=' + END_TS;
-      payload = await fetchPage(url, 'page_' + page);
-    } catch (error) {
+    const url = BASE + '/api/log/self/?p=' + page
+      + '&type=0&model_name=&start_timestamp=' + START_TS
+      + '&end_timestamp=' + END_TS;
+    payload = await fetchPage(url, 'page_' + page);
+    if (payload._error_code) {
       return JSON.stringify({
         _complete: false,
-        _e: String(error.message || error),
+        _error_code: payload._error_code,
         _next_page: page,
         _pages: pages,
         _records: records,
@@ -544,32 +945,17 @@ def collect_oneapi(
         dt.datetime.combine(start_date, dt.time.min, tzinfo=tz).timestamp()
     )
 
-    if not Path(state_path).exists():
-        raise FileNotFoundError(f"Chrome state not found: {state_path}")
-
-    cu = chrome_use_path()
+    resolved_state_path = str(Path(state_path).expanduser())
+    if not Path(resolved_state_path).exists():
+        raise OneApiStateUnavailable("One API browser state is unavailable")
+    try:
+        cu = chrome_use_path()
+    except RuntimeError as exc:
+        raise OneApiBrowserUnavailable(
+            "chrome-use executable is unavailable"
+        ) from exc
+    launch_state_path = _scoped_launch_state(resolved_state_path)
     session_name = f"oneapi-usage-{os.getpid()}"
-    open_proc = subprocess.run(
-        [
-            cu,
-            "--session",
-            session_name,
-            "--state",
-            state_path,
-            "open",
-            ONEAPI_BASE + "/api/user/self",
-        ],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=60,
-        check=False,
-    )
-    if open_proc.returncode != 0:
-        raise RuntimeError(
-            f"chrome-use open: {open_proc.stderr.strip()[:500]}"
-        )
-
     records: list[dict[str, Any]] = []
     seen: set[str] = set()
     duplicates_removed = 0
@@ -578,7 +964,57 @@ def collect_oneapi(
     rate_limit_count = 0
     max_pages = 2000
     batch_pages = 10
+    opened = False
+    silent_sso_attempted = False
+    session_health: dict[str, Any] = {}
     try:
+        _run_chrome_command(
+            cu,
+            session_name,
+            [
+                "--launch",
+                "--state",
+                str(launch_state_path),
+                "open",
+                ONEAPI_BASE + "/api/user/self",
+            ],
+            phase="open",
+            timeout=60,
+        )
+        opened = True
+        try:
+            _check_authentication(cu, session_name)
+        except OneApiReauthRequired:
+            silent_sso_attempted = True
+            _run_chrome_command(
+                cu,
+                session_name,
+                ["open", ONEAPI_BASE + "/log"],
+                phase="silent SSO",
+                timeout=90,
+            )
+            time.sleep(2)
+            _run_chrome_command(
+                cu,
+                session_name,
+                ["open", ONEAPI_BASE + "/api/user/self"],
+                phase="silent SSO verification",
+                timeout=60,
+            )
+            try:
+                _check_authentication(cu, session_name)
+            except OneApiReauthRequired as exc:
+                exc.metadata["silent_sso_attempted"] = True
+                raise
+
+        session_health = save_session_state_atomic(
+            cu,
+            session_name,
+            resolved_state_path,
+            now=now,
+        )
+        session_health["silent_sso_attempted"] = silent_sso_attempted
+
         while page < max_pages:
             js = FETCH_BATCH_JS % {
                 "base": ONEAPI_BASE,
@@ -587,48 +1023,27 @@ def collect_oneapi(
                 "end_ts": end_ts,
                 "start_page": page,
                 "batch_pages": batch_pages,
-                "check_auth": "true" if page == 0 else "false",
             }
-            proc = subprocess.run(
-                [
-                    cu,
-                    "--session",
-                    session_name,
-                    "eval",
-                    "--stdin",
-                    "--timeout",
-                    "120000",
-                ],
-                input=js,
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=150,
-                check=False,
+            browser_result = _evaluate_browser_object(
+                cu,
+                session_name,
+                js,
+                phase="usage fetch",
+                timeout_ms=120_000,
+                process_timeout=150,
             )
-            if proc.returncode != 0:
-                raise RuntimeError(
-                    f"chrome-use eval: {proc.stderr.strip()[:500]}"
-                )
-
-            raw = proc.stdout.strip()
-            if not raw:
-                raise RuntimeError("no output from chrome-use")
-            try:
-                browser_result = json.loads(raw)
-            except json.JSONDecodeError:
-                raise RuntimeError(f"invalid JSON: {raw[:300]}")
-            if isinstance(browser_result, str):
-                browser_result = json.loads(browser_result)
-            if not isinstance(browser_result, dict):
-                raise RuntimeError(
-                    "unexpected response type: "
-                    f"{type(browser_result).__name__}"
+            error_code = str(browser_result.get("_error_code") or "")
+            if error_code:
+                _raise_browser_error(
+                    error_code,
+                    "One API usage fetch failed",
                 )
 
             batch_records = browser_result.get("_records")
             if not isinstance(batch_records, list):
-                raise RuntimeError("One API batch response missing records")
+                raise OneApiRefreshFailed(
+                    "One API batch response is missing records"
+                )
             for record in batch_records:
                 if not isinstance(record, dict):
                     continue
@@ -647,13 +1062,13 @@ def collect_oneapi(
                 break
             next_page = safe_int(browser_result.get("_next_page"))
             if next_page < page:
-                raise RuntimeError(
+                raise OneApiRefreshFailed(
                     f"One API incomplete fetch returned invalid page {next_page}"
                 )
             if browser_result.get("_rate_limited"):
                 rate_limit_count += 1
                 if rate_limit_count > 20:
-                    raise RuntimeError(
+                    raise OneApiRefreshFailed(
                         f"One API incomplete fetch at page {next_page}: "
                         "rate limit did not recover"
                     )
@@ -662,36 +1077,47 @@ def collect_oneapi(
                 continue
             if browser_result.get("_batch_complete"):
                 if next_page <= page:
-                    raise RuntimeError(
+                    raise OneApiRefreshFailed(
                         f"One API incomplete fetch stalled at page {page}"
                     )
                 page = next_page
                 continue
 
-            error_text = str(browser_result.get("_e") or "unknown error")
-            raise RuntimeError(
+            raise OneApiRefreshFailed(
                 f"One API incomplete fetch at page {next_page} "
-                f"after {len(records)} records: {error_text}"
+                f"after {len(records)} records"
             )
         else:
-            raise RuntimeError(
+            raise OneApiRefreshFailed(
                 f"One API incomplete fetch exceeded {max_pages} pages"
             )
+    except OneApiCollectorError as exc:
+        exc.metadata.setdefault("silent_sso_attempted", silent_sso_attempted)
+        if session_health:
+            exc.metadata.setdefault(
+                "state_refreshed",
+                bool(session_health.get("state_refreshed")),
+            )
+            if session_health.get("warning"):
+                exc.metadata.setdefault("warning", session_health["warning"])
+        raise
     finally:
-        try:
-            subprocess.run(
-                [cu, "--session", session_name, "close"],
-                text=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=30,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            print(
-                f"warning: chrome-use close timed out for session {session_name}",
-                file=sys.stderr,
-            )
+        launch_state_path.unlink(missing_ok=True)
+        if opened:
+            try:
+                subprocess.run(
+                    [cu, "--session", session_name, "close"],
+                    text=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=30,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                print(
+                    "warning: chrome-use close did not complete",
+                    file=sys.stderr,
+                )
 
     result = aggregate_records(
         records,
@@ -708,7 +1134,129 @@ def collect_oneapi(
         "records_after_deduplication": len(records),
         "duplicates_removed": duplicates_removed,
     }
+    result["session_health"] = session_health
     return result
+
+
+def _atomic_write_json(path: str, payload: dict[str, Any]) -> None:
+    destination = Path(path).expanduser()
+    destination.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+        dir=str(destination.parent),
+    )
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+        os.chmod(destination, 0o600)
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _notification_metadata(
+    code: str,
+    *,
+    today: str,
+    required: bool,
+) -> dict[str, Any]:
+    return {
+        "required": required,
+        "dedupe_key": f"{code}:{today}" if required and code else "",
+    }
+
+
+def successful_status_metadata(
+    result: dict[str, Any],
+    *,
+    timezone: str,
+) -> dict[str, Any]:
+    observed = dt.datetime.now(tz=resolve_tz(timezone))
+    health = (
+        result.get("session_health")
+        if isinstance(result.get("session_health"), dict)
+        else {}
+    )
+    warning = str(health.get("warning") or "")
+    return {
+        "version": STATUS_VERSION,
+        "observed_at": observed.isoformat(timespec="seconds"),
+        "status": "warning" if warning else "fresh",
+        "error_code": "",
+        "session": {
+            "state_refreshed": bool(health.get("state_refreshed")),
+            "silent_sso_attempted": bool(health.get("silent_sso_attempted")),
+            "warning": warning,
+            "warning_before_hours": safe_int(
+                health.get("warning_before_hours")
+            ),
+            "earliest_expiry_at": str(
+                health.get("earliest_expiry_at") or ""
+            ),
+            "expiring_components": list(
+                health.get("expiring_components")
+                if isinstance(health.get("expiring_components"), list)
+                else []
+            ),
+        },
+        "notification": _notification_metadata(
+            warning,
+            today=observed.date().isoformat(),
+            required=bool(warning),
+        ),
+    }
+
+
+def failed_status_metadata(
+    error: OneApiCollectorError,
+    *,
+    timezone: str,
+) -> dict[str, Any]:
+    observed = dt.datetime.now(tz=resolve_tz(timezone))
+    requires_reauth = error.error_code in {
+        OneApiReauthRequired.error_code,
+        OneApiStateUnavailable.error_code,
+    }
+    warning = str(error.metadata.get("warning") or "")
+    return {
+        "version": STATUS_VERSION,
+        "observed_at": observed.isoformat(timespec="seconds"),
+        "status": "reauth_required" if requires_reauth else "failed",
+        "error_code": error.error_code,
+        "session": {
+            "state_refreshed": bool(error.metadata.get("state_refreshed")),
+            "silent_sso_attempted": bool(
+                error.metadata.get("silent_sso_attempted")
+            ),
+            "warning": warning,
+        },
+        "notification": _notification_metadata(
+            error.error_code,
+            today=observed.date().isoformat(),
+            required=requires_reauth,
+        ),
+    }
+
+
+def _write_status_best_effort(path: str, payload: dict[str, Any]) -> None:
+    if not path:
+        return
+    try:
+        _atomic_write_json(path, payload)
+    except OSError:
+        print(
+            "WARN: could not write One API status metadata",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":
@@ -726,10 +1274,39 @@ if __name__ == "__main__":
             "Ignored when --since is set."
         ),
     )
+    p.add_argument(
+        "--status-out",
+        default="",
+        help="Optional safe status JSON path for a rate-limited outer notifier.",
+    )
     a = p.parse_args()
     try:
         r = collect_oneapi(a.timezone, a.state_path, a.since, a.until, days=a.days)
+        _write_status_best_effort(
+            a.status_out,
+            successful_status_metadata(r, timezone=a.timezone),
+        )
         print(json.dumps(r, ensure_ascii=False, indent=2))
-    except (FileNotFoundError, RuntimeError, ValueError) as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        sys.exit(1)
+    except OneApiCollectorError as e:
+        _write_status_best_effort(
+            a.status_out,
+            failed_status_metadata(e, timezone=a.timezone),
+        )
+        print(f"ERROR[{e.error_code}]: {e}", file=sys.stderr)
+        sys.exit(e.exit_code)
+    except ValueError:
+        error = OneApiRefreshFailed("One API collector arguments are invalid")
+        _write_status_best_effort(
+            a.status_out,
+            failed_status_metadata(error, timezone=a.timezone),
+        )
+        print(f"ERROR[{error.error_code}]: {error}", file=sys.stderr)
+        sys.exit(error.exit_code)
+    except Exception:
+        error = OneApiRefreshFailed("One API collector failed unexpectedly")
+        _write_status_best_effort(
+            a.status_out,
+            failed_status_metadata(error, timezone=a.timezone),
+        )
+        print(f"ERROR[{error.error_code}]: {error}", file=sys.stderr)
+        sys.exit(error.exit_code)

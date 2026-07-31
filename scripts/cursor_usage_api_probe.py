@@ -17,6 +17,10 @@ from urllib import error, request
 BASE_URL = "https://api2.cursor.sh"
 CURSOR_STATE_KEY = "src.vs.platform.reactivestorage.browser.reactiveStorageServiceImpl.persistentStorage.applicationUser"
 CURSOR_USAGE_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
+CURSOR_AGGREGATE_BOUNDARIES = (
+    dt.datetime(2025, 8, 1, tzinfo=dt.timezone.utc),
+    dt.datetime(2026, 5, 14, tzinfo=dt.timezone.utc),
+)
 USAGE_FIELDS = [
     "inputTokens",
     "outputTokens",
@@ -138,13 +142,49 @@ def redact(value: Any, token: str, email: str) -> Any:
     if isinstance(value, list):
         return [redact(item, token, email) for item in value]
     if isinstance(value, str):
-        text = value.replace(token, "<access-token>")
+        text = value
+        if token:
+            text = text.replace(token, "<access-token>")
         if email:
             text = text.replace(email, "<email>")
         text = re.sub(r"Bearer\s+[A-Za-z0-9._-]+", "Bearer <token>", text)
         text = re.sub(r"sk-[A-Za-z0-9_-]{20,}", "sk-<redacted>", text)
         return text
     return value
+
+
+def redacted_error_summary(
+    value: Any,
+    token: str = "",
+    email: str = "",
+    *,
+    limit: int = 800,
+) -> dict[str, Any]:
+    """Return a bounded diagnostic safe to persist or include in logs."""
+    redacted = redact(value, token, email) if token or email else value
+    error_code = str(redacted.get("code") or "") if isinstance(redacted, dict) else ""
+    text = json.dumps(redacted, ensure_ascii=True, sort_keys=True)
+    truncated = len(text) > limit
+    if truncated:
+        text = text[:limit] + "..."
+    return {
+        "error_code": error_code,
+        "body": text,
+        "truncated": truncated,
+    }
+
+
+def split_aggregate_windows(start_ms: int, end_ms: int) -> list[tuple[int, int]]:
+    """Split a half-open range at Cursor's known usage-backend boundaries."""
+    if end_ms <= start_ms:
+        return []
+    boundaries = [
+        int(boundary.timestamp() * 1000)
+        for boundary in CURSOR_AGGREGATE_BOUNDARIES
+        if start_ms < int(boundary.timestamp() * 1000) < end_ms
+    ]
+    points = [start_ms, *boundaries, end_ms]
+    return list(zip(points, points[1:]))
 
 
 class CursorClient:
@@ -206,9 +246,13 @@ def save_response(
     email: str,
 ) -> Any:
     decoded = decode_json(raw)
-    redacted = redact(decoded, token, email)
+    persisted = (
+        redacted_error_summary(decoded, token, email)
+        if not (200 <= status < 300)
+        else redact(decoded, token, email)
+    )
     (out_dir / f"{name}.json").write_text(
-        json.dumps(redacted, indent=2, ensure_ascii=True) + "\n",
+        json.dumps(persisted, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
     metadata = {
@@ -216,13 +260,13 @@ def save_response(
         "ok": 200 <= status < 300,
         "content_type": headers.get("Content-Type") or headers.get("content-type") or "",
         "bytes": len(raw),
-        "top_keys": list(redacted.keys()) if isinstance(redacted, dict) else [],
+        "top_keys": list(persisted.keys()) if isinstance(persisted, dict) else [],
     }
     (out_dir / f"{name}.meta.json").write_text(
         json.dumps(metadata, indent=2, ensure_ascii=True) + "\n",
         encoding="utf-8",
     )
-    return redacted
+    return persisted
 
 
 def ms_to_iso(value: Any) -> str:
@@ -270,11 +314,12 @@ def normalize_event_rows(response: dict[str, Any]) -> list[dict[str, Any]]:
                 "output_tokens": token_usage.get("outputTokens", ""),
                 "cache_write_tokens": token_usage.get("cacheWriteTokens", ""),
                 "cache_read_tokens": token_usage.get("cacheReadTokens", ""),
-                "total_cents": token_usage.get("totalCents", item.get("chargedCents", "")),
-                "total_usd": cents_to_usd(token_usage.get("totalCents", item.get("chargedCents", ""))),
+                "estimated_raw_cents": token_usage.get("totalCents", ""),
+                "estimated_raw_usd": cents_to_usd(token_usage.get("totalCents", "")),
                 "request_costs": item.get("requestsCosts", ""),
                 "usage_based_costs": item.get("usageBasedCosts", ""),
                 "charged_cents": item.get("chargedCents", ""),
+                "charged_usd": cents_to_usd(item.get("chargedCents", "")),
                 "client_type": item.get("clientType", ""),
                 "is_headless": item.get("isHeadless", ""),
                 "is_chargeable": item.get("isChargeable", ""),
@@ -384,7 +429,7 @@ def main() -> int:
     cycle_start = safe_int(current_cycle.get("startDateEpochMillis"))
     cycle_end = safe_int(current_cycle.get("endDateEpochMillis"))
 
-    aggregate_bodies = {
+    aggregate_ranges = {
         "full_history": {
             "teamId": team_id,
             "userId": user_id,
@@ -400,24 +445,52 @@ def main() -> int:
     }
     aggregate_rows: list[dict[str, Any]] = []
     aggregate_totals: dict[str, Any] = {}
-    for label, body in aggregate_bodies.items():
-        status, headers, raw = client.dashboard("GetAggregatedUsageEvents", body)
-        response = save_response(out_dir, f"cursor-aggregated-usage-{label}", status, headers, raw, token, email)
-        if isinstance(response, dict):
-            aggregate_totals[label] = {
-                "start_ms": body["startDate"],
-                "end_ms": body["endDate"],
-                "start": ms_to_iso(body["startDate"]),
-                "end": ms_to_iso(body["endDate"]),
-                "total_input_tokens": safe_int(response.get("totalInputTokens")),
-                "total_output_tokens": safe_int(response.get("totalOutputTokens")),
-                "total_cache_write_tokens": safe_int(response.get("totalCacheWriteTokens")),
-                "total_cache_read_tokens": safe_int(response.get("totalCacheReadTokens")),
-                "total_cost_cents": safe_float(response.get("totalCostCents")),
-                "total_cost_usd": cents_to_usd(response.get("totalCostCents")),
-                "model_count": len(response.get("aggregations") or []),
+    for label, request_range in aggregate_ranges.items():
+        windows = split_aggregate_windows(
+            safe_int(request_range["startDate"]),
+            safe_int(request_range["endDate"]),
+        )
+        for index, (window_start, window_end) in enumerate(windows, start=1):
+            window_label = f"{label}-{index:02d}"
+            body = {
+                "teamId": team_id,
+                "userId": user_id,
+                "startDate": window_start,
+                "endDate": window_end,
             }
-            aggregate_rows.extend(normalize_aggregation_rows(response, label))
+            status, headers, raw = client.dashboard("GetAggregatedUsageEvents", body)
+            response = save_response(
+                out_dir,
+                f"cursor-aggregated-usage-{window_label}",
+                status,
+                headers,
+                raw,
+                token,
+                email,
+            )
+            aggregate_totals[window_label] = {
+                "status": status,
+                "start_ms": window_start,
+                "end_ms": window_end,
+                "start": ms_to_iso(window_start),
+                "end": ms_to_iso(window_end),
+            }
+            if not (200 <= status < 300) or not isinstance(response, dict):
+                if isinstance(response, dict):
+                    aggregate_totals[window_label].update(response)
+                continue
+            aggregate_totals[window_label].update(
+                {
+                    "total_input_tokens": safe_int(response.get("totalInputTokens")),
+                    "total_output_tokens": safe_int(response.get("totalOutputTokens")),
+                    "total_cache_write_tokens": safe_int(response.get("totalCacheWriteTokens")),
+                    "total_cache_read_tokens": safe_int(response.get("totalCacheReadTokens")),
+                    "total_cost_cents": safe_float(response.get("totalCostCents")),
+                    "total_cost_usd": cents_to_usd(response.get("totalCostCents")),
+                    "model_count": len(response.get("aggregations") or []),
+                }
+            )
+            aggregate_rows.extend(normalize_aggregation_rows(response, window_label))
 
     aggregate_csv = out_dir / "cursor-aggregated-usage-by-model.csv"
     write_csv(
@@ -458,11 +531,12 @@ def main() -> int:
             "output_tokens",
             "cache_write_tokens",
             "cache_read_tokens",
-            "total_cents",
-            "total_usd",
+            "estimated_raw_cents",
+            "estimated_raw_usd",
             "request_costs",
             "usage_based_costs",
             "charged_cents",
+            "charged_usd",
             "client_type",
             "is_headless",
             "is_chargeable",
@@ -506,24 +580,44 @@ def main() -> int:
         "evidence_notes": [
             "Uses this computer's local Cursor access token from Cursor globalStorage/state.vscdb.",
             "Does not print tokens, API keys, raw auth IDs, payment IDs, or email addresses.",
-            "GetAggregatedUsageEvents with teamId 0 returns individual-account usage on this machine.",
+            "GetAggregatedUsageEvents is split at known backend boundaries and is diagnostic only.",
             "GetFilteredUsageEvents is paginated; default export fetches only the first few pages unless --all-pages is used.",
         ],
     }
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
-    full = aggregate_totals.get("full_history", {})
-    cycle = aggregate_totals.get("current_cycle", {})
+    def sum_aggregate_period(prefix: str) -> dict[str, Any]:
+        rows = [
+            row
+            for label, row in aggregate_totals.items()
+            if label.startswith(f"{prefix}-") and isinstance(row, dict)
+        ]
+        return {
+            "windows": len(rows),
+            "successful_windows": sum(
+                1 for row in rows if 200 <= safe_int(row.get("status")) < 300
+            ),
+            "total_input_tokens": sum(safe_int(row.get("total_input_tokens")) for row in rows),
+            "total_output_tokens": sum(safe_int(row.get("total_output_tokens")) for row in rows),
+            "total_cache_write_tokens": sum(safe_int(row.get("total_cache_write_tokens")) for row in rows),
+            "total_cache_read_tokens": sum(safe_int(row.get("total_cache_read_tokens")) for row in rows),
+            "total_cost_usd": sum(safe_float(row.get("total_cost_usd")) for row in rows),
+        }
+
+    full = sum_aggregate_period("full_history")
+    cycle = sum_aggregate_period("current_cycle")
     print(f"Output directory: {out_dir}")
     print(f"Cursor account: membership={account['membership']} subscription={account['subscription_status']} token_pricing={account['has_token_based_pricing']}")
     print(
         "Cursor full-history aggregate: "
+        f"windows={full.get('successful_windows', 0)}/{full.get('windows', 0)} "
         f"input={full.get('total_input_tokens', 0)} output={full.get('total_output_tokens', 0)} "
         f"cache_write={full.get('total_cache_write_tokens', 0)} cache_read={full.get('total_cache_read_tokens', 0)} "
         f"cost=${full.get('total_cost_usd', 0):.2f}"
     )
     print(
         "Cursor current-cycle aggregate: "
+        f"windows={cycle.get('successful_windows', 0)}/{cycle.get('windows', 0)} "
         f"input={cycle.get('total_input_tokens', 0)} output={cycle.get('total_output_tokens', 0)} "
         f"cache_write={cycle.get('total_cache_write_tokens', 0)} cache_read={cycle.get('total_cache_read_tokens', 0)} "
         f"cost=${cycle.get('total_cost_usd', 0):.2f}"

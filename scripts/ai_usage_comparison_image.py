@@ -10,6 +10,7 @@ import hashlib
 import html
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -33,6 +34,8 @@ MODEL_BREAKDOWN_VERSION = 3
 DEFAULT_MACHINES_DIR = REPO_ROOT / "public" / "machines"
 PINNED_MODEL_PRICES_PATH = SCRIPTS_DIR / "model_prices.v1.json"
 CURSOR_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
+CURSOR_PRICING_VERSION = "cursor-charged-cents-v1"
+CURSOR_PRICING_PROVENANCE = "filtered-events-charged-cents"
 LITELLM_PRICES_URL = (
     "https://raw.githubusercontent.com/BerriAI/litellm/main/"
     "model_prices_and_context_window.json"
@@ -958,9 +961,79 @@ def call_cursor(client: Any, method: str, body: dict[str, Any] | None = None) ->
     except Exception as exc:
         return {"_status": "exception", "_error": f"{type(exc).__name__}: {exc}"}
     if not (200 <= status < 300):
-        return {"_status": status}
+        decoded = cursor_api.decode_json(raw)
+        summary = cursor_api.redacted_error_summary(
+            decoded,
+            str(getattr(client, "token", "") or ""),
+            str(getattr(client, "email", "") or ""),
+        )
+        error_code = str(summary.get("error_code") or "")
+        error_body = str(summary.get("body") or "")
+        label = f"HTTP {status}"
+        if error_code:
+            label += f" {error_code}"
+        if error_body:
+            label += f": {error_body}"
+        return {
+            "_status": status,
+            "_error_code": error_code,
+            "_error_body": error_body,
+            "_error": label,
+        }
     decoded = cursor_api.decode_json(raw)
     return decoded if isinstance(decoded, dict) else {}
+
+
+def fetch_cursor_aggregate_audit(
+    client: Any,
+    *,
+    team_id: int,
+    user_id: int,
+    start_ms: int,
+    end_ms: int,
+) -> dict[str, Any]:
+    """Fetch advisory aggregate totals without gating the event ledger."""
+    fields = (
+        "totalInputTokens",
+        "totalOutputTokens",
+        "totalCacheWriteTokens",
+        "totalCacheReadTokens",
+        "totalCostCents",
+    )
+    totals: dict[str, float] = {field: 0.0 for field in fields}
+    windows: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for window_start, window_end in cursor_api.split_aggregate_windows(start_ms, end_ms):
+        response = call_cursor(
+            client,
+            "GetAggregatedUsageEvents",
+            {
+                "teamId": team_id,
+                "userId": user_id,
+                "startDate": window_start,
+                "endDate": window_end,
+            },
+        )
+        window = {
+            "start_ms": window_start,
+            "end_ms": window_end,
+            "status": response.get("_status", 200),
+        }
+        if response.get("_status"):
+            error = str(response.get("_error") or response.get("_status"))
+            errors.append(error)
+            window["error_code"] = str(response.get("_error_code") or "")
+            window["error_body"] = str(response.get("_error_body") or "")
+        else:
+            for field in fields:
+                totals[field] += safe_float(response.get(field))
+        windows.append(window)
+    return {
+        "available": bool(windows) and not errors,
+        "windows": windows,
+        "totals": totals,
+        "errors": errors,
+    }
 
 
 def fetch_cursor_usage(
@@ -985,16 +1058,14 @@ def fetch_cursor_usage(
     end_ms = end_ms if end_ms is not None else int(dt.datetime.now(tz=dt.timezone.utc).timestamp() * 1000)
     start_ms = start_ms if start_ms is not None else int(CURSOR_START.timestamp() * 1000)
 
-    full_usage = call_cursor(
+    aggregate_audit = fetch_cursor_aggregate_audit(
         client,
-        "GetAggregatedUsageEvents",
-        {"teamId": team_id, "userId": user_id, "startDate": start_ms, "endDate": end_ms},
+        team_id=team_id,
+        user_id=user_id,
+        start_ms=start_ms,
+        end_ms=end_ms,
     )
     cursor_errors: list[str] = []
-    aggregated_available = bool(full_usage) and not full_usage.get("_status")
-    if full_usage.get("_status"):
-        cursor_errors.append(f"GetAggregatedUsageEvents failed: {full_usage.get('_error') or full_usage.get('_status')}")
-        full_usage = {}
 
     expected_event_count: int | None = None
     first_event = ""
@@ -1005,12 +1076,14 @@ def fetch_cursor_usage(
     cursor_day_cache_write: dict[str, int] = defaultdict(int)
     cursor_day_cache_read: dict[str, int] = defaultdict(int)
     cursor_day_cost = defaultdict(float)
+    cursor_day_estimated_raw_cost = defaultdict(float)
     cursor_day_models: dict[str, dict[str, dict[str, Any]]] = defaultdict(
         lambda: defaultdict(lambda: {"tokens": 0, "cost": 0.0})
     )
     page = 1
     filtered_complete = True
     processed_events = 0
+    invalid_charged_cost_events = 0
     while True:
         response = call_cursor(
             client,
@@ -1057,28 +1130,49 @@ def fetch_cursor_usage(
                 first_event = min(first_event, timestamp) if first_event else timestamp
                 last_event = max(last_event, timestamp) if last_event else timestamp
             day_key = ms_to_calendar_date(event.get("timestamp_ms"), timezone)
-            if day_key:
-                input_tokens = safe_int(event.get("input_tokens"))
-                output_tokens = safe_int(event.get("output_tokens"))
-                cache_write_tokens = safe_int(event.get("cache_write_tokens"))
-                cache_read_tokens = safe_int(event.get("cache_read_tokens"))
-                cursor_day_input[day_key] += input_tokens
-                cursor_day_output[day_key] += output_tokens
-                cursor_day_cache_write[day_key] += cache_write_tokens
-                cursor_day_cache_read[day_key] += cache_read_tokens
-                cursor_day_tokens[day_key] += (
-                    input_tokens + output_tokens + cache_write_tokens + cache_read_tokens
-                )
-                cents = safe_float(event.get("total_cents"))
-                if cents <= 0:
-                    cents = safe_float(event.get("charged_cents"))
-                cursor_day_cost[day_key] += cents / 100
-                model_name = str(event.get("model") or "Unattributed").strip()
-                model_tokens = (
-                    input_tokens + output_tokens + cache_write_tokens + cache_read_tokens
-                )
-                cursor_day_models[day_key][model_name]["tokens"] += model_tokens
-                cursor_day_models[day_key][model_name]["cost"] += cents / 100
+            if not day_key:
+                filtered_complete = False
+                continue
+            input_tokens = safe_int(event.get("input_tokens"))
+            output_tokens = safe_int(event.get("output_tokens"))
+            cache_write_tokens = safe_int(event.get("cache_write_tokens"))
+            cache_read_tokens = safe_int(event.get("cache_read_tokens"))
+            cursor_day_input[day_key] += input_tokens
+            cursor_day_output[day_key] += output_tokens
+            cursor_day_cache_write[day_key] += cache_write_tokens
+            cursor_day_cache_read[day_key] += cache_read_tokens
+            cursor_day_tokens[day_key] += (
+                input_tokens + output_tokens + cache_write_tokens + cache_read_tokens
+            )
+            raw_charged_cents = event.get("charged_cents")
+            try:
+                if (
+                    raw_charged_cents is None
+                    or isinstance(raw_charged_cents, bool)
+                    or (
+                        isinstance(raw_charged_cents, str)
+                        and not raw_charged_cents.strip()
+                    )
+                ):
+                    raise ValueError("missing chargedCents")
+                charged_cents = float(raw_charged_cents)
+                if not math.isfinite(charged_cents):
+                    raise ValueError("non-finite chargedCents")
+            except (TypeError, ValueError):
+                charged_cents = 0.0
+                invalid_charged_cost_events += 1
+                filtered_complete = False
+            estimated_raw_cents = safe_float(event.get("estimated_raw_cents"))
+            if not math.isfinite(estimated_raw_cents):
+                estimated_raw_cents = 0.0
+            cursor_day_cost[day_key] += charged_cents / 100
+            cursor_day_estimated_raw_cost[day_key] += estimated_raw_cents / 100
+            model_name = str(event.get("model") or "Unattributed").strip()
+            model_tokens = (
+                input_tokens + output_tokens + cache_write_tokens + cache_read_tokens
+            )
+            cursor_day_models[day_key][model_name]["tokens"] += model_tokens
+            cursor_day_models[day_key][model_name]["cost"] += charged_cents / 100
         if len(events) < page_size or (
             expected_event_count is not None
             and page * page_size >= expected_event_count
@@ -1086,33 +1180,60 @@ def fetch_cursor_usage(
             break
         page += 1
 
-    total_tokens = (
-        safe_int(full_usage.get("totalInputTokens"))
-        + safe_int(full_usage.get("totalOutputTokens"))
-        + safe_int(full_usage.get("totalCacheWriteTokens"))
-        + safe_int(full_usage.get("totalCacheReadTokens"))
-    )
-    aggregate_cost = safe_float(full_usage.get("totalCostCents")) / 100
+    total_input = sum(cursor_day_input.values())
+    total_output = sum(cursor_day_output.values())
+    total_cache_write = sum(cursor_day_cache_write.values())
+    total_cache_read = sum(cursor_day_cache_read.values())
     filtered_tokens = sum(cursor_day_tokens.values())
     filtered_cost = sum(cursor_day_cost.values())
-    aggregate_matches_events = (
-        aggregated_available
-        and filtered_tokens == total_tokens
-        and abs(filtered_cost - aggregate_cost)
-        <= max(1e-9, abs(aggregate_cost) * 1e-9)
-    )
-    if aggregated_available and not aggregate_matches_events:
+    filtered_estimated_raw_cost = sum(cursor_day_estimated_raw_cost.values())
+    if invalid_charged_cost_events:
         cursor_errors.append(
-            "Cursor aggregate/event totals mismatch: "
-            f"tokens={filtered_tokens}/{total_tokens}, "
-            f"cost={filtered_cost}/{aggregate_cost}"
+            "GetFilteredUsageEvents returned missing or invalid chargedCents "
+            f"for {invalid_charged_cost_events} event(s)"
         )
     collection_complete = (
         filtered_complete
         and expected_event_count is not None
         and processed_events == expected_event_count
-        and aggregate_matches_events
     )
+    aggregate_totals = (
+        aggregate_audit.get("totals")
+        if isinstance(aggregate_audit.get("totals"), dict)
+        else {}
+    )
+    aggregate_tokens = (
+        safe_int(aggregate_totals.get("totalInputTokens"))
+        + safe_int(aggregate_totals.get("totalOutputTokens"))
+        + safe_int(aggregate_totals.get("totalCacheWriteTokens"))
+        + safe_int(aggregate_totals.get("totalCacheReadTokens"))
+    )
+    aggregate_cost = safe_float(aggregate_totals.get("totalCostCents")) / 100
+    audit_warnings = list(aggregate_audit.get("errors") or [])
+    if aggregate_audit.get("available"):
+        token_delta = filtered_tokens - aggregate_tokens
+        cost_delta = filtered_cost - aggregate_cost
+        token_tolerance = max(1, round(abs(aggregate_tokens) * 0.01))
+        cost_tolerance = max(0.01, abs(aggregate_cost) * 0.01)
+        within_tolerance = (
+            abs(token_delta) <= token_tolerance
+            and abs(cost_delta) <= cost_tolerance
+        )
+        aggregate_audit["filtered_delta"] = {
+            "tokens": token_delta,
+            "billed_cost": cost_delta,
+        }
+        aggregate_audit["within_tolerance"] = within_tolerance
+        aggregate_audit["relative_tolerance"] = 0.01
+        if not within_tolerance:
+            audit_warnings.append(
+                "Cursor aggregate audit differs from filtered events by more than 1%: "
+                f"tokens={token_delta}, billed_cost={cost_delta:.6f}"
+            )
+    else:
+        aggregate_audit["filtered_delta"] = None
+        aggregate_audit["within_tolerance"] = None
+    aggregate_audit["warnings"] = audit_warnings
     daily_timeline = [
         {
             "date": d,
@@ -1128,10 +1249,11 @@ def fetch_cursor_usage(
                     for model_name, values in cursor_day_models[d].items()
                 ]
             ),
+            "estimated_raw_cost": cursor_day_estimated_raw_cost[d],
             "snapshot_complete": collection_complete,
-            "pricing_version": "cursor-billed",
+            "pricing_version": CURSOR_PRICING_VERSION,
             "pricing_complete": collection_complete,
-            "pricing_provenance": "billed-dashboard",
+            "pricing_provenance": CURSOR_PRICING_PROVENANCE,
         }
         for d in sorted(cursor_day_tokens.keys())
     ]
@@ -1170,13 +1292,15 @@ def fetch_cursor_usage(
             "first": first_event or cursor_api.ms_to_iso(start_ms),
             "last": last_event or cursor_api.ms_to_iso(end_ms),
             "events": expected_event_count or 0,
-            "input": safe_int(full_usage.get("totalInputTokens")),
-            "output": safe_int(full_usage.get("totalOutputTokens")),
-            "cache_write": safe_int(full_usage.get("totalCacheWriteTokens")),
-            "cache_read": safe_int(full_usage.get("totalCacheReadTokens")),
-            "total_tokens": total_tokens,
-            "cost": aggregate_cost,
+            "input": total_input,
+            "output": total_output,
+            "cache_write": total_cache_write,
+            "cache_read": total_cache_read,
+            "total_tokens": filtered_tokens,
+            "cost": filtered_cost,
+            "estimated_raw_cost": filtered_estimated_raw_cost,
         },
+        "aggregate_audit": aggregate_audit,
         "daily_timeline": daily_timeline,
         "error": "; ".join(cursor_errors),
     }
@@ -1980,6 +2104,9 @@ SOURCE_STATUS_ERRORS = {
     "cursor": {"cursor_incomplete", "cursor_unavailable"},
     "oneapi": {
         "oneapi_incomplete",
+        "oneapi_browser_unavailable",
+        "oneapi_network_unavailable",
+        "oneapi_reauth_required",
         "oneapi_refresh_failed",
         "oneapi_state_unavailable",
         "oneapi_unavailable",
@@ -2239,6 +2366,10 @@ def reconcile_source_status(
 
 
 def cursor_mutable_from(payload: dict[str, Any], today: str) -> str:
+    if str(payload.get("cursor_pricing_version") or "") != CURSOR_PRICING_VERSION:
+        # Reopen the returned event window once when the authoritative cost
+        # field changes. Dates absent from the API remain preserved.
+        return ""
     raw = str(payload.get("cursor_mutable_from") or "").strip()
     if not raw:
         # Legacy reports froze each previous snapshot too early.  Reopen the
@@ -2635,6 +2766,7 @@ def collect_usage(
     force_reseed: bool = False,
     oneapi_days: int = 5,
     oneapi_cache_path: Path | None = None,
+    skip_oneapi_live: bool = False,
 ) -> dict[str, Any]:
     mid = machine_fragments.resolve_machine_id(machine_id)
     machines_path = Path(machines_dir) if machines_dir else DEFAULT_MACHINES_DIR
@@ -2645,6 +2777,10 @@ def collect_usage(
     attempted_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     prior_cursor_mutable_from = cursor_mutable_from(prior_payload, today)
     next_cursor_mutable_from = prior_cursor_mutable_from
+    prior_cursor_pricing_version = str(
+        prior_payload.get("cursor_pricing_version") or ""
+    )
+    next_cursor_pricing_version = prior_cursor_pricing_version
     cursor_reconciliation_stats: dict[str, Any] = {}
     fragment_meta: dict[str, Any] = {}
     cursor_refresh_error = ""
@@ -2852,6 +2988,14 @@ def collect_usage(
             cursor_reconciliation_stats,
         )
 
+    cursor_aggregate_audit = (
+        cursor_usage.get("aggregate_audit")
+        if isinstance(cursor_usage.get("aggregate_audit"), dict)
+        else {}
+    )
+    for warning in cursor_aggregate_audit.get("warnings") or []:
+        print(f"WARN: Cursor aggregate audit: {warning}", file=sys.stderr)
+
     # One API is the residual gateway source. Historical local Comate records are
     # retained under it only when no gateway record exists for the same date.
     oneapi_state_path = os.environ.get(
@@ -2905,7 +3049,38 @@ def collect_usage(
             print(f"WARN: failed to load cached One API snapshot; falling back to live fetch: {exc}", file=sys.stderr)
             oneapi_cache_path = None
 
-    if not oneapi_cache_loaded and Path(oneapi_state_path).exists():
+    if not oneapi_cache_loaded and skip_oneapi_live:
+        status_path = Path(
+            os.environ.get(
+                "ONEAPI_STATUS_PATH",
+                str(
+                    Path(oneapi_state_path).with_name("oneapi-status.json")
+                ),
+            )
+        ).expanduser()
+        attempt_status = load_usage_payload(status_path)
+        attempt_error = str(attempt_status.get("error_code") or "")
+        oneapi_status_error = (
+            attempt_error
+            if attempt_error in SOURCE_STATUS_ERRORS["oneapi"]
+            else "oneapi_refresh_failed"
+        )
+        note = (
+            "One API was already attempted in this publish run; "
+            "kept prior compatible series."
+        )
+        print(f"WARN: {note} ({oneapi_status_error})", file=sys.stderr)
+        oneapi_refresh_error = note
+        oneapi_data = {
+            **prior_oneapi,
+            "available": False,
+            "complete": False,
+            "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+            "stale": True,
+            "note": note,
+            "state_path": oneapi_state_path,
+        }
+    elif not oneapi_cache_loaded and Path(oneapi_state_path).exists():
         try:
             oneapi_data = oneapi_usage.collect_oneapi(
                 timezone=timezone,
@@ -2934,7 +3109,11 @@ def collect_usage(
                 note += " Legacy pre-v2 One API values were not retained."
             print(f"WARN: {note}", file=sys.stderr)
             oneapi_refresh_error = note
-            oneapi_status_error = "oneapi_refresh_failed"
+            oneapi_status_error = (
+                str(exc.error_code)
+                if isinstance(exc, oneapi_usage.OneApiCollectorError)
+                else "oneapi_refresh_failed"
+            )
             oneapi_data = {
                 **prior_oneapi,
                 "available": False,
@@ -3040,6 +3219,8 @@ def collect_usage(
         attempted_at=attempted_at,
         today=today,
     )
+    if cursor_api_complete:
+        next_cursor_pricing_version = CURSOR_PRICING_VERSION
 
     daily_rows = reconcile_oneapi_rows(
         daily_rows,
@@ -3119,6 +3300,7 @@ def collect_usage(
         {
             "schema_version": PUBLIC_SCHEMA_VERSION,
             "pricing_version": PRICING_VERSION,
+            "cursor_pricing_version": next_cursor_pricing_version,
             "machines": machine_ids,
             "cursor_snapshot_id": cursor_usage.get("snapshot_id"),
             "oneapi_snapshot_id": oneapi_data.get("snapshot_id"),
@@ -3146,6 +3328,7 @@ def collect_usage(
         },
         "cursor_fallback_note": cursor_fallback_note,
         "cursor_mutable_from": next_cursor_mutable_from,
+        "cursor_pricing_version": next_cursor_pricing_version,
         "cursor_reconciliation": cursor_reconciliation_stats,
         "source_status": source_status,
     }
@@ -4296,6 +4479,14 @@ def main() -> int:
                         help="One API lookback days from today (default 5).")
     parser.add_argument("--oneapi-cache-path", type=str, default="",
                         help="Path to a pre-collected One API JSON snapshot to skip live fetch.")
+    parser.add_argument(
+        "--skip-oneapi-live",
+        action="store_true",
+        help=(
+            "Do not retry One API in merge after this publish run already "
+            "attempted it; retain the prior durable series."
+        ),
+    )
     parser.add_argument("--width", type=int, default=1400)
     parser.add_argument("--height", type=int, default=1000)
     args = parser.parse_args()
@@ -4413,6 +4604,7 @@ def main() -> int:
                 if args.oneapi_cache_path
                 else None
             ),
+            skip_oneapi_live=bool(args.skip_oneapi_live),
         )
         if args.json_out:
             json_path = Path(args.json_out).expanduser()
@@ -4425,6 +4617,7 @@ def main() -> int:
                 "generated_at": data.get("generated_at"),
                 "timezone": data.get("timezone"),
                 "cursor_mutable_from": data.get("cursor_mutable_from"),
+                "cursor_pricing_version": data.get("cursor_pricing_version"),
                 "cursor_reconciliation": data.get("cursor_reconciliation"),
                 "machine_id": data.get("machine_id"),
                 "machines": machines,

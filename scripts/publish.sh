@@ -45,7 +45,9 @@ PULL_RETRY_DELAY_SECONDS="${AI_USAGE_PULL_RETRY_DELAY_SECONDS:-60}"
 AI_USAGE_TIMEZONE="${AI_USAGE_TIMEZONE:-Asia/Shanghai}"
 AI_USAGE_MACHINE_ID="${AI_USAGE_MACHINE_ID:-}"
 ONEAPI_STATE_PATH="${ONEAPI_STATE_PATH:-${HOME}/Library/Application Support/ai-usage-report/oneapi-chrome-state.json}"
+ONEAPI_STATUS_PATH="${ONEAPI_STATUS_PATH:-${HOME}/Library/Application Support/ai-usage-report/oneapi-status.json}"
 export ONEAPI_STATE_PATH
+export ONEAPI_STATUS_PATH
 
 log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -301,7 +303,66 @@ require_oneapi_state() {
   fi
 }
 
+notify_oneapi_status() {
+  [[ -s "$ONEAPI_STATUS_PATH" ]] || return 0
+
+  local notification dedupe_key kind marker_path current_key title message temp_path
+  if ! notification="$(python3 -c '
+import json, sys
+try:
+    payload = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError):
+    raise SystemExit(1)
+notice = payload.get("notification") if isinstance(payload, dict) else {}
+session = payload.get("session") if isinstance(payload, dict) else {}
+if not isinstance(notice, dict) or not notice.get("required"):
+    raise SystemExit(0)
+key = str(notice.get("dedupe_key") or "")
+warning = str(session.get("warning") or "") if isinstance(session, dict) else ""
+if key:
+    print(key + "\t" + ("expiry" if warning == "oneapi_auth_expiring" else "reauth"))
+' "$ONEAPI_STATUS_PATH")"; then
+    log "WARN: could not read One API notification status"
+    return 0
+  fi
+  [[ -n "$notification" ]] || return 0
+  IFS=$'\t' read -r dedupe_key kind <<< "$notification"
+  [[ -n "$dedupe_key" ]] || return 0
+
+  marker_path="${ONEAPI_STATUS_PATH}.last-notification"
+  current_key=""
+  if [[ -r "$marker_path" ]]; then
+    IFS= read -r current_key < "$marker_path" || current_key=""
+  fi
+  [[ "$current_key" != "$dedupe_key" ]] || return 0
+
+  title="AI Usage · One API"
+  if [[ "$kind" == "expiry" ]]; then
+    message="One API 应用会话将在 48 小时内到期；脚本会尝试静默续期，只有 UUAP 要求确认时才需介入。"
+  else
+    message="One API 需要重新登录；历史用量已保留，本次发布不会清零。"
+  fi
+  if /usr/bin/osascript \
+      -e 'on run argv' \
+      -e 'display notification (item 2 of argv) with title (item 1 of argv)' \
+      -e 'end run' \
+      "$title" "$message" >/dev/null 2>&1; then
+    temp_path="${marker_path}.tmp.$$"
+    if printf '%s\n' "$dedupe_key" > "$temp_path" \
+        && chmod 600 "$temp_path" \
+        && mv -f -- "$temp_path" "$marker_path"; then
+      log "One API authentication notification sent"
+    else
+      rm -f -- "$temp_path"
+      log "WARN: One API notification sent but dedupe marker could not be saved"
+    fi
+  else
+    log "WARN: could not send One API macOS notification"
+  fi
+}
+
 ONEAPI_CACHE_READY_PATH=""
+ONEAPI_LIVE_ATTEMPTED=0
 collect_oneapi_cache() {
   local state_path="$ONEAPI_STATE_PATH"
   local cache_path="${ONEAPI_CACHE_PATH:-/tmp/oneapi-cache.json}"
@@ -309,6 +370,12 @@ collect_oneapi_cache() {
   ONEAPI_CACHE_READY_PATH=""
   if [[ ! -f "$state_path" ]]; then
     log "One API state not found; skipping One API account collection"
+    ONEAPI_LIVE_ATTEMPTED=1
+    python3 "$ROOT/scripts/oneapi_usage.py" \
+      --state-path "$state_path" \
+      --status-out "$ONEAPI_STATUS_PATH" \
+      --days 5 >/dev/null 2>/dev/null || true
+    notify_oneapi_status
     return 0
   fi
   cache_dir="$(dirname "$cache_path")"
@@ -326,8 +393,10 @@ collect_oneapi_cache() {
     return 0
   fi
   log "collecting complete five-day One API account snapshot → ${cache_path}"
+  ONEAPI_LIVE_ATTEMPTED=1
   if python3 "$ROOT/scripts/oneapi_usage.py" \
       --state-path "$state_path" \
+      --status-out "$ONEAPI_STATUS_PATH" \
       --days 5 \
       > "$temp_path" \
       2> >(while IFS= read -r line; do log "oneapi: $line"; done >&2); then
@@ -342,11 +411,8 @@ collect_oneapi_cache() {
     local rc=$?
     rm -f -- "$temp_path"
     log "WARN: One API collection failed (exit ${rc}); merge will keep the prior published series"
-    if [[ -s "$cache_path" ]]; then
-      ONEAPI_CACHE_READY_PATH="$cache_path"
-      log "WARN: passing the existing One API cache to the strict snapshot validator"
-    fi
   fi
+  notify_oneapi_status
 }
 
 remerge_usage() {
@@ -356,6 +422,9 @@ remerge_usage() {
   fi
   if [[ -n "$ONEAPI_CACHE_READY_PATH" ]]; then
     extra_args+=(--oneapi-cache-path "$ONEAPI_CACHE_READY_PATH")
+  fi
+  if (( ONEAPI_LIVE_ATTEMPTED )); then
+    extra_args+=(--skip-oneapi-live)
   fi
   log "re-merging machines/*.json + Cursor API → usage.json"
   python3 "$ROOT/scripts/ai_usage_comparison_image.py" \

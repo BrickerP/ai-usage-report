@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import json
 import os
 import subprocess
 import tempfile
@@ -298,7 +299,6 @@ class CursorReconciliationTests(unittest.TestCase):
             "tokenUsage": {"inputTokens": 1},
         }
         responses = [
-            {},
             {"totalUsageEventsCount": 5, "usageEventsDisplay": [event, event]},
             {"usageEventsDisplay": [event]},
         ]
@@ -315,6 +315,11 @@ class CursorReconciliationTests(unittest.TestCase):
             ),
             mock.patch.object(
                 usage_report.cursor_api, "CursorClient", return_value=object()
+            ),
+            mock.patch.object(
+                usage_report,
+                "fetch_cursor_aggregate_audit",
+                return_value={"available": False, "totals": {}, "errors": ["audit"]},
             ),
             mock.patch.object(
                 usage_report, "call_cursor", side_effect=responses
@@ -338,7 +343,7 @@ class CursorReconciliationTests(unittest.TestCase):
             "timestamp": 1_700_000_000_000,
             "tokenUsage": {"inputTokens": 1},
         }
-        responses = [{}, {"usageEventsDisplay": [event]}]
+        responses = [{"usageEventsDisplay": [event]}]
         patches = (
             mock.patch.object(
                 usage_report.cursor_api,
@@ -352,6 +357,11 @@ class CursorReconciliationTests(unittest.TestCase):
             ),
             mock.patch.object(
                 usage_report.cursor_api, "CursorClient", return_value=object()
+            ),
+            mock.patch.object(
+                usage_report,
+                "fetch_cursor_aggregate_audit",
+                return_value={"available": False, "totals": {}, "errors": ["audit"]},
             ),
             mock.patch.object(
                 usage_report, "call_cursor", side_effect=responses
@@ -375,7 +385,6 @@ class CursorReconciliationTests(unittest.TestCase):
             "tokenUsage": {"inputTokens": 1},
         }
         responses = [
-            {},
             {"totalUsageEventsCount": 2, "usageEventsDisplay": [event]},
             {"usageEventsDisplay": [event]},
         ]
@@ -393,6 +402,11 @@ class CursorReconciliationTests(unittest.TestCase):
             mock.patch.object(
                 usage_report.cursor_api, "CursorClient", return_value=object()
             ),
+            mock.patch.object(
+                usage_report,
+                "fetch_cursor_aggregate_audit",
+                return_value={"available": False, "totals": {}, "errors": ["audit"]},
+            ),
             mock.patch.object(usage_report, "call_cursor", side_effect=responses),
         )
         for patcher in patches:
@@ -406,6 +420,179 @@ class CursorReconciliationTests(unittest.TestCase):
                 patcher.stop()
 
         self.assertFalse(result["complete"])
+
+    def test_cursor_filtered_events_are_complete_without_aggregate_and_use_charged_cost(self):
+        event = {
+            "timestamp": 1_785_283_200_000,
+            "model": "cursor-test",
+            "chargedCents": 250,
+            "tokenUsage": {
+                "inputTokens": 10,
+                "outputTokens": 2,
+                "cacheWriteTokens": 3,
+                "cacheReadTokens": 5,
+                "totalCents": 900,
+            },
+        }
+        patches = (
+            mock.patch.object(
+                usage_report.cursor_api,
+                "read_cursor_state",
+                return_value={"access_token": "token", "dashboard_user_id": 1},
+            ),
+            mock.patch.object(
+                usage_report.cursor_api,
+                "cursor_product_version",
+                return_value="test",
+            ),
+            mock.patch.object(
+                usage_report.cursor_api, "CursorClient", return_value=object()
+            ),
+            mock.patch.object(
+                usage_report,
+                "fetch_cursor_aggregate_audit",
+                return_value={
+                    "available": False,
+                    "totals": {},
+                    "errors": ["HTTP 400 invalid_argument"],
+                },
+            ),
+            mock.patch.object(
+                usage_report,
+                "call_cursor",
+                return_value={
+                    "totalUsageEventsCount": 1,
+                    "usageEventsDisplay": [event],
+                },
+            ),
+        )
+        for patcher in patches:
+            patcher.start()
+        try:
+            result = usage_report.fetch_cursor_usage(
+                Path("/tmp"), 10, "Asia/Shanghai"
+            )
+        finally:
+            for patcher in reversed(patches):
+                patcher.stop()
+
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["error"], "")
+        self.assertEqual(result["history"]["events"], 1)
+        self.assertEqual(result["history"]["total_tokens"], 20)
+        self.assertEqual(result["history"]["cost"], 2.5)
+        self.assertEqual(result["history"]["estimated_raw_cost"], 9.0)
+        self.assertEqual(result["daily_timeline"][0]["cost"], 2.5)
+        self.assertEqual(result["daily_timeline"][0]["models"][0]["cost"], 2.5)
+        self.assertFalse(result["aggregate_audit"]["available"])
+
+    def test_cursor_missing_charged_cost_keeps_snapshot_incomplete(self):
+        event = {
+            "timestamp": 1_785_283_200_000,
+            "model": "cursor-test",
+            "tokenUsage": {"inputTokens": 10, "totalCents": 900},
+        }
+        patches = (
+            mock.patch.object(
+                usage_report.cursor_api,
+                "read_cursor_state",
+                return_value={"access_token": "token", "dashboard_user_id": 1},
+            ),
+            mock.patch.object(
+                usage_report.cursor_api,
+                "cursor_product_version",
+                return_value="test",
+            ),
+            mock.patch.object(
+                usage_report.cursor_api, "CursorClient", return_value=object()
+            ),
+            mock.patch.object(
+                usage_report,
+                "fetch_cursor_aggregate_audit",
+                return_value={"available": False, "totals": {}, "errors": []},
+            ),
+            mock.patch.object(
+                usage_report,
+                "call_cursor",
+                return_value={
+                    "totalUsageEventsCount": 1,
+                    "usageEventsDisplay": [event],
+                },
+            ),
+        )
+        for patcher in patches:
+            patcher.start()
+        try:
+            result = usage_report.fetch_cursor_usage(
+                Path("/tmp"), 10, "Asia/Shanghai"
+            )
+        finally:
+            for patcher in reversed(patches):
+                patcher.stop()
+
+        self.assertFalse(result["complete"])
+        self.assertIn("invalid chargedCents", result["error"])
+        self.assertFalse(result["daily_timeline"][0]["pricing_complete"])
+
+    def test_cursor_aggregate_windows_split_at_known_backend_boundaries(self):
+        start = int(usage_report.CURSOR_START.timestamp() * 1000)
+        end = int(
+            usage_report.dt.datetime(
+                2026, 7, 31, tzinfo=usage_report.dt.timezone.utc
+            ).timestamp()
+            * 1000
+        )
+        boundaries = [
+            int(boundary.timestamp() * 1000)
+            for boundary in usage_report.cursor_api.CURSOR_AGGREGATE_BOUNDARIES
+        ]
+
+        self.assertEqual(
+            usage_report.cursor_api.split_aggregate_windows(start, end),
+            [
+                (start, boundaries[0]),
+                (boundaries[0], boundaries[1]),
+                (boundaries[1], end),
+            ],
+        )
+
+    def test_cursor_cost_source_upgrade_reopens_returned_history_once(self):
+        legacy = {
+            "cursor_mutable_from": "2026-07-30",
+            "cursor_pricing_version": "cursor-billed",
+        }
+        upgraded = {
+            **legacy,
+            "cursor_pricing_version": usage_report.CURSOR_PRICING_VERSION,
+        }
+
+        self.assertEqual(usage_report.cursor_mutable_from(legacy, "2026-07-31"), "")
+        self.assertEqual(
+            usage_report.cursor_mutable_from(upgraded, "2026-07-31"),
+            "2026-07-30",
+        )
+
+    def test_cursor_http_error_is_redacted_and_bounded(self):
+        token = "secret-access-token"
+        email = "private@example.com"
+        payload = {
+            "code": "invalid_argument",
+            "message": f"Bearer {token} {email} " + ("x" * 2000),
+        }
+        client = mock.Mock(token=token, email=email)
+        client.dashboard.return_value = (
+            400,
+            {"Content-Type": "application/json"},
+            json.dumps(payload).encode("utf-8"),
+        )
+
+        result = usage_report.call_cursor(client, "GetAggregatedUsageEvents", {})
+
+        self.assertEqual(result["_status"], 400)
+        self.assertEqual(result["_error_code"], "invalid_argument")
+        self.assertNotIn(token, result["_error_body"])
+        self.assertNotIn(email, result["_error_body"])
+        self.assertLessEqual(len(result["_error_body"]), 803)
 
     def test_cursor_refreshes_its_open_window_and_freezes_earlier_dates(self):
         frozen = usage_report.empty_daily_row("2026-07-18")
