@@ -1,23 +1,31 @@
 {
   "schema_version": 3,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-08-02T00:26:03+08:00",
-  "snapshot_id": "sha256:d51dc50773e57d4931c9aaaca79fa10e3140b210f4125fb86d56f8bccc7b69b5",
-  "generated_at": "2026-08-02T00:26:03+08:00",
+  "captured_at": "2026-08-02T02:21:26+08:00",
+  "snapshot_id": "sha256:c6384e282cdbdf486c441ea86ba0d67ff727d7c26f36a1e6c04c2724c30772a0",
+  "generated_at": "2026-08-02T02:21:26+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
     "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23"
+      "2026-07-27",
+      "2026-07-28",
+      "2026-07-29",
+      "2026-07-30",
+      "2026-07-31",
+      "2026-08-01",
+      "2026-08-02"
     ],
-    "regression_kept": 3,
+    "regression_kept": 7,
     "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression"
+      "2026-07-27": "incomplete_snapshot",
+      "2026-07-28": "incomplete_snapshot",
+      "2026-07-29": "incomplete_snapshot",
+      "2026-07-30": "incomplete_snapshot",
+      "2026-07-31": "incomplete_snapshot",
+      "2026-08-01": "incomplete_snapshot",
+      "2026-08-02": "incomplete_snapshot"
     },
     "model_backfilled_dates": [
       "2026-05-22",
@@ -65,7 +73,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m4-local",
+  "machine_id": "mac-wpd",
   "machines": [
     "mac-m4-local",
     "mac-wpd"
@@ -671,41 +679,41 @@
   },
   "source_status": {
     "codex": {
-      "status": "stale",
-      "attempted_at": "2026-08-01T16:22:49+08:00",
-      "last_success_at": "2026-08-01T16:22:49+08:00",
-      "window_end": "2026-08-01",
-      "lag_days": 1,
-      "error": "local_fragments_stale"
+      "status": "fresh",
+      "attempted_at": "2026-08-02T00:05:22+08:00",
+      "last_success_at": "2026-08-02T00:05:22+08:00",
+      "window_end": "2026-08-02",
+      "lag_days": 0,
+      "error": ""
     },
     "claude": {
-      "status": "stale",
-      "attempted_at": "2026-08-01T16:22:49+08:00",
-      "last_success_at": "2026-08-01T16:22:49+08:00",
-      "window_end": "2026-08-01",
-      "lag_days": 1,
-      "error": "local_fragments_stale"
+      "status": "fresh",
+      "attempted_at": "2026-08-02T00:05:22+08:00",
+      "last_success_at": "2026-08-02T00:05:22+08:00",
+      "window_end": "2026-08-02",
+      "lag_days": 0,
+      "error": ""
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-08-02T00:25:45+08:00",
+      "status": "stale",
+      "attempted_at": "2026-08-02T01:40:09+08:00",
       "last_success_at": "2026-08-02T00:25:45+08:00",
       "window_end": "2026-08-02",
       "lag_days": 0,
-      "error": ""
+      "error": "cursor_incomplete"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-08-02T00:25:45+08:00",
+      "status": "stale",
+      "attempted_at": "2026-08-02T01:40:09+08:00",
       "last_success_at": "2026-08-02T00:25:45+08:00",
       "window_end": "2026-08-02",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_state_unavailable"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-08-02T00:25:45.668491+08:00",
     "snapshot_id": "sha256:f42c89d6afca089651937bab3d5f7bb5099540094dd3b13813e931e7b319de63",
@@ -1301,15 +1309,15 @@
       "records_after_deduplication": 9355,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "2026-07-13",
-        "last": "2026-07-15"
+        "first": "",
+        "last": ""
       },
-      "total_tokens": 2756710,
+      "total_tokens": 0,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
