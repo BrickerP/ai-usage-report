@@ -3,9 +3,9 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m4-local",
   "hostname": "yupengdeMacBook-Pro.local",
-  "collected_at": "2026-08-03T00:05:21+08:00",
-  "captured_at": "2026-08-03T00:05:21+08:00",
-  "snapshot_id": "mac-m4-local@2026-08-03T00:05:21+08:00",
+  "collected_at": "2026-08-03T01:07:38+08:00",
+  "captured_at": "2026-08-03T01:07:38+08:00",
+  "snapshot_id": "mac-m4-local@2026-08-03T01:07:38+08:00",
   "seeded_at": "2026-07-16T00:50:23+08:00",
   "seeded": true,
   "append_mode": true,
@@ -15,7 +15,7 @@
     "frozen_kept": 13,
     "appended": 0,
     "refreshed": 7,
-    "today_updated": 0,
+    "today_updated": 1,
     "skipped": 0,
     "regression_kept": 1,
     "regression_dates": [
@@ -26,18 +26,10 @@
     },
     "pricing_changes": [
       {
-        "date": "2026-08-02",
+        "date": "2026-08-03",
         "tool": "codex",
-        "from": 11.4389346,
-        "to": 15.404053600000001,
-        "pricing_version": "2026-07-31.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-08-02",
-        "tool": "claude",
-        "from": 0.0,
-        "to": 114.470315,
+        "from": 2.0498,
+        "to": 2.9716017999999997,
         "pricing_version": "2026-07-31.v1",
         "pricing_complete": true
       }
@@ -1394,6 +1386,74 @@
           "pricing_provenance": "pinned-ledger",
           "input": 22718098,
           "output": 35193,
+          "cache_read": 0,
+          "cache_create": 0,
+          "canonical_model": "claude-opus-5",
+          "pricing_version": "2026-07-31.v1"
+        }
+      ],
+      "claude_snapshot_complete": true,
+      "claude_pricing_version": "2026-07-31.v1",
+      "claude_pricing_complete": true,
+      "claude_pricing_provenance": "pinned-ledger"
+    },
+    {
+      "date": "2026-08-03",
+      "codex_tokens": 13598493,
+      "codex_cost": 2.9716017999999997,
+      "codex_input": 766313,
+      "codex_cache_read": 12782336,
+      "codex_output": 49844,
+      "codex_reasoning": 24355,
+      "claude_tokens": 14127757,
+      "claude_cost": 71.11984500000001,
+      "claude_input": 14103704,
+      "claude_cache_create": 0,
+      "claude_cache_read": 0,
+      "claude_output": 24053,
+      "codex_models": [
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 12789264,
+          "cost": 2.1866128,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 688472,
+          "output": 48824,
+          "cache_read": 12051968,
+          "cache_create": 0,
+          "reasoning": 24052,
+          "canonical_model": "gpt-5.6-luna",
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 809229,
+          "cost": 0.784989,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 77841,
+          "output": 1020,
+          "cache_read": 730368,
+          "cache_create": 0,
+          "reasoning": 303,
+          "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
+        }
+      ],
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "pinned-ledger",
+      "claude_models": [
+        {
+          "model": "claude-opus-5",
+          "tokens": 14127757,
+          "cost": 71.11984500000001,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 14103704,
+          "output": 24053,
           "cache_read": 0,
           "cache_create": 0,
           "canonical_model": "claude-opus-5",
