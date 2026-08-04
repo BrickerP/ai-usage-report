@@ -5,6 +5,7 @@ import {
   AriaComponent,
   AxisPointerComponent,
   GridComponent,
+  MarkLineComponent,
   TooltipComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -30,6 +31,7 @@ echarts.use([
   GridComponent,
   TooltipComponent,
   AxisPointerComponent,
+  MarkLineComponent,
   CanvasRenderer,
 ])
 
@@ -81,6 +83,75 @@ function capFor(index: number, count: number): 'top' | 'mid' | 'bot' {
   if (count <= 1 || index === count - 1) return 'top'
   if (index === 0) return 'bot'
   return 'mid'
+}
+
+type SkylineLayer = 'ground' | 'sky'
+
+type PeakGroup = {
+  recordFloor: number
+  peakIndices: number[]
+  skyMax: number
+}
+
+function findPeakGroup(values: number[]): PeakGroup {
+  const peakTokens = Math.max(...values, 0)
+  const defaultFloor = Math.max(peakTokens * 1.16, 1)
+  const sorted = values
+    .filter((value) => value > 0)
+    .sort((a, b) => a - b)
+
+  if (sorted.length < 2) {
+    return { recordFloor: defaultFloor, peakIndices: [], skyMax: 0 }
+  }
+
+  let gapIndex = -1
+  let gapRatio = 1
+  for (let index = 1; index < sorted.length; index += 1) {
+    const ratio = sorted[index] / Math.max(sorted[index - 1], Number.EPSILON)
+    if (ratio >= gapRatio) {
+      gapIndex = index
+      gapRatio = ratio
+    }
+  }
+
+  const upperCount = gapIndex >= 0 ? sorted.length - gapIndex : 0
+  const upperLimit = Math.max(2, Math.ceil(sorted.length * 0.25))
+  const hasPeakGroup =
+    gapIndex > 0 && gapRatio >= 2.25 && upperCount <= upperLimit
+
+  if (!hasPeakGroup) {
+    return { recordFloor: defaultFloor, peakIndices: [], skyMax: 0 }
+  }
+
+  const bodyMax = sorted[gapIndex - 1]
+  const recordFloor = Math.max(bodyMax * 1.16, 1)
+  const peakIndices = values
+    .map((value, index) => (value > recordFloor ? index : -1))
+    .filter((index) => index >= 0)
+  const skyMax = Math.max(
+    ...values.map((value) => Math.max(value - recordFloor, 0)),
+    0,
+  )
+
+  return { recordFloor, peakIndices, skyMax }
+}
+
+function stackSegment(
+  values: number[],
+  index: number,
+  floor: number,
+  layer: SkylineLayer,
+) {
+  let start = 0
+  for (let seriesIndex = 0; seriesIndex < index; seriesIndex += 1) {
+    start += values[seriesIndex] ?? 0
+  }
+  const end = start + (values[index] ?? 0)
+
+  if (layer === 'ground') {
+    return Math.max(Math.min(end, floor) - Math.min(start, floor), 0)
+  }
+  return Math.max(end - Math.max(start, floor), 0)
 }
 
 function escapeHtml(value: string) {
@@ -139,7 +210,8 @@ export function UsageCharts({
 
     const onClick = (rawParams: unknown) => {
       const params = rawParams as { seriesId?: string }
-      const seriesId = String(params.seriesId || '')
+      const rawSeriesId = String(params.seriesId || '')
+      const seriesId = rawSeriesId.replace(/^(?:ground|sky):/, '')
       const state = stateRef.current
       if (!state.selectedTool && seriesId.startsWith('tool:')) {
         const toolId = seriesId.slice('tool:'.length) as ToolId
@@ -189,104 +261,132 @@ export function UsageCharts({
           ? num(row, activeTool.costKey)
           : TOOLS.reduce((sum, tool) => sum + num(row, tool.costKey), 0),
     )
-    // Daily stacked-token totals (for peak-cap detection + peak labels).
+    // Daily stacked-token totals (for record-skyline detection + labels).
     const totalDayTokens = daily.map((row) =>
-      activeTool && focusedSeries
-        ? modelSeriesPoint(row, activeTool.id, focusedSeries).tokens
-        : activeTool
-          ? num(row, activeTool.tokenKey)
-          : TOOLS.reduce((sum, tool) => sum + num(row, tool.tokenKey), 0),
+      activeTool
+        ? num(row, activeTool.tokenKey)
+        : TOOLS.reduce((sum, tool) => sum + num(row, tool.tokenKey), 0),
     )
-    // Peak-cap (broken-bar) logic: when the max day dwarfs the rest of the
-    // distribution, cap the y-axis so normal days stay readable. The capped
-    // peak day is then "crowned" — a gold tiara marker + true-value badge on
-    // top — so the extreme day becomes a deliberate show-off focal point
-    // instead of a wall that flattens every other bar.
-    const sortedTotals = [...totalDayTokens].sort((a, b) => a - b)
-    const peakTokens = sortedTotals.at(-1) ?? 0
-    const secondPeak = sortedTotals.at(-2) ?? 0
-    const p90Tokens = sortedTotals.length
-      ? sortedTotals[Math.min(
-          sortedTotals.length - 1,
-          Math.floor(sortedTotals.length * 0.9),
-        )]
-      : 0
-    const enablePeakCap =
-      peakTokens > 0 &&
-      secondPeak > 0 &&
-      peakTokens / Math.max(p90Tokens, 1) > 3 &&
-      peakTokens / secondPeak > 1.8
-    // Cap at the top of the second-highest day so exactly the outliers that
-    // dwarf everything else get truncated; normal days keep their real height.
-    const peakCap = enablePeakCap ? secondPeak * 1.06 : undefined
-    const peakDayIndices = enablePeakCap
-      ? totalDayTokens
-          .map((value, index) =>
-            value > (peakCap ?? Number.POSITIVE_INFINITY) ? index : -1,
-          )
-          .filter((index) => index >= 0)
-      : []
+    // Token Skyline: the data stays linear and intact, but a record day is
+    // split across a ground grid and a sky grid. The lower part remains in
+    // the ordinary daily distribution; the exact remainder is rendered above
+    // the record horizon. Nothing is clipped or transformed.
+    const peakGroup = findPeakGroup(totalDayTokens)
+    const enablePeakSkyline = peakGroup.peakIndices.length > 0
+    const recordHorizon = enablePeakSkyline ? peakGroup.recordFloor : undefined
+    const peakDayIndices = peakGroup.peakIndices
     const peakDaySet = new Set(peakDayIndices)
     const specs = activeTool ? modelSelection?.series ?? [] : []
-    const capTotalFor = (dayIndex: number): number => {
-      const total = totalDayTokens[dayIndex] ?? 0
-      const cap = peakCap ?? 0
-      return enablePeakCap && peakDaySet.has(dayIndex) && total > cap
-        ? cap / Math.max(total, 1)
-        : 1
-    }
-    const bars = activeTool
-      ? specs.map((spec, index) => {
-          const isFocused = hasFocusedModel && spec.id === focusedSeries?.id
-          const isDimmed = hasFocusedModel && !isFocused
-          return {
-            id: spec.id,
-            name: spec.label,
-            type: 'bar' as const,
-            stack: 'tokens',
-            cursor: spec.kind === 'other' ? 'pointer' : 'default',
-            barCategoryGap: '42%',
-            barMaxWidth: 34,
-            xAxisIndex: 0,
-            yAxisIndex: 0,
-            emphasis: {
-              focus: 'series' as const,
-              blurScope: 'coordinateSystem' as const,
-            },
-            itemStyle: {
-              ...stackSegStyle(
-                modelSeriesColor(activeTool.hex, index, spec.kind),
-                capFor(index, specs.length),
-              ),
-              opacity: isDimmed ? 0.22 : 1,
-            },
-            data: daily.map((row, dayIndex) =>
-              // Truncate every stack segment of a capped day proportionally
-              // so the top of the stack lands exactly on the cap.
-              modelSeriesPoint(row, activeTool.id, spec).tokens *
-              capTotalFor(dayIndex),
-            ),
-          }
-        })
-      : TOOLS.map((tool, index) => ({
+    const barSpecs = activeTool
+      ? specs.map((spec, index) => ({
+          id: spec.id,
+          name: spec.label,
+          kind: spec.kind,
+          cursor: spec.kind === 'other' ? 'pointer' : 'default',
+          color: modelSeriesColor(activeTool.hex, index, spec.kind),
+          valueFor: (row: DailyRow) =>
+            modelSeriesPoint(row, activeTool.id, spec).tokens,
+        }))
+      : TOOLS.map((tool) => ({
           id: `tool:${tool.id}`,
           name: tool.label,
-          type: 'bar' as const,
-          stack: 'tokens',
+          kind: 'model' as const,
           cursor: 'pointer',
+          color: tool.hex,
+          valueFor: (row: DailyRow) => num(row, tool.tokenKey),
+        }))
+    const stackValues = daily.map((row, dayIndex) => {
+      const values = barSpecs.map((spec) => spec.valueFor(row))
+      return values.map((value, index) => ({
+        ground:
+          enablePeakSkyline && peakDaySet.has(dayIndex)
+            ? stackSegment(values, index, recordHorizon ?? 0, 'ground')
+            : value,
+        sky:
+          enablePeakSkyline && peakDaySet.has(dayIndex)
+            ? stackSegment(values, index, recordHorizon ?? 0, 'sky')
+            : 0,
+      }))
+    })
+    const tokenGridIndex = enablePeakSkyline ? 1 : 0
+    const spendGridIndex = enablePeakSkyline ? 2 : 1
+    const tokenXAxisIndex = tokenGridIndex
+    const spendXAxisIndex = spendGridIndex
+    const makeBars = (layer: 'ground' | 'sky') =>
+      barSpecs.map((spec, index) => {
+        const isFocused = hasFocusedModel && spec.id === focusedSeries?.id
+        const isDimmed = hasFocusedModel && !isFocused
+        const seriesId = `${layer}:${spec.id}`
+        return {
+          id: seriesId,
+          name: spec.name,
+          type: 'bar' as const,
+          stack: `${layer}-tokens`,
+          cursor: spec.cursor,
           barCategoryGap: '42%',
           barMaxWidth: 34,
-          xAxisIndex: 0,
-          yAxisIndex: 0,
+          xAxisIndex: layer === 'sky' ? tokenXAxisIndex - 1 : tokenXAxisIndex,
+          yAxisIndex: layer === 'sky' ? tokenGridIndex - 1 : tokenGridIndex,
           emphasis: {
             focus: 'series' as const,
             blurScope: 'coordinateSystem' as const,
           },
-          itemStyle: stackSegStyle(tool.hex, capFor(index, TOOLS.length)),
-          data: daily.map((row, dayIndex) =>
-            num(row, tool.tokenKey) * capTotalFor(dayIndex),
+          itemStyle: {
+            ...stackSegStyle(
+              spec.color,
+              capFor(index, barSpecs.length),
+            ),
+            opacity: isDimmed ? 0.22 : 1,
+          },
+          markLine:
+            layer === 'ground' && index === 0 && recordHorizon
+              ? {
+                  silent: true,
+                  symbol: ['none', 'none'],
+                  lineStyle: {
+                    color: '#d99a2b',
+                    width: 1.5,
+                    type: 'dashed',
+                  },
+                  label: {
+                    show: true,
+                    position: 'insideEndTop',
+                    color: '#9a6a19',
+                    fontSize: 10,
+                    formatter: 'RECORD HORIZON',
+                  },
+                  data: [{ yAxis: recordHorizon }],
+                }
+              : undefined,
+          data: stackValues.map((parts, dayIndex) =>
+            parts[index]?.[layer] ?? 0,
           ),
-        }))
+        }
+      })
+    const groundBars = makeBars('ground')
+    const skyBase = enablePeakSkyline
+      ? {
+          id: 'sky-base',
+          name: 'Record horizon base',
+          type: 'bar' as const,
+          stack: 'sky-tokens',
+          xAxisIndex: tokenXAxisIndex - 1,
+          yAxisIndex: tokenGridIndex - 1,
+          barCategoryGap: '42%',
+          barMaxWidth: 34,
+          itemStyle: { color: 'transparent' },
+          emphasis: { disabled: true },
+          silent: true,
+          tooltip: { show: false },
+          data: daily.map((_row, index) =>
+            peakDaySet.has(index) ? recordHorizon ?? 0 : 0,
+          ),
+        }
+      : undefined
+    const skyBars = enablePeakSkyline ? makeBars('sky') : []
+    const bars = enablePeakSkyline
+      ? [...(skyBase ? [skyBase] : []), ...skyBars, ...groundBars]
+      : groundBars
     const lineColor = activeTool?.hex ?? '#334155'
     const rotate = dates.length > 24 ? 32 : 0
     const reduceMotion = window.matchMedia(
@@ -303,11 +403,18 @@ export function UsageCharts({
           enabled: true,
           description: activeTool
             ? focusedSeries
-              ? `${activeTool.label} daily model tokens, focused on ${focusedSeries.label}; other model tokens are dimmed and spend follows the focused model`
-              : `${activeTool.label} daily model tokens and spend`
-            : 'Daily tokens and spend by AI coding tool',
+              ? `${activeTool.label} daily model tokens, focused on ${focusedSeries.label}; other model tokens are dimmed and spend follows the focused model${enablePeakSkyline ? '; record days continue above the record horizon' : ''}`
+              : `${activeTool.label} daily model tokens and spend${enablePeakSkyline ? '; record days continue above the record horizon' : ''}`
+            : `Daily tokens and spend by AI coding tool${enablePeakSkyline ? '; record days continue above the record horizon' : ''}`,
         },
-        axisPointer: { link: [{ xAxisIndex: [0, 1] }], snap: true },
+        axisPointer: {
+          link: [
+            {
+              xAxisIndex: enablePeakSkyline ? [0, 1, 2] : [0, 1],
+            },
+          ],
+          snap: true,
+        },
         tooltip: {
           trigger: 'axis',
           confine: true,
@@ -331,6 +438,11 @@ export function UsageCharts({
             const lines = [
               `<strong>${escapeHtml(row.date)}${activeTool ? ` · ${escapeHtml(activeTool.label)}` : ''}</strong>`,
             ]
+            if (enablePeakSkyline && peakDaySet.has(list[0].dataIndex)) {
+              lines.push(
+                `<span style="color:#9a6a19">Record sky: <strong>${fmtExact(totalDayTokens[list[0].dataIndex])}</strong> tokens</span>`,
+              )
+            }
 
             if (activeTool) {
               const tooltipSeries = focusedSeries ? [focusedSeries] : specs
@@ -375,16 +487,35 @@ export function UsageCharts({
             return lines.join('<br/>')
           },
         },
-        grid: [
-          { left: 58, right: 28, top: 28, height: '50%' },
-          { left: 58, right: 28, top: '68%', height: '22%' },
-        ],
+        grid: enablePeakSkyline
+          ? [
+              { left: 58, right: 28, top: 28, height: '24%' },
+              { left: 58, right: 28, top: '36%', height: '29%' },
+              { left: 58, right: 28, top: '75%', height: '18%' },
+            ]
+          : [
+              { left: 58, right: 28, top: 28, height: '50%' },
+              { left: 58, right: 28, top: '68%', height: '22%' },
+            ],
         xAxis: [
+          ...(enablePeakSkyline
+            ? [
+                {
+                  type: 'category' as const,
+                  boundaryGap: true,
+                  data: dates,
+                  gridIndex: 0,
+                  axisLabel: { show: false },
+                  axisLine: { lineStyle: { color: '#f3e3bf' } },
+                  axisTick: { show: false },
+                },
+              ]
+            : []),
           {
             type: 'category',
             boundaryGap: true,
             data: dates,
-            gridIndex: 0,
+            gridIndex: tokenGridIndex,
             axisLabel: { show: false },
             axisLine: { lineStyle: { color: '#e2e8f0' } },
             axisTick: { show: false },
@@ -393,7 +524,7 @@ export function UsageCharts({
             type: 'category',
             boundaryGap: true,
             data: dates,
-            gridIndex: 1,
+            gridIndex: spendGridIndex,
             axisLabel: {
               formatter: (value: string) => value.slice(5),
               hideOverlap: true,
@@ -410,10 +541,35 @@ export function UsageCharts({
           },
         ],
         yAxis: [
+          ...(enablePeakSkyline
+            ? [
+                {
+                  type: 'value' as const,
+                  gridIndex: 0,
+                  name: 'RECORD SKY',
+                  nameTextStyle: {
+                    fontSize: 10,
+                    color: '#b1812d',
+                    padding: [0, 0, 0, 8],
+                  },
+                  axisLabel: {
+                    formatter: (value: number) => fmtCompact(value),
+                    color: '#9a6a19',
+                  },
+                  min: recordHorizon,
+                  max: (recordHorizon ?? 0) + peakGroup.skyMax * 1.1,
+                  splitNumber: 2,
+                  splitLine: {
+                    show: true,
+                    lineStyle: { color: 'rgba(217,154,43,0.18)', type: [4, 4] },
+                  },
+                },
+              ]
+            : []),
           {
             type: 'value',
-            gridIndex: 0,
-            name: enablePeakCap ? 'Tokens / day (peak capped)' : 'Tokens / day',
+            gridIndex: tokenGridIndex,
+            name: enablePeakSkyline ? 'GROUND / TOKENS PER DAY' : 'Tokens / day',
             nameTextStyle: {
               fontSize: 11,
               color: '#94a3b8',
@@ -424,7 +580,7 @@ export function UsageCharts({
               color: '#64748b',
             },
             min: 0,
-            max: enablePeakCap ? (peakCap ?? 0) * 1.18 : undefined,
+            max: enablePeakSkyline ? (recordHorizon ?? 0) * 1.06 : undefined,
             splitNumber: 4,
             splitLine: {
               show: true,
@@ -433,7 +589,7 @@ export function UsageCharts({
           },
           {
             type: 'value',
-            gridIndex: 1,
+            gridIndex: spendGridIndex,
             name: 'Spend / day',
             nameTextStyle: {
               fontSize: 11,
@@ -460,8 +616,8 @@ export function UsageCharts({
               ? `${focusedSeries?.label ?? activeTool.label} spend`
               : 'Daily spend (all tools)',
             type: 'line',
-            xAxisIndex: 1,
-            yAxisIndex: 1,
+            xAxisIndex: spendXAxisIndex,
+            yAxisIndex: spendGridIndex,
             smooth: 0.35,
             symbol: 'circle',
             symbolSize: dates.length > 72 ? 0 : 5,
@@ -483,29 +639,34 @@ export function UsageCharts({
             },
             data: totalDaySpend,
           },
-          ...(enablePeakCap
+          ...(enablePeakSkyline
             ? [
                 {
-                  id: 'peak-crown',
+                  id: 'record-beacon',
                   name: 'Peak day',
                   type: 'scatter' as const,
                   xAxisIndex: 0,
                   yAxisIndex: 0,
-                  symbol: 'rect' as const,
-                  symbolSize: [46, 3],
-                  symbolOffset: [0, -8],
-                  itemStyle: { color: '#f59e0b', opacity: 0.9 },
+                  symbol: 'diamond' as const,
+                  symbolSize: 11,
+                  itemStyle: {
+                    color: '#f4b740',
+                    borderColor: '#fff7ed',
+                    borderWidth: 2,
+                    shadowBlur: 12,
+                    shadowColor: 'rgba(217,154,43,0.5)',
+                  },
                   silent: true,
                   tooltip: { show: false },
                   z: 20,
                   data: totalDayTokens.map((_value, index) =>
                     peakDaySet.has(index)
-                      ? [index, (peakCap ?? 0) * 0.98]
+                      ? [index, totalDayTokens[index]]
                       : null,
                   ),
                 },
                 {
-                  id: 'peak-crown-label',
+                  id: 'record-label',
                   name: 'Peak day',
                   type: 'scatter' as const,
                   xAxisIndex: 0,
@@ -517,7 +678,7 @@ export function UsageCharts({
                     show: true,
                     position: 'top',
                     distance: 10,
-                    color: '#b45309',
+                    color: '#9a6a19',
                     fontSize: 12,
                     fontWeight: 700,
                     backgroundColor: 'rgba(255,251,235,0.96)',
@@ -527,13 +688,13 @@ export function UsageCharts({
                     padding: [3, 6],
                     formatter: (params: { dataIndex: number }) => {
                       const value = totalDayTokens[params.dataIndex] ?? 0
-                      return `♛ ${fmtCompact(value)}`
+                      return `RECORD · ${fmtCompact(value)}`
                     },
                   },
                   z: 21,
                   data: totalDayTokens.map((_value, index) =>
                     peakDaySet.has(index)
-                      ? [index, (peakCap ?? 0) * 0.98]
+                      ? [index, totalDayTokens[index]]
                       : null,
                   ),
                 },
@@ -562,6 +723,8 @@ export function UsageCharts({
       ? `${activeTool.label} daily model usage, focused on ${focusedAccessibleSeries.label}; other model tokens are dimmed and spend follows the focused model`
       : `${activeTool.label} daily model usage`
     : 'Daily usage by AI coding tool'
+  const skylineAccessibilityNote =
+    ' Record days, when present, continue above a labeled record horizon; exact daily totals remain available below.'
   const accessibleSeries = activeTool
     ? modelSelection?.series ?? []
     : TOOLS.map((tool) => ({
@@ -575,10 +738,15 @@ export function UsageCharts({
 
   return (
     <>
-      <div className="chart-host" ref={hostRef} role="img" aria-label={label} />
+      <div
+        className="chart-host"
+        ref={hostRef}
+        role="img"
+        aria-label={`${label}.${skylineAccessibilityNote}`}
+      />
       <div className="visually-hidden">
         <table>
-          <caption>{label}, exact daily data</caption>
+          <caption>{label}.{skylineAccessibilityNote} Exact daily data.</caption>
           <thead>
             <tr>
               <th scope="col">Date</th>
