@@ -238,32 +238,64 @@ class LocalReconciliationTests(unittest.TestCase):
             def fake_ccusage(tool, _timezone, since="", until=""):
                 self.assertEqual(since, "2026-07-19")
                 self.assertEqual(until, "2026-07-20")
-                if tool == "codex":
-                    return {
-                        "daily": [
-                            {
-                                "date": "2026-07-19",
-                                "totalTokens": 160,
-                                "inputTokens": 32,
-                                "cacheReadTokens": 112,
-                                "outputTokens": 16,
-                                "costUSD": 1.6,
-                            },
-                            {
-                                "date": "2026-07-20",
-                                "totalTokens": 5,
-                                "inputTokens": 1,
-                                "cacheReadTokens": 3,
-                                "outputTokens": 1,
-                                "costUSD": 0.05,
-                            },
-                        ]
-                    }
                 return {"daily": []}
+
+            def fake_codex_from_jsonl(_home, _timezone, since="", until=""):
+                if since:
+                    self.assertEqual(since, "2026-07-19")
+                    self.assertEqual(until, "2026-07-20")
+                return {
+                    "daily": [
+                        {
+                            "date": "2026-07-19",
+                            "totalTokens": 160,
+                            "inputTokens": 32,
+                            "cacheReadTokens": 112,
+                            "outputTokens": 16,
+                            "costUSD": 1.6,
+                            "models": {
+                                "gpt-5.6-sol": {
+                                    "inputTokens": 32,
+                                    "cacheReadTokens": 112,
+                                    "outputTokens": 16,
+                                    "totalTokens": 160,
+                                    "costUSD": 1.6,
+                                }
+                            },
+                        },
+                        {
+                            "date": "2026-07-20",
+                            "totalTokens": 5,
+                            "inputTokens": 1,
+                            "cacheReadTokens": 3,
+                            "outputTokens": 1,
+                            "costUSD": 0.05,
+                            "models": {
+                                "gpt-5.6-sol": {
+                                    "inputTokens": 1,
+                                    "cacheReadTokens": 3,
+                                    "outputTokens": 1,
+                                    "totalTokens": 5,
+                                    "costUSD": 0.05,
+                                }
+                            },
+                        },
+                    ],
+                    "totals": {
+                        "totalTokens": 165,
+                        "inputTokens": 33,
+                        "cacheReadTokens": 115,
+                        "outputTokens": 17,
+                        "costUSD": 1.65,
+                    },
+                }
 
             patches = (
                 mock.patch.object(usage_report, "local_today", return_value="2026-07-20"),
                 mock.patch.object(usage_report, "ccusage_daily", side_effect=fake_ccusage),
+                mock.patch.object(
+                    usage_report, "codex_daily_from_jsonl", side_effect=fake_codex_from_jsonl
+                ),
                 mock.patch.object(usage_report, "local_record_summary", return_value={}),
                 mock.patch.object(
                     usage_report.comate_usage,

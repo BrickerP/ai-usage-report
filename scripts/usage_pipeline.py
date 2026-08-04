@@ -1303,7 +1303,9 @@ def daily_row_for_date(date_key: str, rows: list[dict[str, Any]]) -> dict[str, A
 
 def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dict[str, Any]:
     today_key, start_ms, end_ms = local_day_window(timezone)
-    codex_usage = ccusage_daily("codex", timezone, since=today_key, until=today_key)
+    codex_usage = codex_daily_from_jsonl(
+        home, timezone, since=today_key, until=today_key
+    )
     claude_usage = ccusage_daily("claude", timezone, since=today_key, until=today_key)
     cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone, start_ms, end_ms)
     codex_pts = codex_daily_points(usage_daily_rows(codex_usage))
@@ -2059,6 +2061,207 @@ def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") ->
     return reprice_models_with_pinned_ledger(candidate)
 
 
+def iter_codex_jsonl(home: Path):
+    """Yield every Codex rollout JSONL under ~/.codex (sessions + archived)."""
+    roots = [
+        home / ".codex" / "sessions",
+        home / ".codex" / "archived_sessions",
+    ]
+    seen: set[Path] = set()
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*.jsonl"):
+            if path not in seen:
+                seen.add(path)
+                yield path
+
+
+def codex_daily_from_jsonl(
+    home: Path,
+    timezone: str,
+    since: str = "",
+    until: str = "",
+) -> dict[str, Any]:
+    """Compute Codex daily usage by summing each request's real token increment.
+
+    ccusage attributes usage by a session's ``lastActivity`` and only counts the
+    trailing window of each session file, which silently drops the inherited
+    context that subagent (spawned) threads copy from their parent. This method
+    instead reads every ``token_count.last_token_usage`` event directly, which
+    reflects the full context actually sent per API request (including the
+    context a spawned thread inherits), deduplicates the same request that
+    appears in both a parent and child rollout, and attributes each request to
+    the report timezone's calendar day of its event timestamp.
+
+    Returns a payload structurally identical to ``ccusage ... daily --json``
+    (``{"daily": [...], "totals": {...}}``) so existing downstream helpers
+    (``codex_daily_points``, pricing, machine fragments) work unchanged.
+    """
+    tz = resolve_tz(timezone)
+    since_dt: dt.datetime | None = None
+    until_dt: dt.datetime | None = None
+    if since:
+        since_dt = dt.datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=tz)
+    if until:
+        until_dt = (
+            dt.datetime.strptime(until, "%Y-%m-%d").replace(tzinfo=tz)
+            + dt.timedelta(days=1)
+        )
+
+    day_acc: dict[str, dict[str, Any]] = {}
+    seen_requests: set[tuple[str, int, int, int]] = set()
+    model_usage: dict[str, dict[str, dict[str, int]]] = {}
+
+    # Rollout filenames carry a UTC creation timestamp (YYYY-MM-DDTHH-MM-SS).
+    # A session created after the end of the requested window cannot contain
+    # in-window events, so we can safely skip those files. Files created before
+    # `since` are NOT skipped: a long-running or resumed session can carry
+    # token events deep into the requested window.
+    earliest_skip = ""
+    if until_dt:
+        earliest_skip = until_dt.strftime("%Y-%m-%dT")
+
+    for path in iter_codex_jsonl(home):
+        if earliest_skip:
+            basename = path.name
+            if basename.startswith("rollout-"):
+                stamp = basename[len("rollout-"): len("rollout-") + 19]
+                if stamp and stamp >= earliest_skip:
+                    continue
+        file_model = ""
+        events: list[tuple[str, int, int, int, int]] = []
+        try:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(obj, dict):
+                        continue
+                    typ = obj.get("type") or ""
+                    payload = obj.get("payload") if isinstance(obj.get("payload"), dict) else {}
+                    if typ == "turn_context":
+                        new_model = str(payload.get("model") or "").strip()
+                        if new_model:
+                            file_model = new_model
+                        continue
+                    if typ == "event_msg" and payload.get("type") == "token_count":
+                        ts = obj.get("timestamp") or payload.get("timestamp") or ""
+                        try:
+                            event_dt = dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                        except ValueError:
+                            continue
+                        if event_dt.tzinfo is None:
+                            event_dt = event_dt.replace(tzinfo=dt.timezone.utc)
+                        local = event_dt.astimezone(tz)
+                        if since_dt and local < since_dt:
+                            continue
+                        if until_dt and local >= until_dt:
+                            continue
+                        info = payload.get("info")
+                        if not isinstance(info, dict):
+                            continue
+                        last = info.get("last_token_usage")
+                        if not isinstance(last, dict):
+                            continue
+                        input_tokens = safe_int(last.get("input_tokens"))
+                        cached_input = safe_int(last.get("cached_input_tokens"))
+                        output_tokens = safe_int(last.get("output_tokens"))
+                        reasoning = safe_int(last.get("reasoning_output_tokens"))
+                        if not (input_tokens or cached_input or output_tokens or reasoning):
+                            continue
+                        events.append((ts, input_tokens, cached_input, output_tokens, reasoning))
+        except OSError:
+            continue
+
+        for ts, input_tokens, cached_input, output_tokens, reasoning in events:
+            request_key = (ts, input_tokens, cached_input, output_tokens)
+            if request_key in seen_requests:
+                continue
+            seen_requests.add(request_key)
+
+            # Determine local calendar day for this request's timestamp.
+            try:
+                event_dt = dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if event_dt.tzinfo is None:
+                event_dt = event_dt.replace(tzinfo=dt.timezone.utc)
+            local = event_dt.astimezone(tz)
+            day = local.strftime("%Y-%m-%d")
+            acc = day_acc.setdefault(
+                day,
+                {
+                    "input": 0,
+                    "cache_read": 0,
+                    "output": 0,
+                    "reasoning": 0,
+                },
+            )
+            acc["input"] += input_tokens
+            acc["cache_read"] += cached_input
+            acc["output"] += output_tokens
+            acc["reasoning"] += reasoning
+
+            model_key = file_model or "unknown"
+            if model_key == "codex-auto-review":
+                model_key = "gpt-5.5"
+            macc = model_usage.setdefault(day, {}).setdefault(
+                model_key, {"input": 0, "cache_read": 0, "output": 0, "reasoning": 0}
+            )
+            macc["input"] += input_tokens
+            macc["cache_read"] += cached_input
+            macc["output"] += output_tokens
+            macc["reasoning"] += reasoning
+
+    daily: list[dict[str, Any]] = []
+    for day in sorted(day_acc):
+        acc = day_acc[day]
+        full_input = acc["input"]
+        cache_read = acc["cache_read"]
+        output_tokens = acc["output"]
+        reasoning = acc["reasoning"]
+        uncached_input = full_input - cache_read
+        total_tokens = full_input + output_tokens
+        models: dict[str, dict[str, Any]] = {}
+        for name, macc in (model_usage.get(day) or {}).items():
+            models[name] = {
+                "inputTokens": macc["input"] - macc["cache_read"],
+                "cacheReadTokens": macc["cache_read"],
+                "outputTokens": macc["output"],
+                "reasoningOutputTokens": macc["reasoning"],
+                "totalTokens": macc["input"] + macc["output"],
+                "costUSD": 0.0,
+            }
+        daily.append(
+            {
+                "date": day,
+                "inputTokens": uncached_input,
+                "cacheReadTokens": cache_read,
+                "outputTokens": output_tokens,
+                "reasoningOutputTokens": reasoning,
+                "totalTokens": total_tokens,
+                "costUSD": 0.0,
+                "models": models,
+            }
+        )
+
+    totals = {
+        "inputTokens": sum(d["inputTokens"] for d in daily),
+        "cacheReadTokens": sum(d["cacheReadTokens"] for d in daily),
+        "outputTokens": sum(d["outputTokens"] for d in daily),
+        "reasoningOutputTokens": sum(d["reasoningOutputTokens"] for d in daily),
+        "totalTokens": sum(d["totalTokens"] for d in daily),
+        "costUSD": 0.0,
+    }
+    return reprice_models_with_pinned_ledger({"daily": daily, "totals": totals})
+
+
 def filter_points_since(points: list[dict[str, Any]], since: str) -> list[dict[str, Any]]:
     if not since:
         return points
@@ -2543,11 +2746,11 @@ def collect_local_machine(
     until = today
 
     if first_seed:
-        codex_usage = ccusage_daily("codex", timezone)
+        codex_usage = codex_daily_from_jsonl(home, timezone)
         claude_usage = ccusage_daily("claude", timezone)
     else:
-        codex_usage = ccusage_daily(
-            "codex", timezone, since=since or today, until=until
+        codex_usage = codex_daily_from_jsonl(
+            home, timezone, since=since or today, until=until
         )
         claude_usage = ccusage_daily(
             "claude", timezone, since=since or today, until=until
@@ -2559,7 +2762,7 @@ def collect_local_machine(
     if needs_model_seed and not first_seed:
         model_seed_complete = False
         try:
-            model_codex_usage = ccusage_daily("codex", timezone)
+            model_codex_usage = codex_daily_from_jsonl(home, timezone)
             model_claude_usage = ccusage_daily("claude", timezone)
             model_seed_complete = True
         except Exception as exc:
