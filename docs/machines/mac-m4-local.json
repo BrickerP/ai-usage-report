@@ -3,9 +3,9 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m4-local",
   "hostname": "yupengdeMacBook-Pro.local",
-  "collected_at": "2026-08-04T00:05:17+08:00",
-  "captured_at": "2026-08-04T00:05:17+08:00",
-  "snapshot_id": "mac-m4-local@2026-08-04T00:05:17+08:00",
+  "collected_at": "2026-08-04T10:43:48+08:00",
+  "captured_at": "2026-08-04T10:43:48+08:00",
+  "snapshot_id": "mac-m4-local@2026-08-04T10:43:48+08:00",
   "seeded_at": "2026-07-16T00:50:23+08:00",
   "seeded": true,
   "append_mode": true,
@@ -13,7 +13,7 @@
   "last_mode": "append",
   "last_append_stats": {
     "frozen_kept": 13,
-    "appended": 0,
+    "appended": 1,
     "refreshed": 8,
     "today_updated": 0,
     "skipped": 0,
@@ -24,16 +24,7 @@
     "regression_reasons": {
       "2026-07-27:codex": "token_regression"
     },
-    "pricing_changes": [
-      {
-        "date": "2026-08-03",
-        "tool": "codex",
-        "from": 236.2735461,
-        "to": 498.3818615,
-        "pricing_version": "2026-07-31.v1",
-        "pricing_complete": true
-      }
-    ]
+    "pricing_changes": []
   },
   "timezone": "Asia/Shanghai",
   "scope": "machine-local",
@@ -1492,6 +1483,56 @@
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
       "claude_pricing_provenance": "pinned-ledger"
+    },
+    {
+      "date": "2026-08-04",
+      "codex_tokens": 845037741,
+      "codex_cost": 379.9433924,
+      "codex_input": 26066164,
+      "codex_cache_read": 816461312,
+      "codex_output": 2510265,
+      "codex_reasoning": 982993,
+      "claude_tokens": 0,
+      "claude_cost": 0.0,
+      "claude_input": 0,
+      "claude_cache_create": 0,
+      "claude_cache_read": 0,
+      "claude_output": 0,
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 462254222,
+          "cost": 321.461884,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 12575848,
+          "output": 1143846,
+          "cache_read": 448534528,
+          "cache_create": 0,
+          "reasoning": 443117,
+          "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 382783519,
+          "cost": 58.481508399999996,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 13490316,
+          "output": 1366419,
+          "cache_read": 367926784,
+          "cache_create": 0,
+          "reasoning": 539876,
+          "canonical_model": "gpt-5.6-luna",
+          "pricing_version": "2026-07-31.v1"
+        }
+      ],
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "pinned-ledger",
+      "claude_models": []
     }
   ],
   "model_breakdown_version": 3,
