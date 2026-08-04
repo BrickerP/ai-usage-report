@@ -358,7 +358,7 @@ export function UsageCharts({
                   data: [{ yAxis: recordHorizon }],
                 }
               : undefined,
-          data: stackValues.map((parts, dayIndex) =>
+          data: stackValues.map((parts) =>
             parts[index]?.[layer] ?? 0,
           ),
         }
