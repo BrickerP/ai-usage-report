@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
-import { BarChart, LineChart } from 'echarts/charts'
+import { BarChart, LineChart, ScatterChart } from 'echarts/charts'
 import {
   AriaComponent,
   AxisPointerComponent,
@@ -26,6 +26,7 @@ echarts.use([
   AriaComponent,
   BarChart,
   LineChart,
+  ScatterChart,
   GridComponent,
   TooltipComponent,
   AxisPointerComponent,
@@ -188,7 +189,52 @@ export function UsageCharts({
           ? num(row, activeTool.costKey)
           : TOOLS.reduce((sum, tool) => sum + num(row, tool.costKey), 0),
     )
+    // Daily stacked-token totals (for peak-cap detection + peak labels).
+    const totalDayTokens = daily.map((row) =>
+      activeTool && focusedSeries
+        ? modelSeriesPoint(row, activeTool.id, focusedSeries).tokens
+        : activeTool
+          ? num(row, activeTool.tokenKey)
+          : TOOLS.reduce((sum, tool) => sum + num(row, tool.tokenKey), 0),
+    )
+    // Peak-cap (broken-bar) logic: when the max day dwarfs the rest of the
+    // distribution, cap the y-axis so normal days stay readable. The capped
+    // peak day is then "crowned" — a gold tiara marker + true-value badge on
+    // top — so the extreme day becomes a deliberate show-off focal point
+    // instead of a wall that flattens every other bar.
+    const sortedTotals = [...totalDayTokens].sort((a, b) => a - b)
+    const peakTokens = sortedTotals.at(-1) ?? 0
+    const secondPeak = sortedTotals.at(-2) ?? 0
+    const p90Tokens = sortedTotals.length
+      ? sortedTotals[Math.min(
+          sortedTotals.length - 1,
+          Math.floor(sortedTotals.length * 0.9),
+        )]
+      : 0
+    const enablePeakCap =
+      peakTokens > 0 &&
+      secondPeak > 0 &&
+      peakTokens / Math.max(p90Tokens, 1) > 3 &&
+      peakTokens / secondPeak > 1.8
+    // Cap at the top of the second-highest day so exactly the outliers that
+    // dwarf everything else get truncated; normal days keep their real height.
+    const peakCap = enablePeakCap ? secondPeak * 1.06 : undefined
+    const peakDayIndices = enablePeakCap
+      ? totalDayTokens
+          .map((value, index) =>
+            value > (peakCap ?? Number.POSITIVE_INFINITY) ? index : -1,
+          )
+          .filter((index) => index >= 0)
+      : []
+    const peakDaySet = new Set(peakDayIndices)
     const specs = activeTool ? modelSelection?.series ?? [] : []
+    const capTotalFor = (dayIndex: number): number => {
+      const total = totalDayTokens[dayIndex] ?? 0
+      const cap = peakCap ?? 0
+      return enablePeakCap && peakDaySet.has(dayIndex) && total > cap
+        ? cap / Math.max(total, 1)
+        : 1
+    }
     const bars = activeTool
       ? specs.map((spec, index) => {
           const isFocused = hasFocusedModel && spec.id === focusedSeries?.id
@@ -214,8 +260,11 @@ export function UsageCharts({
               ),
               opacity: isDimmed ? 0.22 : 1,
             },
-            data: daily.map(
-              (row) => modelSeriesPoint(row, activeTool.id, spec).tokens,
+            data: daily.map((row, dayIndex) =>
+              // Truncate every stack segment of a capped day proportionally
+              // so the top of the stack lands exactly on the cap.
+              modelSeriesPoint(row, activeTool.id, spec).tokens *
+              capTotalFor(dayIndex),
             ),
           }
         })
@@ -234,7 +283,9 @@ export function UsageCharts({
             blurScope: 'coordinateSystem' as const,
           },
           itemStyle: stackSegStyle(tool.hex, capFor(index, TOOLS.length)),
-          data: daily.map((row) => num(row, tool.tokenKey)),
+          data: daily.map((row, dayIndex) =>
+            num(row, tool.tokenKey) * capTotalFor(dayIndex),
+          ),
         }))
     const lineColor = activeTool?.hex ?? '#334155'
     const rotate = dates.length > 24 ? 32 : 0
@@ -362,7 +413,7 @@ export function UsageCharts({
           {
             type: 'value',
             gridIndex: 0,
-            name: 'Tokens / day',
+            name: enablePeakCap ? 'Tokens / day (peak capped)' : 'Tokens / day',
             nameTextStyle: {
               fontSize: 11,
               color: '#94a3b8',
@@ -373,6 +424,7 @@ export function UsageCharts({
               color: '#64748b',
             },
             min: 0,
+            max: enablePeakCap ? (peakCap ?? 0) * 1.18 : undefined,
             splitNumber: 4,
             splitLine: {
               show: true,
@@ -431,6 +483,62 @@ export function UsageCharts({
             },
             data: totalDaySpend,
           },
+          ...(enablePeakCap
+            ? [
+                {
+                  id: 'peak-crown',
+                  name: 'Peak day',
+                  type: 'scatter' as const,
+                  xAxisIndex: 0,
+                  yAxisIndex: 0,
+                  symbol: 'rect' as const,
+                  symbolSize: [46, 3],
+                  symbolOffset: [0, -8],
+                  itemStyle: { color: '#f59e0b', opacity: 0.9 },
+                  silent: true,
+                  tooltip: { show: false },
+                  z: 20,
+                  data: totalDayTokens.map((_value, index) =>
+                    peakDaySet.has(index)
+                      ? [index, (peakCap ?? 0) * 0.98]
+                      : null,
+                  ),
+                },
+                {
+                  id: 'peak-crown-label',
+                  name: 'Peak day',
+                  type: 'scatter' as const,
+                  xAxisIndex: 0,
+                  yAxisIndex: 0,
+                  symbol: 'none' as const,
+                  silent: true,
+                  tooltip: { show: false },
+                  label: {
+                    show: true,
+                    position: 'top',
+                    distance: 10,
+                    color: '#b45309',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    backgroundColor: 'rgba(255,251,235,0.96)',
+                    borderColor: 'rgba(245,158,11,0.5)',
+                    borderWidth: 1,
+                    borderRadius: 5,
+                    padding: [3, 6],
+                    formatter: (params: { dataIndex: number }) => {
+                      const value = totalDayTokens[params.dataIndex] ?? 0
+                      return `♛ ${fmtCompact(value)}`
+                    },
+                  },
+                  z: 21,
+                  data: totalDayTokens.map((_value, index) =>
+                    peakDaySet.has(index)
+                      ? [index, (peakCap ?? 0) * 0.98]
+                      : null,
+                  ),
+                },
+              ]
+            : []),
         ],
       },
       { notMerge: true },

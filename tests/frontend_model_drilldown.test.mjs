@@ -311,10 +311,22 @@ test('tooltips follow plotted series instead of dumping raw detail', () => {
     /spec\.kind === 'other'[\s\S]{0,220}modelSeriesMembers\(/,
   )
   assert.match(chartsSource, /Tool total:/)
-  assert.match(chartsSource, /name: 'Tokens \/ day'/)
+  assert.match(chartsSource, /name: enablePeakCap \? 'Tokens \/ day \(peak capped\)' : 'Tokens \/ day'/)
   assert.match(chartsSource, /name: 'Spend \/ day'/)
   assert.doesNotMatch(chartsSource, /const rawModels =/)
   assert.doesNotMatch(chartsSource, /tool\.breakdown/)
+})
+
+test('peak-cap truncates stack segments proportionally and crowns the peak day', () => {
+  assert.match(
+    chartsSource,
+    /const capTotalFor = \(dayIndex: number\): number => \{/,
+  )
+  assert.match(chartsSource, /total > cap\s*\n\s*\? cap \/ Math\.max\(total, 1\)\s*\n\s*: 1/)
+  assert.match(chartsSource, /const peakDaySet = new Set\(peakDayIndices\)/)
+  assert.match(chartsSource, /id: 'peak-crown'[\s\S]{0,180}symbol: 'rect' as const/)
+  assert.match(chartsSource, /id: 'peak-crown-label'[\s\S]{0,1000}♛ \$\{fmtCompact\(value\)\}/)
+  assert.match(chartsSource, /max: enablePeakCap \? \(peakCap \?\? 0\) \* 1\.18 : undefined/)
 })
 
 test('series keyboard navigation wraps and supports boundary keys', () => {
