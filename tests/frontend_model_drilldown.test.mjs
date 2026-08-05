@@ -15,6 +15,7 @@ import {
 } from '../src/lib/usage.ts'
 import {
   buildReportViewSearch,
+  deriveGuidedRunStep,
   explorationBackAction,
   indexRangeForDates,
   nextSeriesIndex,
@@ -80,7 +81,7 @@ function jsxTextContent(source) {
     .join('\n')
 }
 
-test('save-file hero and endless run derive their score from published data', () => {
+test('hero and endless run derive their totals from published data', () => {
   const heroScores = appSource.match(/type="display-2"/g) ?? []
 
   assert.match(appSource, /summarizeLifetime\(daily\)/)
@@ -91,9 +92,9 @@ test('save-file hero and endless run derive their score from published data', ()
   assert.match(appSource, /fmtCompact\(lifetime\.cacheTokens\)/)
   assert.match(appSource, /className="skyline-desktop"/)
   assert.match(appSource, /className="skyline-compact"/)
-  assert.match(appSource, /className="skyline-weekly-label"[\s\S]{0,120}The Endless Run · Weekly/)
-  assert.match(appSource, /Run history · natural-week totals/)
-  assert.match(stylesheetSource, /\.skyline-weekly-label/)
+  assert.match(appSource, /USAGE HISTORY/)
+  assert.match(appSource, /THE ENDLESS RUN/)
+  assert.match(appSource, /Daily recorded tokens/)
   assert.match(appSource, /<UsageSkyline[\s\S]{0,240}daily=\{daily\}/)
   assert.match(appSource, /compact/)
   assert.match(appSource, /id="explore"/)
@@ -104,11 +105,10 @@ test('save-file hero and endless run derive their score from published data', ()
 test('pixel platformer language is original and avoids borrowed game assets', () => {
   const visitorCopy = jsxTextContent(appSource)
 
-  assert.match(appSource, /THE ENDLESS BUILD/)
-  assert.match(appSource, /The Endless Run/)
+  assert.match(appSource, /THE ENDLESS RUN/)
   assert.match(appSource, /LOADOUT STATION/)
   assert.match(appSource, /MODEL GATE/)
-  assert.match(appSource, /Checkpoint log/)
+  assert.match(appSource, /LIFETIME ARCHIVE/)
   assert.match(appSource, /Exact ledger/i)
   assert.match(appSource, /command-(?:runner|cursor)/)
   assert.doesNotMatch(
@@ -117,108 +117,8 @@ test('pixel platformer language is original and avoids borrowed game assets', ()
   )
   assert.doesNotMatch(
     visitorCopy,
-    /\b(?:XP|LEVEL)\b|reward points|unlock reward/i,
+    /\b(?:XP|LEVEL|SCORE)\b|reward|Beijing|二环/i,
   )
-})
-
-test('decorative second-ring scenery stays outside the accessibility tree', () => {
-  const sceneStart = appSource.indexOf(
-    '<div className="pixel-night-scene" aria-hidden="true">',
-  )
-  const scene = appSource.slice(sceneStart, appSource.indexOf('</div>', sceneStart))
-
-  assert.notEqual(sceneStart, -1)
-  assert.match(scene, /className="pixel-ring-sign">二环 · 2ND RING/)
-  assert.match(scene, /className="pixel-lanterns"/)
-})
-
-test('hero light is a small anchored stepped pixel shape', () => {
-  assert.match(
-    stylesheetSource,
-    /\.pixel-moon \{[\s\S]{0,120}top: 42px;[\s\S]{0,80}right: 104px;[\s\S]{0,80}width: 36px;[\s\S]{0,60}height: 36px;/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.pixel-moon \{[\s\S]{0,300}box-shadow: -6px 0 var\(--gold\), 6px 0 var\(--gold\), 0 -6px var\(--gold\), 0 6px var\(--gold\)[\s\S]{0,180}clip-path: polygon/,
-  )
-})
-
-test('Beijing roof landmark remains recognizable without text', () => {
-  assert.match(appSource, /<span className="pixel-gate pixel-gate--right" \/>/)
-  assert.match(
-    stylesheetSource,
-    /\.pixel-gate--right \{[\s\S]{0,100}width: 144px;[\s\S]{0,60}height: 104px;[\s\S]{0,260}repeating-linear-gradient\(90deg/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.pixel-gate--right::before \{[\s\S]{0,220}box-shadow: 14px -10px 0 #172c39, 29px -20px 0 #6b342f/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.pixel-gate--right::after \{[\s\S]{0,180}background: repeating-linear-gradient\(90deg, #b48b45 0 4px, #101a21 4px 13px\)/,
-  )
-})
-
-test('one aria-hidden street world carries the continuous route props', () => {
-  const worldStart = appSource.indexOf(
-    '<div className="street-world" aria-hidden="true">',
-  )
-  const world = appSource.slice(worldStart, appSource.indexOf('</div>', worldStart))
-
-  assert.notEqual(worldStart, -1)
-  for (const prop of [
-    'road',
-    'runner',
-    'roofs',
-    'tower',
-    'sign',
-    'lanterns',
-    'bus-stop',
-    'bicycle',
-  ]) {
-    assert.match(world, new RegExp(`className="street-world__${prop}"`))
-  }
-})
-
-test('route vehicle is decorative and follows the existing run state', () => {
-  const worldStart = appSource.indexOf(
-    '<div className="street-world" aria-hidden="true">',
-  )
-  const world = appSource.slice(worldStart, appSource.indexOf('</div>', worldStart))
-
-  assert.match(world, /<span className="street-world__runner">&gt;_<\/span>/)
-  assert.doesNotMatch(world, /aria-live=|role=|tabIndex=|onClick=/)
-  assert.match(
-    stylesheetSource,
-    /\.street-world__runner \{[\s\S]{0,100}top: var\(--street-run-position\);[\s\S]{0,100}width: 24px;[\s\S]{0,60}height: 16px;[\s\S]{0,180}border: 2px solid var\(--route-accent\)/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.street-world__runner::after \{[\s\S]{0,220}background: var\(--route-accent\);[\s\S]{0,100}content: '';/,
-  )
-  for (const state of ['all', 'equipped', 'inspecting', 'focused']) {
-    const selector =
-      state === 'all'
-        ? '\\.pixel-run-shell \\{'
-        : `\\.pixel-run-shell\\[data-run-state='${state}'\\] \\{`
-    assert.match(
-      stylesheetSource,
-      new RegExp(`${selector}[\\s\\S]{0,180}--street-run-position:`),
-    )
-  }
-  assert.match(
-    stylesheetSource,
-    /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,300}\.street-world__runner,[\s\S]{0,160}transition: none/,
-  )
-})
-
-test('street world stays visually strong without covering interaction', () => {
-  assert.match(
-    stylesheetSource,
-    /\.street-world \{[\s\S]{0,180}z-index: 4;[\s\S]{0,180}overflow: hidden;[\s\S]{0,80}pointer-events: none;/,
-  )
-  assert.match(stylesheetSource, /\.street-world__roofs \{[\s\S]{0,260}opacity:/)
-  assert.match(stylesheetSource, /\.street-world__lanterns \{[\s\S]{0,220}opacity:/)
 })
 
 test('visitor-facing chart language keeps the record but removes implementation jargon', () => {
@@ -271,32 +171,95 @@ test('core interaction and data-state semantics remain explicit', () => {
   assert.match(chartsSource, /animation: !reduceMotion/)
 })
 
-test('the run shell advances through finite exploration states', () => {
+test('guided run derives the complete five-state journey from interaction state', () => {
+  assert.equal(
+    deriveGuidedRunStep({
+      guidedActive: false,
+      runComplete: false,
+      selectedTool: null,
+      focusedModel: null,
+    }),
+    'free',
+  )
+  assert.equal(
+    deriveGuidedRunStep({
+      guidedActive: true,
+      runComplete: false,
+      selectedTool: null,
+      focusedModel: null,
+    }),
+    'choose-tool',
+  )
+  assert.equal(
+    deriveGuidedRunStep({
+      guidedActive: true,
+      runComplete: false,
+      selectedTool: 'oneapi',
+      focusedModel: null,
+    }),
+    'choose-model',
+  )
+  assert.equal(
+    deriveGuidedRunStep({
+      guidedActive: true,
+      runComplete: false,
+      selectedTool: 'oneapi',
+      focusedModel: 'deepseek-v4-flash',
+    }),
+    'reveal-record',
+  )
+  assert.equal(
+    deriveGuidedRunStep({
+      guidedActive: true,
+      runComplete: true,
+      selectedTool: 'oneapi',
+      focusedModel: 'deepseek-v4-flash',
+    }),
+    'complete',
+  )
+})
+
+test('the endless data world exposes an optional guided run without fake game metrics', () => {
+  const visitorCopy = jsxTextContent(appSource)
+
+  assert.match(appSource, /className="page endless-run-shell"/)
+  assert.match(appSource, /className="data-world"/)
+  assert.match(appSource, /className="checkpoint-log guided-run-strip"/)
+  assert.match(stylesheetSource, /\.endless-run-shell/)
+  assert.match(stylesheetSource, /\.data-world/)
+  assert.match(stylesheetSource, /\.guided-run-strip/)
+  assert.match(appSource, /onClick=\{startGuidedRun\}[\s\S]{0,180}Start guided run/)
+  const freeRoamControl = appSource.match(
+    /label="Free roam"[\s\S]{0,180}onClick=\{([A-Za-z][A-Za-z0-9]*)\}/,
+  )
+  assert.ok(freeRoamControl)
+  const freeRoamHandlerStart = appSource.indexOf(
+    `const ${freeRoamControl[1]} =`,
+  )
+  const freeRoamHandler = appSource.slice(
+    freeRoamHandlerStart,
+    appSource.indexOf('\n  },', freeRoamHandlerStart),
+  )
+  assert.notEqual(freeRoamHandlerStart, -1)
+  assert.match(freeRoamHandler, /setRunComplete\(false\)/)
+  assert.match(freeRoamHandler, /setGuidedActive\(false\)/)
+  assert.match(appSource, /label="Replay"/)
   assert.match(
     appSource,
-    /const runState = pinnedModel[\s\S]{0,220}\? 'focused'[\s\S]{0,80}selectedTool && isModelListOpen[\s\S]{0,80}\? 'inspecting'[\s\S]{0,80}selectedTool[\s\S]{0,80}\? 'equipped'[\s\S]{0,40}: 'all'/,
+    /<ol className="guided-run-steps" aria-label="Guided run steps">/,
   )
   assert.match(
     appSource,
-    /className="page pixel-run-shell"[\s\S]{0,100}data-run-state=\{runState\}/,
+    /const GUIDED_STEPS[\s\S]{0,600}key: 'choose-tool'[\s\S]{0,180}key: 'choose-model'[\s\S]{0,180}key: 'reveal-record'/,
   )
-  assert.match(appSource, /'--route-accent': activeTool\?\.hex \?\? '#ffc84a'/)
-
-  for (const [state, progress] of [
-    ['all', '0%'],
-    ['equipped', '33.333%'],
-    ['inspecting', '66.666%'],
-    ['focused', '100%'],
-  ]) {
-    const stateRule = new RegExp(
-      `(?:\\.pixel-run-shell(?:\\[data-run-state='${state}'\\])?)[\\s\\S]{0,100}--run-progress: ${progress.replace('.', '\\.')}`,
-    )
-    assert.match(stylesheetSource, stateRule)
-  }
-
   assert.match(
-    stylesheetSource,
-    /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,300}\.route-runner[\s\S]{0,180}transition: none/,
+    appSource,
+    /GUIDED_STEPS\.map\(\(step, index\) =>[\s\S]{0,220}aria-current=\{[\s\S]{0,120}\? 'step' : undefined/,
+  )
+  assert.doesNotMatch(visitorCopy, /\b(?:XP|LEVEL|SCORE)\b|reward|Beijing|二环/i)
+  assert.doesNotMatch(
+    `${appSource}\n${stylesheetSource}`,
+    /street-world|stage-route|data-run-state|const runState/,
   )
 })
 
@@ -305,25 +268,24 @@ test('checkpoint tool count comes from the lifetime run', () => {
     appSource,
     /const lifetimeToolCount = useMemo\([\s\S]{0,160}summarizeRange\(daily\)\.byTool\.filter\(\(tool\) => tool\.tokens > 0\)\.length/,
   )
-  assert.match(appSource, /<dt>Tools used<\/dt>[\s\S]{0,80}<dd>\{lifetimeToolCount\}<\/dd>/)
+  assert.match(appSource, /<dt>Tools recorded<\/dt>[\s\S]{0,80}<dd>\{lifetimeToolCount\}<\/dd>/)
 })
 
 test('tool selection announces once through the canonical atomic live region', () => {
-  const loadedView = appSource.slice(
-    appSource.indexOf('className="page pixel-run-shell"'),
-  )
+  const atomicLiveRegions = appSource.match(/aria-atomic="true"/g) ?? []
 
+  assert.equal(atomicLiveRegions.length, 1)
   assert.match(
-    loadedView,
+    appSource,
     /className="selection-status visually-hidden"[\s\S]{0,100}role="status"[\s\S]{0,80}aria-live="polite"[\s\S]{0,80}aria-atomic="true"/,
   )
-  assert.match(loadedView, /className="loadout-status"(?![^>]*aria-live)[^>]*>/)
+  assert.match(appSource, /className="loadout-status"(?![^>]*aria-live)[^>]*>/)
 })
 
-test('loading and failure states remain announced while using the save-file narrative', () => {
-  assert.match(appSource, /SAVE FILE \/ LOADING/)
-  assert.match(appSource, /SAVE FILE \/ ERROR/)
-  assert.match(appSource, /The run could not be restored/)
+test('loading and failure states remain announced with direct usage language', () => {
+  assert.match(appSource, /AI USAGE \/ LOADING/)
+  assert.match(appSource, /AI USAGE \/ ERROR/)
+  assert.match(appSource, /Usage data could not be loaded/)
   assert.match(
     appSource,
     /role="alert"[\s\S]{0,120}aria-live="assertive"/,
@@ -532,7 +494,7 @@ test('model details and focus preserve keyboard and accessible state', () => {
   assert.match(appSource, /if \(wasOpen === isModelListOpen\) return/)
   assert.match(appSource, /aria-pressed=\{canFocus \? isFocused : undefined\}/)
   assert.match(appSource, /className="chart-focus-state"/)
-  assert.match(appSource, /Target locked · Focused · <strong>\{pinnedModel\}<\/strong>/)
+  assert.match(appSource, /Focused · <strong>\{pinnedModel\}<\/strong>/)
   assert.match(
     appSource,
     /className="chart-focus-state"[\s\S]{0,360}onClick=\{clearModelFocus\}/,
@@ -713,7 +675,14 @@ test('run record board follows the exact current chart scope without live noise'
   )
   assert.match(chartsSource, /className="chart-run-record"/)
   assert.match(chartsSource, /className="chart-run-record__title">RUN RECORD/)
-  assert.match(chartsSource, /fmtExact\(runRecord\?\.value \?\? 0\)/)
+  assert.match(
+    chartsSource,
+    /runRecord \? `\$\{fmtExact\(runRecord\.value\)\} TOKENS` : 'NO RECORDED USAGE'/,
+  )
+  assert.match(
+    chartsSource,
+    /data-record-state=\{runRecord \? 'recorded' : 'empty'\}/,
+  )
   assert.match(chartsSource, /recordScope} · \{runRecord\?\.date/)
   assert.match(chartsSource, /aria-label=\{`Run record for \$\{recordScope\}`\}/)
   assert.doesNotMatch(chartsSource, /chart-run-record[\s\S]{0,500}aria-live=/)
@@ -732,6 +701,44 @@ test('run record board follows the exact current chart scope without live noise'
   assert.match(
     mobile500Source,
     /\.chart-run-record \{[\s\S]{0,100}width: 100%[\s\S]{0,140}grid-template-columns: auto minmax\(0, 1fr\)/,
+  )
+})
+
+test('RUN COMPLETE is a data-backed ticket with a replay action', () => {
+  const ticketStart = appSource.indexOf(
+    'className="checkpoint-log run-complete-card"',
+  )
+  const ticket = appSource.slice(
+    ticketStart,
+    appSource.indexOf('</section>', ticketStart),
+  )
+
+  assert.notEqual(ticketStart, -1)
+  assert.match(ticket, /RUN COMPLETE/)
+  assert.match(ticket, /Recorded run/)
+  assert.match(ticket, /runMetrics/)
+  assert.match(ticket, /fmtExactTokens\(runMetrics\?\.[^)]+\)/)
+  assert.match(ticket, /fmtExactUsd\(runMetrics\?\.[^)]+\)/)
+  assert.match(ticket, /label="Replay"[\s\S]{0,160}onClick=\{replayRun\}/)
+  assert.match(
+    appSource,
+    /visible\.map\([\s\S]{0,320}modelSeriesPoint\(/,
+  )
+  assert.match(
+    appSource,
+    /points\.reduce\([\s\S]{0,180}total \+ point\.tokens/,
+  )
+  assert.match(
+    appSource,
+    /points\.reduce\([\s\S]{0,180}total \+ point\.cost/,
+  )
+  assert.match(
+    appSource,
+    /findRunRecord\([\s\S]{0,220}points\.map\(\(point\) => point\.tokens\)[\s\S]{0,120}dates/,
+  )
+  assert.doesNotMatch(
+    jsxTextContent(ticket),
+    /\b(?:demo|mock|placeholder|score|reward|XP|level)\b/i,
   )
 })
 
@@ -856,123 +863,6 @@ test('compact weekly skyline keeps peak and endpoint labels readable', () => {
   )
 })
 
-test('mobile hero scenery stays anchored while yielding to cache disclosure', () => {
-  assert.match(mobile500Source, /\.pixel-night-scene \{ opacity: 0\.48; \}/)
-  assert.match(
-    mobile500Source,
-    /\.pixel-moon \{[\s\S]{0,160}top: 180px;[\s\S]{0,80}right: 18px;[\s\S]{0,80}opacity: 0\.2;[\s\S]{0,80}transform: scale\(0\.52\)/,
-  )
-  assert.match(appSource, /className="hero-disclosure"[\s\S]{0,180}lifetime\.cacheTokens/)
-})
-
-test('a persistent route spine connects every run-console stage', () => {
-  assert.match(
-    stylesheetSource,
-    /\.skyline-section::before,[\s\S]{0,80}\.explore-section::before/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.explore-section::before[\s\S]{0,220}var\(--route-accent\) 0 var\(--spine-progress\)[\s\S]{0,100}var\(--pixel-border\) var\(--spine-progress\) 100%/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.loadout-heading::before,[\s\S]{0,100}\.model-gate-heading::before,[\s\S]{0,100}\.checkpoint-heading::before,[\s\S]{0,100}\.exact-ledger::before/,
-  )
-})
-
-test('mobile road ribbon stays in the edge gutter away from content', () => {
-  assert.match(
-    mobile500Source,
-    /\.chronicle-header,\s*\.skyline-section,\s*\.explore-section \{[\s\S]{0,120}border-inline-width: 1px;[\s\S]{0,100}border-inline-color: rgba\(72, 97, 118, 0\.46\)/,
-  )
-  assert.match(
-    mobile500Source,
-    /\.skyline-section::before,\s*\.explore-section::before \{ display: none; \}/,
-  )
-  assert.match(
-    mobile500Source,
-    /\.street-world__road \{[\s\S]{0,80}left: auto;[\s\S]{0,60}right: 3px;[\s\S]{0,60}width: 14px;[\s\S]{0,80}transform: none;/,
-  )
-  assert.match(
-    mobile500Source,
-    /\.street-world__runner \{[\s\S]{0,80}left: auto;[\s\S]{0,60}right: 2px;/,
-  )
-})
-
-test('World 01 and World 02 share one seamless night surface', () => {
-  assert.match(
-    stylesheetSource,
-    /\.skyline-section \{[\s\S]{0,120}margin-bottom: -\d+px;[\s\S]{0,60}border-bottom: 0;[\s\S]{0,220}80px 100%/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.explore-section \{[\s\S]{0,160}border-top: 1px dashed[\s\S]{0,220}80px 100%/,
-  )
-})
-
-test('mobile world keeps one text-free Beijing landmark', () => {
-  assert.match(appSource, /<span className="street-world__tower" \/>/)
-  assert.match(
-    stylesheetSource,
-    /\.street-world__tower::before \{[\s\S]{0,260}content: '';/,
-  )
-  assert.match(
-    mobile500Source,
-    /\.street-world__tower \{[\s\S]{0,180}transform: scale\([^)]+\);[\s\S]{0,80}transform-origin: right top;[\s\S]{0,80}opacity: [^;]+;/,
-  )
-})
-
-test('pixel materials keep stepped geometry and readable route contrast', () => {
-  assert.match(stylesheetSource, /--moon-muted: #c9c2b3;/)
-  assert.match(stylesheetSource, /--pixel-border: #486176;/)
-  assert.match(
-    stylesheetSource,
-    /\.pixel-night-scene::after \{[\s\S]{0,320}clip-path: polygon\(/,
-  )
-  assert.match(stylesheetSource, /\.route-node \{[\s\S]{0,260}opacity: 0\.92;/)
-  assert.match(
-    stylesheetSource,
-    /\.route-state-label \{[\s\S]{0,240}text-shadow: 2px 2px 0 #02060a;/,
-  )
-})
-
-test('the night world reuses roof, road, and terminal materials across stages', () => {
-  const heroRoofs = stylesheetSource.slice(
-    stylesheetSource.indexOf('.pixel-night-scene::before'),
-    stylesheetSource.indexOf('.pixel-night-scene::after'),
-  )
-  const skylineWorld = stylesheetSource.slice(
-    stylesheetSource.lastIndexOf('.skyline-section {'),
-    stylesheetSource.indexOf('.skyline-section::before', stylesheetSource.lastIndexOf('.skyline-section {')),
-  )
-
-  assert.match(heroRoofs, /linear-gradient\(135deg[\s\S]{0,180}repeat-x/)
-  assert.match(skylineWorld, /linear-gradient\(135deg[\s\S]{0,180}repeat-x/)
-  assert.match(
-    stylesheetSource,
-    /\.pixel-road::before[\s\S]{0,280}linear-gradient\(#28655e, #28655e\) center top/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.explore-section \{[\s\S]{0,220}repeating-linear-gradient\(90deg[\s\S]{0,140}80px 100%/,
-  )
-  const stationStart = stylesheetSource.indexOf('.tool-grid { gap: 6px; }')
-  const station = stylesheetSource.slice(
-    stationStart,
-    stylesheetSource.indexOf('.model-drill-trigger {', stationStart),
-  )
-  assert.match(station, /\.tool-grid > \* \{[\s\S]*clip-path: polygon/)
-  assert.match(stylesheetSource, /\.exact-ledger-card \{[\s\S]{0,180}clip-path: polygon/)
-  assert.match(
-    stylesheetSource,
-    /\.checkpoint-log::after[\s\S]{0,260}repeating-linear-gradient\(90deg[\s\S]{0,100}var\(--moon-muted\)/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.exact-ledger::after[\s\S]{0,220}repeating-linear-gradient\(90deg, var\(--road\)[\s\S]{0,80}var\(--gold\)/,
-  )
-})
-
 test('a low-tail ratio cannot suppress a valid upper-tail record split', () => {
   const peakGroup = findPeakGroup([1, 10, 11, 12, 100, 110])
 
@@ -1037,6 +927,19 @@ test('series keyboard navigation wraps and supports boundary keys', () => {
 })
 
 test('report view state round-trips valid tool, model, and preset values', () => {
+  assert.match(
+    appSource,
+    /const savedView = parseReportView\(window\.location\.search\)/,
+  )
+  assert.match(
+    appSource,
+    /const nextSearch = buildReportViewSearch\(window\.location\.search, \{/,
+  )
+  assert.match(
+    appSource,
+    /window\.history\.replaceState\(window\.history\.state, '', nextUrl\)/,
+  )
+
   const search = buildReportViewSearch('?keep=yes', {
     tool: 'oneapi',
     model: 'deepseek/v4 flash',

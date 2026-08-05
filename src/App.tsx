@@ -28,15 +28,17 @@ import {
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { UsageSkyline } from './components/UsageSkyline'
 import { UsageCharts } from './components/UsageCharts'
-import { modelSeriesColor } from './lib/chart'
+import { findRunRecord, modelSeriesColor } from './lib/chart'
 import { summarizeLifetime } from './lib/chronicle'
 import { fmtCompact, fmtUsd } from './lib/format'
 import {
   buildReportViewSearch,
+  deriveGuidedRunStep,
   explorationBackAction,
   indexRangeForDates,
   nextSeriesIndex,
   parseReportView,
+  type GuidedRunStep,
   type ViewPreset,
 } from './lib/interaction'
 import {
@@ -44,6 +46,7 @@ import {
   describeRange,
   indexForPreset,
   loadUsage,
+  modelSeriesPoint,
   percentageTenths,
   selectModelSeries,
   summarizeRange,
@@ -88,6 +91,30 @@ function fmtRatio(value: number) {
   return `${(value * 100).toFixed(1)}%`
 }
 
+type GuidedStepKey = Exclude<GuidedRunStep, 'free' | 'complete'>
+
+const GUIDED_STEPS: Array<{
+  key: GuidedStepKey
+  label: string
+  description: string
+}> = [
+  {
+    key: 'choose-tool',
+    label: 'LOADOUT',
+    description: 'Select one tool from the recorded archive.',
+  },
+  {
+    key: 'choose-model',
+    label: 'MODEL',
+    description: 'Focus one exact model in the model gate.',
+  },
+  {
+    key: 'reveal-record',
+    label: 'RECORD',
+    description: 'Reveal the record for the current visible range.',
+  },
+]
+
 function ReportApp() {
   const [payload, setPayload] = useState<UsagePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -96,11 +123,16 @@ function ReportApp() {
   const [range, setRange] = useState<[number, number]>([0, -1])
   const [selectedTool, setSelectedTool] = useState<ToolId | null>(null)
   const [pinnedModel, setPinnedModel] = useState<string | null>(null)
+  const [guidedActive, setGuidedActive] = useState(false)
+  const [runComplete, setRunComplete] = useState(false)
   const [isModelListOpen, setIsModelListOpen] = useState(false)
   const [isReportDetailsOpen, setIsReportDetailsOpen] = useState(false)
   const [isRangeDetailsOpen, setIsRangeDetailsOpen] = useState(false)
   const [isViewHydrated, setIsViewHydrated] = useState(false)
   const chartSectionRef = useRef<HTMLDivElement>(null)
+  const guidedRunRef = useRef<HTMLElement>(null)
+  const loadoutStationRef = useRef<HTMLDivElement>(null)
+  const runResultRef = useRef<HTMLElement>(null)
   const modelDetailsToggleRef = useRef<HTMLButtonElement>(null)
   const modelDetailsPanelRef = useRef<HTMLDivElement>(null)
   const wasModelListOpen = useRef(false)
@@ -170,6 +202,22 @@ function ReportApp() {
     })
   }, [isModelListOpen])
 
+  useEffect(() => {
+    if (!runComplete) return
+    window.requestAnimationFrame(() => {
+      const result = runResultRef.current
+      if (!result) return
+      const reduceMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches
+      result.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'center',
+      })
+      result.focus({ preventScroll: true })
+    })
+  }, [runComplete])
+
   const daily = useMemo(() => payload?.daily ?? [], [payload])
   const visible = useMemo(() => {
     if (!daily.length || range[1] < range[0]) return [] as DailyRow[]
@@ -195,13 +243,6 @@ function ReportApp() {
   const activeTool = selectedTool
     ? TOOLS.find((tool) => tool.id === selectedTool) ?? null
     : null
-  const runState = pinnedModel
-    ? 'focused'
-    : selectedTool && isModelListOpen
-      ? 'inspecting'
-      : selectedTool
-        ? 'equipped'
-        : 'all'
   const activeToolSummary = selectedTool
     ? summary.byTool.find((tool) => tool.id === selectedTool) ?? null
     : null
@@ -222,6 +263,47 @@ function ReportApp() {
       models.map((model, index) => [model.model, shares[index]] as const),
     )
   }, [modelSelection])
+
+  const guidedStep = deriveGuidedRunStep({
+    guidedActive,
+    runComplete,
+    selectedTool,
+    focusedModel: pinnedModel,
+  })
+  const focusedRunSeries = useMemo(
+    () =>
+      selectedTool && pinnedModel
+        ? modelSelection?.series.find(
+            (series) =>
+              series.kind === 'model' &&
+              series.models.length === 1 &&
+              series.models[0] === pinnedModel,
+          ) ?? null
+        : null,
+    [modelSelection, pinnedModel, selectedTool],
+  )
+  const runMetrics = useMemo(() => {
+    if (!activeTool || !selectedTool || !pinnedModel || !focusedRunSeries) {
+      return null
+    }
+    const points = visible.map((row) =>
+      modelSeriesPoint(row, selectedTool, focusedRunSeries),
+    )
+    const dates = visible.map((row) => row.date)
+    const peak = findRunRecord(
+      points.map((point) => point.tokens),
+      dates,
+    )
+    return {
+      scope: `${activeTool.label} / ${pinnedModel}`,
+      range: visible.length
+        ? `${visible[0].date} — ${visible.at(-1)?.date ?? '—'}`
+        : '—',
+      totalTokens: points.reduce((total, point) => total + point.tokens, 0),
+      estimatedCost: points.reduce((total, point) => total + point.cost, 0),
+      peak,
+    }
+  }, [activeTool, focusedRunSeries, pinnedModel, selectedTool, visible])
 
   const dateRangeValue: DateRange | null = useMemo(() => {
     if (!visible.length) return null
@@ -257,6 +339,7 @@ function ReportApp() {
 
   const applyPreset = useCallback(
     (next: ViewPreset) => {
+      setRunComplete(false)
       setPreset(next)
       setRange(indexForPreset(daily, next))
       setIsRangeDetailsOpen(false)
@@ -267,6 +350,7 @@ function ReportApp() {
   const nudge = useCallback(
     (dir: -1 | 1) => {
       if (!daily.length || range[1] < range[0]) return
+      setRunComplete(false)
       const width = range[1] - range[0]
       let i0 = range[0] + dir
       let i1 = range[1] + dir
@@ -287,6 +371,7 @@ function ReportApp() {
   const onDatesChange = useCallback(
     (value: DateRange | null) => {
       if (!value?.start || !value?.end || !daily.length) return
+      setRunComplete(false)
       let i0 = daily.findIndex((r) => r.date >= value.start)
       let i1 = -1
       for (let i = daily.length - 1; i >= 0; i -= 1) {
@@ -321,8 +406,39 @@ function ReportApp() {
     })
   }, [])
 
+  const focusGuidedRun = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const guide = guidedRunRef.current
+      if (!guide) return
+      const reduceMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches
+      guide.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'center',
+      })
+      guide.focus({ preventScroll: true })
+    })
+  }, [])
+
+  const focusLoadout = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const loadout = loadoutStationRef.current
+      if (!loadout) return
+      const reduceMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches
+      loadout.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'center',
+      })
+      loadout.focus({ preventScroll: true })
+    })
+  }, [])
+
   const selectTool = useCallback(
     (toolId: ToolId, scrollToChart = false) => {
+      setRunComplete(false)
       setSelectedTool(toolId)
       setPinnedModel(null)
       setIsModelListOpen(false)
@@ -332,6 +448,7 @@ function ReportApp() {
   )
 
   const returnToTools = useCallback(() => {
+    setRunComplete(false)
     setSelectedTool(null)
     setPinnedModel(null)
     setIsModelListOpen(false)
@@ -339,6 +456,7 @@ function ReportApp() {
   }, [focusChartSection])
 
   const clearModelFocus = useCallback(() => {
+    setRunComplete(false)
     setPinnedModel(null)
     focusChartSection()
   }, [focusChartSection])
@@ -373,6 +491,7 @@ function ReportApp() {
 
   const toggleModelFocus = useCallback(
     (model: string) => {
+      setRunComplete(false)
       if (pinnedModel === model) clearModelFocus()
       else setPinnedModel(model)
       setIsModelListOpen(false)
@@ -381,6 +500,7 @@ function ReportApp() {
   )
 
   const retryLoad = useCallback(() => {
+    setRunComplete(false)
     setError(null)
     setPayload(null)
     setIsViewHydrated(false)
@@ -409,6 +529,58 @@ function ReportApp() {
     [],
   )
 
+  const startGuidedRun = useCallback(() => {
+    setRunComplete(false)
+    setGuidedActive(true)
+    focusGuidedRun()
+  }, [focusGuidedRun])
+
+  const freeRoam = useCallback(() => {
+    setRunComplete(false)
+    setGuidedActive(false)
+  }, [])
+
+  const replayRun = useCallback(() => {
+    setRunComplete(false)
+    setSelectedTool(null)
+    setPinnedModel(null)
+    setIsModelListOpen(false)
+    setGuidedActive(true)
+    focusGuidedRun()
+  }, [focusGuidedRun])
+
+  const openModelGate = useCallback(() => {
+    if (!selectedTool) return
+    setIsModelListOpen(true)
+    focusChartSection(true)
+  }, [focusChartSection, selectedTool])
+
+  const revealRunRecord = useCallback(() => {
+    if (!selectedTool || !pinnedModel) return
+    setRunComplete(true)
+  }, [pinnedModel, selectedTool])
+
+  const guidedCtaLabel =
+    guidedStep === 'choose-tool'
+      ? 'Go to loadout'
+      : guidedStep === 'choose-model'
+        ? 'Open model gate'
+        : guidedStep === 'reveal-record'
+          ? 'Reveal run record'
+          : guidedStep === 'complete'
+            ? 'Run another loadout'
+            : null
+  const guidedCtaAction =
+    guidedStep === 'choose-tool'
+      ? focusLoadout
+      : guidedStep === 'choose-model'
+        ? openModelGate
+        : guidedStep === 'reveal-record'
+          ? revealRunRecord
+          : guidedStep === 'complete'
+            ? replayRun
+            : null
+
   if (error) {
     return (
       <div className="page report-state-page">
@@ -418,16 +590,16 @@ function ReportApp() {
             role="alert"
             aria-live="assertive"
           >
-            <Badge label="Route interrupted" variant="neutral" />
-            <p className="state-kicker">SAVE FILE / ERROR</p>
-            <Heading level={1}>The run could not be restored</Heading>
+            <Badge label="Data unavailable" variant="neutral" />
+            <p className="state-kicker">AI USAGE / ERROR</p>
+            <Heading level={1}>Usage data could not be loaded</Heading>
             <Text color="secondary">{error}</Text>
             <Button
               label="Retry loading usage data"
               variant="primary"
               onClick={retryLoad}
             >
-              Retry route
+              Retry loading data
             </Button>
           </div>
         </Card>
@@ -445,9 +617,9 @@ function ReportApp() {
           aria-busy="true"
         >
           <span className="visually-hidden">
-            Loading the latest published usage chronicle.
+            Loading the latest published usage data.
           </span>
-          <p className="state-kicker">SAVE FILE / LOADING</p>
+          <p className="state-kicker">AI USAGE / LOADING</p>
           <div className="loading-meta skeleton-block" aria-hidden="true" />
           <div className="loading-hero skeleton-block" aria-hidden="true" />
           <div className="loading-copy skeleton-block" aria-hidden="true" />
@@ -474,16 +646,36 @@ function ReportApp() {
     payload.timeline_meta?.span ||
     `${daily[0]?.date || '—'} — ${daily.at(-1)?.date || '—'}`
   const degradedSources = degradedSourceNotices(payload.source_status)
-  const selectionStatus = activeTool
+  const baseSelectionStatus = activeTool
     ? pinnedModel
       ? `Viewing ${activeTool.label} models. Focused on ${pinnedModel}.`
       : `Viewing ${activeTool.label} models.`
     : 'Viewing all tools.'
+  const guidedAnnouncement = guidedActive
+    ? runComplete
+      ? ' Guided run complete. Recorded run revealed.'
+      : guidedStep === 'choose-tool'
+        ? ' Guided step: LOADOUT — choose a tool.'
+        : guidedStep === 'choose-model'
+          ? ' Guided step: MODEL — focus an exact model.'
+          : ' Guided step: RECORD — reveal the run record.'
+    : ''
+  const selectionStatus = `${baseSelectionStatus}${guidedAnnouncement}`
+  const guidedStepKey =
+    guidedStep === 'complete' || guidedStep === 'free'
+        ? null
+        : guidedStep
+  const guidedStepIndex =
+    guidedStep === 'complete'
+      ? GUIDED_STEPS.length
+      : guidedStepKey
+        ? GUIDED_STEPS.findIndex((step) => step.key === guidedStepKey)
+        : -1
 
   return (
     <div
-      className="page pixel-run-shell"
-      data-run-state={runState}
+      className="page endless-run-shell"
+      data-guided-step={guidedStep}
       style={
         {
           '--route-accent': activeTool?.hex ?? '#ffc84a',
@@ -498,23 +690,19 @@ function ReportApp() {
       >
         {selectionStatus}
       </div>
-      <div className="street-world" aria-hidden="true">
-        <span className="street-world__road" />
-        <span className="street-world__runner">&gt;_</span>
-        <span className="street-world__roofs" />
-        <span className="street-world__tower" />
-        <span className="street-world__sign" />
-        <span className="street-world__lanterns" />
-        <span className="street-world__bus-stop" />
-        <span className="street-world__bicycle" />
+      <div className="data-world" aria-hidden="true">
+        <span data-terrain="archive-grid" />
+        <span data-signal="usage-pulse" />
+        <span data-cursor="range-position" />
+        <span data-save="lifetime-record" />
       </div>
       <VStack gap={6}>
         <header className="chronicle-header">
           <div className="chronicle-topline">
             <div className="save-file-id">
               <span className="save-file-light" aria-hidden="true" />
-              <p className="chronicle-kicker">BRICKERP / THE ENDLESS BUILD</p>
-              <span className="save-file-state">SAVE FILE 001 · LIVE</span>
+              <p className="chronicle-kicker">AI USAGE / THE ENDLESS RUN</p>
+              <span className="save-file-state">LIVE ARCHIVE</span>
             </div>
             <div className="chronicle-update">
               <span>Updated {compactTimestamp(payload.generated_at)}</span>
@@ -544,16 +732,7 @@ function ReportApp() {
           </div>
 
           <div className="lifetime-hero">
-            <div className="pixel-night-scene" aria-hidden="true">
-              <span className="pixel-moon" />
-              <span className="pixel-ring-sign">二环 · 2ND RING</span>
-              <span className="pixel-lanterns" />
-              <span className="pixel-gate pixel-gate--left" />
-              <span className="pixel-gate pixel-gate--right" />
-              <span className="pixel-road" />
-              <span className="command-runner">&gt;_</span>
-            </div>
-            <p className="hero-score-label">LIFETIME SCORE</p>
+            <p className="hero-metric-label">AI USAGE</p>
             <Heading level={1} type="display-2">
               {fmtHeroTokens(lifetime.recordedTokens)}
             </Heading>
@@ -568,10 +747,14 @@ function ReportApp() {
               <strong>{fmtRatio(lifetime.cacheRatio)}</strong> of recorded
               traffic. Usage history, not a measure of output or productivity.
             </p>
-            <a className="start-run-link" href="#endless-run">
+            <button
+              type="button"
+              className="start-run-link"
+              onClick={startGuidedRun}
+            >
               <span className="command-cursor" aria-hidden="true">&gt;</span>
-              Start run
-            </a>
+              Start guided run
+            </button>
           </div>
 
           {isReportDetailsOpen ? (
@@ -631,40 +814,12 @@ function ReportApp() {
         >
           <div className="section-heading">
             <div>
-              <p className="section-kicker">WORLD 01 · ALL TIME</p>
+              <p className="section-kicker">USAGE HISTORY</p>
               <Heading level={2} id="skyline-heading">
-                <span className="skyline-daily-label">The Endless Run</span>
-                <span className="skyline-weekly-label">The Endless Run · Weekly</span>
+                THE ENDLESS RUN
               </Heading>
             </div>
-            <p>
-              <span className="skyline-daily-label">
-                Run history · daily recorded tokens.
-              </span>
-              <span className="skyline-weekly-label">
-                Run history · natural-week totals.
-              </span>{' '}
-              Choose a route to continue.
-            </p>
-          </div>
-          <div className="stage-route" aria-hidden="true">
-            <span className="route-track">
-              <span className="route-line" />
-              <span className="route-runner">&gt;</span>
-              <span className="route-node route-node--all">◆</span>
-              <span className="route-node route-node--equipped">◆</span>
-              <span className="route-node route-node--inspecting">◆</span>
-              <span className="route-node route-node--focused">◆</span>
-            </span>
-            <span className="route-state-label">
-              {runState === 'focused'
-                ? 'Target locked'
-                : runState === 'inspecting'
-                  ? 'Model gate open'
-                  : runState === 'equipped'
-                    ? 'Loadout equipped'
-                    : 'All routes'}
-            </span>
+            <p>Daily recorded tokens across the selected archive. Choose a tool to inspect.</p>
           </div>
           <div className="skyline-desktop">
             <UsageSkyline
@@ -690,12 +845,12 @@ function ReportApp() {
         >
           <div className="explore-heading">
             <div>
-              <p className="section-kicker">WORLD 02 · RUN CONSOLE</p>
+              <p className="section-kicker">PERSONAL ARCHIVE</p>
               <Heading level={2} id="explore-heading">
-                Continue the build
+                Explore recorded usage
               </Heading>
               <Text color="secondary">
-                Equip a tool, inspect its model gate, then lock one route.
+                Select a tool, inspect its model gate, and optionally reveal a run record.
               </Text>
             </div>
             <div className="explore-range-summary" aria-live="polite">
@@ -704,7 +859,68 @@ function ReportApp() {
             </div>
           </div>
 
-          <div className="loadout-heading">
+          {guidedActive ? (
+            <aside
+              id="guided-run"
+              ref={guidedRunRef}
+              className="checkpoint-log guided-run-strip"
+              aria-labelledby="guided-run-heading"
+              tabIndex={-1}
+            >
+              <div>
+                <p className="section-kicker">OPTIONAL GUIDE</p>
+                <Heading level={3} id="guided-run-heading">
+                  Guided run
+                </Heading>
+              </div>
+              <ol className="guided-run-steps" aria-label="Guided run steps">
+                {GUIDED_STEPS.map((step, index) => (
+                  <li
+                    key={step.key}
+                    aria-current={
+                      guidedStepKey === step.key ? 'step' : undefined
+                    }
+                    data-step-state={
+                      guidedStepKey === step.key
+                        ? 'current'
+                        : index < guidedStepIndex
+                          ? 'complete'
+                          : 'upcoming'
+                    }
+                  >
+                    <strong>{step.label}</strong>
+                    <span>{step.description}</span>
+                  </li>
+                ))}
+              </ol>
+              <HStack gap={2}>
+                {guidedCtaLabel && guidedCtaAction ? (
+                  <Button
+                    label={guidedCtaLabel}
+                    variant="primary"
+                    size="sm"
+                    onClick={guidedCtaAction}
+                  >
+                    {guidedCtaLabel}
+                  </Button>
+                ) : null}
+                <Button
+                  label="Free roam"
+                  variant="ghost"
+                  size="sm"
+                  onClick={freeRoam}
+                >
+                  Free roam
+                </Button>
+              </HStack>
+            </aside>
+          ) : null}
+
+          <div
+            className="loadout-heading"
+            ref={loadoutStationRef}
+            tabIndex={-1}
+          >
             <div>
               <p className="section-kicker">LOADOUT STATION</p>
               <Heading level={3}>Choose your tool</Heading>
@@ -868,11 +1084,11 @@ function ReportApp() {
             <div>
               <p className="section-kicker">MODEL GATE</p>
               <Heading level={3}>
-                {activeTool ? `${activeTool.label} route` : 'All-tool route'}
+                {activeTool ? `${activeTool.label} models` : 'All tools'}
               </Heading>
             </div>
             <span className="gate-state">
-              {pinnedModel ? `Target locked · ${pinnedModel}` : 'Awaiting focus'}
+              {pinnedModel ? `Focused · ${pinnedModel}` : 'Select an exact model'}
             </span>
           </div>
 
@@ -912,7 +1128,7 @@ function ReportApp() {
                     {activeTool && pinnedModel ? (
                       <div className="chart-focus-state">
                         <span>
-                          Target locked · Focused · <strong>{pinnedModel}</strong>
+                          Focused · <strong>{pinnedModel}</strong>
                           {!pinnedModelUsage ? ' · No usage in range' : ''}
                         </span>
                         <button type="button" onClick={clearModelFocus}>
@@ -1145,32 +1361,99 @@ function ReportApp() {
           )}
           </Card>
 
-          <section className="checkpoint-log" aria-labelledby="checkpoint-heading">
-            <div className="checkpoint-heading">
-              <div>
-                <p className="section-kicker">RUN RECORDS</p>
-                <Heading level={3} id="checkpoint-heading">Checkpoint log</Heading>
+          {runComplete ? (
+            <section
+              ref={runResultRef}
+              className="checkpoint-log run-complete-card"
+              aria-labelledby="run-complete-heading"
+              tabIndex={-1}
+            >
+              <div className="checkpoint-heading">
+                <div>
+                  <p className="section-kicker">RUN COMPLETE</p>
+                  <Heading level={3} id="run-complete-heading">
+                    Recorded run
+                  </Heading>
+                </div>
               </div>
-              <span className="checkpoint-stamp" aria-hidden="true">SAVED</span>
-            </div>
-            <dl className="checkpoint-grid">
-              <div>
-                <dt>Highest day</dt>
-                <dd>{fmtHeroTokens(lifetimePeak?.total_tokens ?? 0)}</dd>
-                <span>{lifetimePeak?.date ?? '—'}</span>
+              <dl className="checkpoint-grid">
+                <div>
+                  <dt>Scope</dt>
+                  <dd>{runMetrics?.scope ?? '—'}</dd>
+                </div>
+                <div>
+                  <dt>Range</dt>
+                  <dd>{runMetrics?.range ?? '—'}</dd>
+                </div>
+                <div>
+                  <dt>Total recorded tokens</dt>
+                  <dd>{fmtExactTokens(runMetrics?.totalTokens ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt>Estimated cost</dt>
+                  <dd>{fmtExactUsd(runMetrics?.estimatedCost ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt>Peak exact tokens</dt>
+                  <dd>
+                    {runMetrics?.peak
+                      ? fmtExactTokens(runMetrics.peak.value)
+                      : 'NO RECORDED USAGE'}
+                  </dd>
+                  <span>{runMetrics?.peak?.date ?? '—'}</span>
+                </div>
+              </dl>
+              <HStack gap={2}>
+                <Button
+                  label="Replay"
+                  variant="primary"
+                  size="sm"
+                  onClick={replayRun}
+                >
+                  Replay
+                </Button>
+                <Button
+                  label="Free roam"
+                  variant="ghost"
+                  size="sm"
+                  onClick={freeRoam}
+                >
+                  Free roam
+                </Button>
+              </HStack>
+            </section>
+          ) : (
+            <section
+              className="checkpoint-log"
+              aria-labelledby="lifetime-archive-heading"
+            >
+              <div className="checkpoint-heading">
+                <div>
+                  <p className="section-kicker">LIFETIME ARCHIVE</p>
+                  <Heading level={3} id="lifetime-archive-heading">
+                    Lifetime archive
+                  </Heading>
+                </div>
               </div>
-              <div>
-                <dt>Days recorded</dt>
-                <dd>{fmtExactTokens(lifetime.recordedDays)}</dd>
-                <span>{lifetime.firstDate ?? '—'} → {lifetime.lastDate ?? '—'}</span>
-              </div>
-              <div>
-                <dt>Tools used</dt>
-                <dd>{lifetimeToolCount}</dd>
-                <span>Real usage across the lifetime run</span>
-              </div>
-            </dl>
-          </section>
+              <dl className="checkpoint-grid">
+                <div>
+                  <dt>Peak recorded day</dt>
+                  <dd>{fmtExactTokens(lifetimePeak?.total_tokens ?? 0)}</dd>
+                  <span>{lifetimePeak?.date ?? '—'}</span>
+                </div>
+                <div>
+                  <dt>Days recorded</dt>
+                  <dd>{fmtExactTokens(lifetime.recordedDays)}</dd>
+                  <span>{lifetime.firstDate ?? '—'} → {lifetime.lastDate ?? '—'}</span>
+                </div>
+                <div>
+                  <dt>Tools recorded</dt>
+                  <dd>{lifetimeToolCount}</dd>
+                  <span>Real usage across the lifetime data</span>
+                </div>
+              </dl>
+            </section>
+          )}
 
           <footer className="exact-ledger">
             <span className="command-cursor" aria-hidden="true">&gt;</span>
@@ -1178,7 +1461,15 @@ function ReportApp() {
               <strong>Exact ledger</strong>
               <span>Tooltips, model details, costs, and token parts retain exact published values.</span>
             </div>
-            <a href="#endless-run">Replay run ↑</a>
+            <a
+              href="#endless-run"
+              onClick={(event) => {
+                event.preventDefault()
+                startGuidedRun()
+              }}
+            >
+              Start guided run ↑
+            </a>
           </footer>
         </section>
       </VStack>

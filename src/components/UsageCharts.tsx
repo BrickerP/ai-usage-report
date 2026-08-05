@@ -767,7 +767,7 @@ export function UsageCharts({
       >
         <span className="chart-run-record__title">RUN RECORD</span>
         <strong className="chart-run-record__value">
-          {fmtExact(runRecord?.value ?? 0)}
+          {runRecord ? `${fmtExact(runRecord.value)} TOKENS` : 'NO RECORDED USAGE'}
         </strong>
         <span className="chart-run-record__meta">
           {recordScope} · {runRecord?.date ?? 'No recorded day'}
