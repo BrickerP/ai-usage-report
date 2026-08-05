@@ -108,7 +108,7 @@ test('pixel platformer language is original and avoids borrowed game assets', ()
   assert.match(appSource, /THE ENDLESS RUN/)
   assert.match(appSource, /LOADOUT STATION/)
   assert.match(appSource, /MODEL GATE/)
-  assert.match(appSource, /Checkpoint log/)
+  assert.match(appSource, /LIFETIME ARCHIVE/)
   assert.match(appSource, /Exact ledger/i)
   assert.match(appSource, /command-(?:runner|cursor)/)
   assert.doesNotMatch(
