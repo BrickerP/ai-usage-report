@@ -13,6 +13,26 @@ export function nextSeriesIndex(
   return null
 }
 
+export type GuidedRunStep =
+  | 'free'
+  | 'choose-tool'
+  | 'choose-model'
+  | 'reveal-record'
+  | 'complete'
+
+export function deriveGuidedRunStep(input: {
+  guidedActive: boolean
+  runComplete: boolean
+  selectedTool: ToolId | null
+  focusedModel: string | null
+}): GuidedRunStep {
+  if (!input.guidedActive) return 'free'
+  if (input.runComplete) return 'complete'
+  if (!input.selectedTool) return 'choose-tool'
+  if (!input.focusedModel) return 'choose-model'
+  return 'reveal-record'
+}
+
 export type ViewPreset = '7' | '30' | '90' | 'all'
 
 export type ReportViewState = {

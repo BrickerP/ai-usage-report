@@ -1,132 +1,133 @@
-# Design
+# AI Usage: The Endless Run
 
 ## Source of truth
 
-- Status: Active
-- Last refreshed: 2026-07-31
-- Product: BrickerP AI Usage Chronicle
-- Primary surfaces: GitHub Pages Chronicle and fixed light/dark README SVG cards.
-- Data source: The existing `public/usage.json`; the presentation layer does not alter the Codex, Claude Code, Cursor, or One API collection and reconciliation rules.
+- Status: **Active design; implementation and pipeline verification pending**
+- Last refreshed: 2026-08-05
+- Product: **AI Usage: The Endless Run**
+- Primary surfaces: the GitHub Pages report and its deterministic light/dark README SVG cards.
+- Creative record: `docs/creative/endless-run/01-brainstorm.md` through `06-dogfood.md`.
+- This file supersedes the deleted Pixel Night Run prototype and MVP prompt. There is no compatibility path for that obsolete concept.
 
 ## Product intent
 
-This is a personal, public record of token traffic over time. It is not a cost-management dashboard and does not claim that token volume measures output, productivity, quality, or contribution.
+The product is a truthful personal record of AI token traffic presented as an original, generic pixel 2D data world. It is a report with an optional guided journey, not a game and not a measurement of output, productivity, quality, or contribution.
 
-The zero-interaction reading path is:
+The normal report remains immediately available as **Free Roam**. A visitor who wants orientation can follow one non-modal loop:
 
-1. Identify the owner and Chronicle.
-2. Read one lifetime headline: recorded tokens.
-3. Understand the date span and cache share.
-4. Read the all-time stacked Skyline.
-5. Optionally enter Explore for tool, model, cost, and date detail.
+`Free Roam → Loadout → Model Focus → Reveal real Run Record → Run Complete → Replay`
 
-The interactive path is:
+The loop helps visitors understand the relationship between the all-time history, tools, models, and the real record. It never gates data, traps focus, or creates fictional progress.
 
-`Select tool → view models → focus model → chart, URL, keyboard state, and accessible status update together`
+## Experience contract
 
-## Dynamic data rules
+### Free Roam
 
-- Never hardcode the current lifetime total, cache total, cache percentage, recorded-day count, date span, per-tool totals, or Skyline geometry.
-- The lifetime hero and Skyline always derive from every published daily row.
-- Explore range controls affect only the Explore summary, tool cards, model series, spend line, and detailed table.
-- Recorded tokens are the sum of the four existing mutually exclusive tool token series.
-- Cached context is the sum of the existing cache read/create/write fields; disclose its share beside the hero in secondary text.
-- “Recorded days” means valid dates represented in the published daily ledger.
-- Use “recorded tokens”, “recorded token traffic”, and “usage activity”. Do not use productivity, impact, contribution score, rank, streak, or achievement language.
+- The complete report is usable without starting or completing the guide.
+- All time remains the default range and retains the existing default-URL semantics.
+- Direct links to supported tool, model, focus, and range states continue to open in their canonical state.
+
+### Guided loop
+
+| State | Meaning | Contract |
+| --- | --- | --- |
+| Free Roam | Normal report browsing | Guide is optional and inline |
+| Loadout | Select Codex, Claude Code, Cursor, or One API | Existing tool selection is authoritative |
+| Model Focus | Inspect and focus a real model | Chart, URL, visible state, keyboard focus, and ARIA status synchronize |
+| Reveal real Run Record | Emphasize the exact peak record from published usage | Show real date, value, and units; never call it a score |
+| Run Complete | Acknowledge that the route was traversed | No XP, level, reward, achievement, rank, or generated value |
+| Replay | Begin another guided traversal | Reset guide-only progress without replacing canonical filter/URL rules |
+
+Guide progress should be derived from the existing selection and focus state wherever possible. Do not create a second source of truth for tool or model state.
+
+## Data invariants
+
+- The existing `public/usage.json` remains the presentation data source. The Python collection and merge pipeline remains authoritative.
+- Never hardcode current totals, cache values or ratios, dates, recorded-day count, record day, per-tool values, model values, costs, or chart geometry.
+- Recorded tokens remain the sum of the four existing mutually exclusive tool series: Codex, Claude Code, Cursor, and One API.
+- Collection ownership remains unchanged:
+  - Codex and Claude Code use durable per-machine fragments summed across machines.
+  - Cursor remains an account-level series and is never summed across machines.
+  - One API remains the residual gateway series, retaining prior history when a refresh window is incomplete.
+  - Historical local Comate data remains under One API only where gateway coverage is absent.
+- Cached context, cost estimates, source freshness, dates, and token-part methodology retain their existing meanings and disclosures.
+- Explore range controls affect only their existing visible-range surfaces; they do not rewrite lifetime facts.
+- Usage language must remain factual: “recorded tokens”, “recorded token traffic”, “usage activity”, and “Run Record”.
 
 ## Information architecture
 
-### Chronicle
+### All-time record
 
-- `BRICKERP / AI USAGE CHRONICLE`
-- One dynamic lifetime token number with the label `recorded tokens`
-- Dynamic first/last dates and recorded-day count
-- Dynamic cached-context total and percentage, plus the non-productivity clarification
-- All-time Skyline stacked by Codex, Claude Code, Cursor, and One API
-- Updated timestamp; degraded sources appear as a quiet inline state
+- Owner/product identity and one dynamic lifetime recorded-token headline.
+- Dynamic date span, recorded-day count, cached-context amount/share, and non-productivity disclosure.
+- A data-derived all-time pixel route showing the four tools in stable order.
+- Updated time and quiet degraded-source state linked to complete report details.
 
-### Explore
+### Explore and guided states
 
-- Dynamic visible-range summary
-- Four compact tool cards with token total, cost estimate, cache/input/output breakdown, model count, and explicit selected state
-- 7/30/90/All presets and progressive custom-date controls
-- Existing daily token/spend chart
-- Existing tool/model drilldown, Focused state, Escape unwind behavior, URL state, live-region status, and exact accessible table
+- Existing range summary, four tool controls, model inspection/focus, token and spend charts, exact table, and report details remain available.
+- Loadout and Model Focus rename the journey stage, not the underlying data or controls.
+- The real Run Record remains accessible outside the guide; “Reveal” is narrative emphasis, not an access gate.
+- Report details retain timezone, full span, machines, source-freshness reasons, token methodology, and cost-estimate methodology.
 
-### Report details
+### README cards
 
-- Generated time, timezone, full span, machines, source freshness reasons, token methodology, and cost-estimate methodology
-- Closed by default; the quiet source indicator opens the complete explanation
-
-## Signature visual: AI Usage Skyline
-
-- Desktop uses the all-time daily series.
-- Viewports below 500px use natural Monday-to-Sunday weekly totals and explicitly label the weekly aggregation.
-- Height is a linear recorded-token scale; segments are stacked in stable tool order.
-- Selecting a tool keeps its layer saturated and mutes the other layers, then moves focus to Explore.
-- Color never carries meaning alone; labels and accessible summaries identify every tool and aggregation unit.
-- No gradients, glow, glass, 3D, particles, contribution heatmap, badges, milestones, or decorative animation.
+- Continue generating deterministic `ai-usage-card-light.svg` and `ai-usage-card-dark.svg` assets from `public/usage.json`.
+- Preserve their fixed 560×160 viewport, accessible title/description, recorded-token total, date span, cache disclosure, and weekly stacked history.
+- README cards do not implement the guided loop, interactive controls, game mechanics, or a dynamic card service.
 
 ## Visual language
 
-- Canvas: `#F4F5F7`
-- Ink: `#17191F`
-- Tool categories retain stable blue/orange/teal/purple colors across the hero Skyline, Explore, detailed chart, and README cards.
-- System sans for interface copy; system monospace with tabular numerals for the hero, dates, and compact metadata.
-- Flat surfaces, thin neutral rules, compact controls, and no ornamental elevation.
-- The lifetime number is the only Hero-scale number. Cache and cost figures remain supporting or Explore-level information.
+- Subject: an **original generic pixel 2D data world**, with no identifiable real-world route.
+- Signature element: one continuous pixel route shaped by real usage and current selection.
+- Palette: night navy `#0B1320`, slate `#1D2A38`, paper `#E7EDF3`, signal gold `#F2BD4B`, focus cyan `#48C7C1`, and alert coral `#E0645A`.
+- Use readable interface type for explanation and monospace/tabular numerals for dates, tokens, and route labels.
+- Pixel treatment belongs to edges, route marks, small environmental shapes, and headings. Exact data remains crisp, labelled, and readable.
+- Color never carries state alone.
+- Do not use Beijing Second Ring Road, a recognizable skyline, copied game characters or worlds, console hardware, borrowed sprites, sounds, palettes, or trade dress.
 
-## States and accessibility
+## States, accessibility, and responsive behavior
 
-- Loading: render a stable Hero + Skyline skeleton matching the final layout; one polite busy status; decoration is hidden from assistive technology.
-- Full load error: retain a prominent assertive alert and Retry action.
-- Empty data: retain a readable status and Reload action.
-- Degraded source: quiet inline metadata near Updated, without a live alert; complete sanitized reasons remain in Report details.
-- Selected tool and Focused model use visible labels plus `aria-pressed`; focus is restored when details open/close.
-- Tool/model series support arrow-key movement; Escape closes model details, clears model focus, then clears tool selection one layer at a time.
-- Respect `prefers-reduced-motion`.
-- Target WCAG 2.1 AA contrast and no horizontal overflow at 390px.
+- The guide is inline and non-modal: no overlay, focus trap, automatic focus theft, or required auto-scroll.
+- Preserve visible keyboard focus, arrow-key model navigation, focus restoration, and Escape unwind behavior.
+- Preserve supported URL/deep-link state and the existing live-region announcements. Announce meaningful state changes once, without narrating decoration.
+- Selected tools and focused models retain visible text plus programmatic pressed/selected state.
+- Loading uses a stable layout and polite busy status; full-load error retains an assertive alert and retry; empty and degraded states remain explicit.
+- Respect `prefers-reduced-motion`; remove travel animation without removing state, order, or content.
+- At 390px the experience is one readable vertical route with no horizontal overflow or drag requirement.
+- Target WCAG 2.1 AA contrast.
 
-## README cards
+## Implementation boundaries
 
-- Build two deterministic static assets:
-  - `ai-usage-card-light.svg`
-  - `ai-usage-card-dark.svg`
-- Fixed 560×160 viewport.
-- Derive the recorded-token total, first/last dates, cache total/share, and weekly stacked Skyline from `public/usage.json`.
-- Include owner identity and an accessible SVG title/description.
-- Exclude spend, models, machines, ranking, controls, configurable themes, and dynamic endpoints.
-- Link the image to the complete GitHub Pages Chronicle with a `<picture>` element.
+- Use the existing Astryx, React, TypeScript, CSS, and chart stack.
+- Do not add Canvas, a game engine, physics, collision, a custom rendering runtime, or a speculative dependency.
+- Do not change collection, reconciliation, history retention, caching, pricing, publication, or README-card ownership for the narrative layer.
+- Remove obsolete Pixel Night Run paths rather than retaining fallbacks, aliases, migration behavior, or duplicate copy.
+- Prefer the smallest vertical slice that completes the six-state loop with real data.
 
-## Implementation constraints
+## Verification and pipeline contract
 
-- Framework: existing Astryx + React + TypeScript + CSS frontend; Python collection and merge scripts remain authoritative for data.
-- The SVG generator runs before each production build; Vite copies the generated public assets into `docs/`.
-- Scheduled publication continues to use the isolated publisher clone and stages generated report artifacts only.
-- Collection ownership remains unchanged:
-  - Codex / Claude Code: per-machine durable fragments, summed across machines.
-  - Cursor: account-level series, never summed across machines.
-  - One API: residual non-GPT/Codex and non-Claude gateway series with complete-window replacement and retained prior history on incomplete refresh.
-  - Historical local Comate data remains under One API only where gateway coverage is absent.
-- Do not infer authentication identity from Git credential usernames; publication still requires a non-mutating write-access probe and uses the ordinary credential helper.
+No local build, test, lint, formatting, visual QA, or Git verification was run for this documentation update. The following are required remote-pipeline evidence, not current pass claims:
 
-## Verification contract
+- `npm run test:frontend`
+- `npm run lint`
+- `npm run build`, which runs README-card generation, `tsc -b`, and the Vite production build
+- the repository diff/whitespace gate used by the pipeline
+- desktop and 390px visual review of Free Roam and the complete guided loop
+- keyboard-only, reduced-motion, loading, error, empty, degraded-source, URL, and ARIA review
+- data comparison proving totals, cache, costs, dates, tool/model ownership, and Run Record still derive from the published ledger
+- generated light/dark SVG XML parsing and presence in the published `docs/` output
 
-- Pure tests cover lifetime derivation, cache ratio, natural-week aggregation, tool emphasis, URL default semantics, deterministic SVG output, XML safety, and model-series conservation.
-- Production verification runs the frontend tests, lint, TypeScript/Vite build, and `git diff --check`.
-- Visual QA covers desktop and 390px mobile layouts, all-time default, daily/weekly labels, no overflow, source/loading/error hierarchy, and the complete tool → model → Focused synchronization.
-- The generated light/dark SVGs must parse as XML and be present in `docs/`.
+The evaluation plan and actual result ledger live in `docs/creative/endless-run/06-dogfood.md`. Do not mark the feature complete until pending evidence is replaced by observed results.
 
 ## Non-goals
 
-- Productivity or contribution scoring
-- Rankings, streaks, achievements, milestones, heatmaps, Wrapped, or Recap
-- Budgets, forecasting, billing reconciliation, or provider-efficiency comparisons
-- A dynamic README card service or theme/configuration API
-- Team/multi-user dashboards
-- Changing collection or token-accounting semantics for storytelling
-
-## Open questions
-
-- If Cursor later enables a custom OpenAI-compatible key, identify its gateway and add request-level ownership evidence before treating One API as non-overlapping.
-- If One API exposes a stable client/application field, prefer it over model-family ownership rules.
+- XP, levels, rewards, achievements, ranks, streaks, badges, milestones, or scores
+- Productivity, contribution, impact, or quality claims
+- A playable platformer, avatar, combat, physics, collision, or game simulation
+- Beijing Second Ring Road or any identifiable city journey
+- Canvas or a game engine
+- Budgets, forecasting, billing reconciliation, or provider-efficiency comparison
+- Team or multi-user dashboards
+- Changes to usage collection or token-accounting semantics
+- Multiple guided routes, alternate game themes, or decorative mechanics without dogfood evidence
