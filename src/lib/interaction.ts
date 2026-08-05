@@ -13,27 +13,6 @@ export function nextSeriesIndex(
   return null
 }
 
-export type RunStageState =
-  | 'loading'
-  | 'needs-tool'
-  | 'needs-model'
-  | 'record-ready'
-  | 'completed'
-
-export function deriveRunStageState(input: {
-  hydrated: boolean
-  selectedTool: ToolId | null
-  focusedModel: string | null
-  selectionKey: string | null
-  completedRunKey: string | null
-}): RunStageState {
-  if (!input.hydrated) return 'loading'
-  if (!input.selectedTool) return 'needs-tool'
-  if (!input.focusedModel || !input.selectionKey) return 'needs-model'
-  if (input.completedRunKey === input.selectionKey) return 'completed'
-  return 'record-ready'
-}
-
 export type ViewPreset = '7' | '30' | '90' | 'all'
 
 export type ReportViewState = {
@@ -42,6 +21,7 @@ export type ReportViewState = {
   preset: ViewPreset | null
   from: string | null
   to: string | null
+  day: string | null
 }
 
 const TOOL_IDS = new Set<ToolId>(['codex', 'claude', 'cursor', 'oneapi'])
@@ -59,6 +39,7 @@ export function parseReportView(search: string): ReportViewState {
   const preset = rawPreset && PRESETS.has(rawPreset) ? rawPreset : null
   const rawFrom = params.get('from')
   const rawTo = params.get('to')
+  const rawDay = params.get('day')
   const hasDateRange =
     Boolean(rawFrom && rawTo) &&
     ISO_DATE.test(rawFrom ?? '') &&
@@ -70,6 +51,7 @@ export function parseReportView(search: string): ReportViewState {
     preset: hasDateRange ? null : preset,
     from: hasDateRange ? rawFrom : null,
     to: hasDateRange ? rawTo : null,
+    day: rawDay && ISO_DATE.test(rawDay) ? rawDay : null,
   }
 }
 
@@ -98,6 +80,9 @@ export function buildReportViewSearch(
       params.delete('range')
     }
   }
+
+  if (view.day && ISO_DATE.test(view.day)) params.set('day', view.day)
+  else params.delete('day')
 
   const value = params.toString()
   return value ? `?${value}` : ''

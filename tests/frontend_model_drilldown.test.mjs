@@ -15,7 +15,6 @@ import {
 } from '../src/lib/usage.ts'
 import {
   buildReportViewSearch,
-  deriveRunStageState,
   explorationBackAction,
   indexRangeForDates,
   nextSeriesIndex,
@@ -68,6 +67,10 @@ const skylineSource = readFileSync(
   new URL('../src/components/UsageSkyline.tsx', import.meta.url),
   'utf8',
 )
+const runArchiveSource = readFileSync(
+  new URL('../src/components/RunArchiveWorld.tsx', import.meta.url),
+  'utf8',
+)
 const mobile500Start = stylesheetSource.lastIndexOf('@media (max-width: 500px)')
 const mobile500Source = stylesheetSource.slice(
   mobile500Start,
@@ -108,7 +111,8 @@ test('pixel platformer language is original and avoids borrowed game assets', ()
   assert.match(appSource, /THE ENDLESS RUN/)
   assert.match(appSource, /LOADOUT STATION/)
   assert.match(appSource, /MODEL GATE/)
-  assert.match(appSource, /LIFETIME ARCHIVE/)
+  assert.match(appSource, /Lifetime records/)
+  assert.match(runArchiveSource, /RUN SIGNATURE/)
   assert.match(appSource, /Exact ledger/i)
   assert.match(appSource, /command-(?:runner|cursor)/)
   assert.doesNotMatch(
@@ -171,96 +175,81 @@ test('core interaction and data-state semantics remain explicit', () => {
   assert.match(chartsSource, /animation: !reduceMotion/)
 })
 
-test('run stage derives its visible state from hydrated report selection', () => {
-  assert.equal(
-    deriveRunStageState({
-      hydrated: false,
-      selectedTool: null,
-      focusedModel: null,
-      selectionKey: null,
-      completedRunKey: null,
-    }),
-    'loading',
+test('a focused model replaces the analysis chart with its archive world', () => {
+  const visitorCopy = jsxTextContent(appSource)
+
+  assert.match(appSource, /className="page endless-run-shell"/)
+  assert.match(
+    appSource,
+    /const focusedRunLevel = useMemo\([\s\S]{0,180}selectedTool && pinnedModel[\s\S]{0,120}deriveRunLevel\(visible, selectedTool, pinnedModel\)/,
   )
-  assert.equal(
-    deriveRunStageState({
-      hydrated: true,
-      selectedTool: null,
-      focusedModel: null,
-      selectionKey: null,
-      completedRunKey: null,
-    }),
-    'needs-tool',
+  assert.match(chartsSource, /if \(runLevel\) \{[\s\S]{0,280}<RunArchiveWorld/)
+  assert.match(chartsSource, /level=\{runLevel\}/)
+  assert.match(chartsSource, /selectedDay=\{selectedDay\}/)
+  assert.match(chartsSource, /onSelectedDayChange=\{onSelectedDayChange\}/)
+  assert.match(chartsSource, /<FocusedDailyTable level=\{runLevel\}/)
+  assert.doesNotMatch(visitorCopy, /\b(?:XP|LEVEL|SCORE)\b|reward|Beijing|二环/i)
+})
+
+test('out-of-range saved days fall back internally and are removed from the URL', () => {
+  assert.match(
+    appSource,
+    /const \[selectedDay, setSelectedDay\] = useState<string \| null>\(null\)/,
   )
-  assert.equal(
-    deriveRunStageState({
-      hydrated: true,
-      selectedTool: 'oneapi',
-      focusedModel: null,
-      selectionKey: null,
-      completedRunKey: null,
-    }),
-    'needs-model',
+  assert.match(
+    appSource,
+    /const \[isSelectedDayCommitted, setIsSelectedDayCommitted\] = useState\(false\)/,
   )
-  assert.equal(
-    deriveRunStageState({
-      hydrated: true,
-      selectedTool: 'oneapi',
-      focusedModel: 'deepseek-v4-flash',
-      selectionKey: 'all|oneapi|deepseek-v4-flash',
-      completedRunKey: null,
-    }),
-    'record-ready',
+  assert.match(appSource, /const savedDay = knownModel \? savedView\.day : null/)
+  assert.match(appSource, /setSelectedDay\(savedDay\)/)
+  assert.match(appSource, /setIsSelectedDayCommitted\(Boolean\(savedDay\)\)/)
+  assert.match(
+    appSource,
+    /const isSelectedDayValid = Boolean\([\s\S]{0,180}focusedRunLevel\.points\.some\(\(point\) => point\.date === selectedDay\)/,
   )
-  assert.equal(
-    deriveRunStageState({
-      hydrated: true,
-      selectedTool: 'oneapi',
-      focusedModel: 'deepseek-v4-flash',
-      selectionKey: 'all|oneapi|deepseek-v4-flash',
-      completedRunKey: 'all|oneapi|deepseek-v4-flash',
-    }),
-    'completed',
+  assert.match(
+    appSource,
+    /if \(isSelectedDayValid\) return[\s\S]{0,180}setSelectedDay\(focusedRunLevel\.defaultDay\)[\s\S]{0,120}setIsSelectedDayCommitted\(false\)/,
   )
-  assert.equal(
-    deriveRunStageState({
-      hydrated: true,
-      selectedTool: 'oneapi',
-      focusedModel: 'deepseek-v4-flash',
-      selectionKey: '7|oneapi|deepseek-v4-flash',
-      completedRunKey: 'all|oneapi|deepseek-v4-flash',
-    }),
-    'record-ready',
+  assert.match(
+    appSource,
+    /day:\s*isSelectedDayCommitted &&[\s\S]{0,180}focusedRunLevel\.points\.some\(\(point\) => point\.date === selectedDay\)[\s\S]{0,80}\? selectedDay\s*: null/,
   )
 })
 
-test('the endless data world always exposes a real-selection run stage', () => {
-  const visitorCopy = jsxTextContent(appSource)
-  const stageStart = appSource.indexOf('id="run-stage"')
-  const archiveStart = appSource.indexOf(
-    'className="checkpoint-log lifetime-archive"',
-  )
-
-  assert.match(appSource, /className="page endless-run-shell"/)
-  assert.match(appSource, /className="data-world"/)
-  assert.notEqual(stageStart, -1)
-  assert.ok(archiveStart > stageStart)
-  assert.match(appSource, /className="run-stage"/)
-  assert.match(appSource, /data-stage=\{runStageState\}/)
-  assert.match(appSource, /aria-labelledby="run-stage-heading"/)
+test('valid saved days remain committed after focused-world validation', () => {
+  assert.match(appSource, /setIsSelectedDayCommitted\(Boolean\(savedDay\)\)/)
+  assert.match(appSource, /if \(isSelectedDayValid\) return/)
   assert.match(
     appSource,
-    /deriveRunStageState\(\{[\s\S]{0,220}hydrated: isViewHydrated[\s\S]{0,120}selectedTool[\s\S]{0,120}focusedModel: pinnedModel[\s\S]{0,120}selectionKey: runSelectionKey[\s\S]{0,120}completedRunKey/,
+    /day:\s*isSelectedDayCommitted &&[\s\S]{0,220}\? selectedDay\s*: null/,
   )
-  assert.match(appSource, /onClick=\{focusRunStage\}[\s\S]{0,180}Enter run stage/)
-  assert.match(stylesheetSource, /\.endless-run-shell/)
-  assert.match(stylesheetSource, /\.data-world/)
-  assert.match(stylesheetSource, /\.run-stage/)
-  assert.doesNotMatch(appSource, /guidedActive|guided-run-strip|deriveGuidedRunStep/)
-  assert.doesNotMatch(visitorCopy, /\b(?:XP|LEVEL|SCORE)\b|reward|Beijing|二环/i)
-  assert.doesNotMatch(
-    `${appSource}\n${stylesheetSource}`,
-    /street-world|className="stage-route"|\.stage-route\b|data-run-state|const runState/,
+})
+
+test('new model focus keeps its default day internal until the visitor moves', () => {
+  assert.match(
+    appSource,
+    /setPinnedModel\(model\)[\s\S]{0,80}setSelectedDay\(null\)[\s\S]{0,100}setIsSelectedDayCommitted\(false\)/,
+  )
+  assert.match(
+    appSource,
+    /setSelectedDay\(focusedRunLevel\.defaultDay\)[\s\S]{0,120}setIsSelectedDayCommitted\(false\)/,
+  )
+  assert.match(
+    appSource,
+    /const selectRunDay = useCallback\([\s\S]{0,220}setSelectedDay\(day\)[\s\S]{0,80}setIsSelectedDayCommitted\(true\)/,
+  )
+  assert.match(
+    appSource,
+    /const selectTool = useCallback\([\s\S]{0,220}setSelectedDay\(null\)[\s\S]{0,100}setIsSelectedDayCommitted\(false\)/,
+  )
+  assert.match(
+    appSource,
+    /const returnToTools = useCallback\([\s\S]{0,220}setSelectedDay\(null\)[\s\S]{0,100}setIsSelectedDayCommitted\(false\)/,
+  )
+  assert.match(
+    appSource,
+    /const clearModelFocus = useCallback\([\s\S]{0,180}setSelectedDay\(null\)[\s\S]{0,100}setIsSelectedDayCommitted\(false\)/,
   )
 })
 
@@ -280,7 +269,7 @@ test('tool selection announces once through the canonical atomic live region', (
     appSource,
     /className="selection-status visually-hidden"[\s\S]{0,100}role="status"[\s\S]{0,80}aria-live="polite"[\s\S]{0,80}aria-atomic="true"/,
   )
-  assert.match(appSource, /Replay confirmation \$\{runReplayCycle\}/)
+  assert.match(appSource, /Focused on \$\{focusedRunLevel\.model\}\. Run Signature:/)
   assert.match(appSource, /className="loadout-status"(?![^>]*aria-live)[^>]*>/)
 })
 
@@ -505,23 +494,15 @@ test('model details and focus preserve keyboard and accessible state', () => {
   assert.doesNotMatch(appSource, /className="series-key-value"/)
   assert.doesNotMatch(appSource, /className="series-key-state"/)
   assert.doesNotMatch(appSource, /label="Reset chart to all tools"/)
-  assert.match(appSource, /focusedModel=\{pinnedModel\}/)
-  assert.match(chartsSource, /focusedModel: string \| null/)
-  assert.match(chartsSource, /const focusedSeries = activeTool && focusedModel/)
-  assert.match(chartsSource, /opacity: isDimmed \? 0\.22 : 1/)
-  assert.match(chartsSource, /focusedSeries\?\.label \?\? activeTool\.label/)
-  assert.match(chartsSource, /const focusedAccessibleSeries =/)
+  assert.match(appSource, /runLevel=\{focusedRunLevel\}/)
+  assert.match(chartsSource, /runLevel: RunLevel \| null/)
   assert.match(
     chartsSource,
-    /other model tokens are dimmed and spend follows the focused model/,
+    /if \(runLevel\) \{[\s\S]{0,360}<RunArchiveWorld[\s\S]{0,260}<FocusedDailyTable/,
   )
   assert.match(
     chartsSource,
-    /description: activeTool[\s\S]{0,220}focusedSeries[\s\S]{0,220}spend follows the focused model/,
-  )
-  assert.match(
-    chartsSource,
-    /activeTool && focusedAccessibleSeries[\s\S]{0,240}modelSeriesPoint\([\s\S]{0,180}\)\.cost/,
+    /\{level\.points\.map\(\(point\) => \([\s\S]{0,320}fmtExact\(point\.tokens\)[\s\S]{0,220}fmtTooltipUsd\(point\.cost\)[\s\S]{0,120}\{point\.state\}/,
   )
   assert.match(appSource, /const \[loadAttempt, setLoadAttempt\] = useState\(0\)/)
   assert.match(appSource, /\}, \[loadAttempt\]\)/)
@@ -538,9 +519,20 @@ test('model details and focus preserve keyboard and accessible state', () => {
     appSource,
     /title="No usage data yet"[\s\S]{0,260}label="Reload usage data"/,
   )
+  const clearFocusStart = appSource.indexOf('const clearModelFocus = useCallback')
+  const clearFocusSource = appSource.slice(
+    clearFocusStart,
+    appSource.indexOf('const stepBackInChart', clearFocusStart),
+  )
+
+  assert.notEqual(clearFocusStart, -1)
   assert.match(
-    appSource,
-    /const clearModelFocus = useCallback\(\(\) => \{[\s\S]{0,120}focusChartSection\(\)/,
+    clearFocusSource,
+    /setPinnedModel\(null\)[\s\S]{0,100}setSelectedDay\(null\)[\s\S]{0,100}setIsSelectedDayCommitted\(false\)/,
+  )
+  assert.doesNotMatch(
+    clearFocusSource,
+    /(?:\.focus|scrollIntoView|requestAnimationFrame)\s*\(/,
   )
   assert.match(
     appSource,
@@ -551,7 +543,7 @@ test('model details and focus preserve keyboard and accessible state', () => {
 test('tooltips follow plotted series instead of dumping raw detail', () => {
   assert.match(
     chartsSource,
-    /const tooltipSeries = focusedSeries \? \[focusedSeries\] : specs/,
+    /for \(const spec of specs\) \{[\s\S]{0,120}modelSeriesPoint\(row, activeTool\.id, spec\)/,
   )
   assert.match(chartsSource, /modelSeriesPoint\(row, activeTool\.id, spec\)/)
   assert.match(
@@ -562,7 +554,7 @@ test('tooltips follow plotted series instead of dumping raw detail', () => {
   assert.doesNotMatch(chartsSource, /name: '(?:TOKENS|SPEND) \/ DAY'/)
   assert.match(
     chartsSource,
-    /RECORD: <strong>\$\{fmtExact\(recordDailyTokens\[list\[0\]\.dataIndex\]\)\}<\/strong> tokens/,
+    /RECORD: <strong>\$\{fmtExact\(totalDayTokens\[list\[0\]\.dataIndex\]\)\}<\/strong> tokens/,
   )
   assert.doesNotMatch(chartsSource, /const rawModels =/)
   assert.doesNotMatch(chartsSource, /tool\.breakdown/)
@@ -576,11 +568,7 @@ test('multiple split peaks keep one truthful argmax record label', () => {
   assert.equal(findRecordDayIndex(values), 3)
   assert.match(
     chartsSource,
-    /const recordDailyTokens = focusedSeries && activeTool[\s\S]{0,220}modelSeriesPoint\(row, activeTool\.id, focusedSeries\)\.tokens[\s\S]{0,80}: totalDayTokens/,
-  )
-  assert.match(
-    chartsSource,
-    /const peakGroup = findPeakGroup\(totalDayTokens\)[\s\S]{0,360}const recordDayIndex = findRecordDayIndex\(recordDailyTokens\)/,
+    /const peakGroup = findPeakGroup\(totalDayTokens\)[\s\S]{0,300}const recordDayIndex = findRecordDayIndex\(totalDayTokens\)/,
   )
   assert.match(chartsSource, /id: 'record-beacon'[\s\S]{0,300}symbol: 'diamond' as const/)
   assert.match(
@@ -601,12 +589,12 @@ test('multiple split peaks keep one truthful argmax record label', () => {
   )
 })
 
-test('focused record labels do not redefine or clip the tool-total terrain', () => {
+test('archive records do not redefine or clip the overview tool-total terrain', () => {
   const toolTotals = [100, 120, 140, 1_000]
-  const focusedModelTokens = [2, 3, 10, 4]
+  const archiveTokens = [2, 3, 10, 4]
   const terrain = findPeakGroup(toolTotals)
   const terrainPeakDays = new Set(terrain.peakIndices)
-  const focusedRecordDay = findRecordDayIndex(focusedModelTokens)
+  const archiveRecordDay = findRecordDayIndex(archiveTokens)
   const peakDayStack = [4, 996]
   const splitStack = peakDayStack.map((_value, index) => ({
     ground: stackSegment(peakDayStack, index, terrain.recordFloor, 'ground'),
@@ -614,10 +602,10 @@ test('focused record labels do not redefine or clip the tool-total terrain', () 
   }))
 
   assert.deepEqual(terrain.peakIndices, [3])
-  assert.equal(focusedRecordDay, 2)
-  assert.equal(terrainPeakDays.has(focusedRecordDay), false)
-  assert.equal(focusedModelTokens[focusedRecordDay], 10)
-  assert.equal(toolTotals[focusedRecordDay], 140)
+  assert.equal(archiveRecordDay, 2)
+  assert.equal(terrainPeakDays.has(archiveRecordDay), false)
+  assert.equal(archiveTokens[archiveRecordDay], 10)
+  assert.equal(toolTotals[archiveRecordDay], 140)
   assert.equal(
     splitStack.reduce((sum, segment) => sum + segment.ground, 0),
     terrain.recordFloor,
@@ -673,7 +661,7 @@ test('run record board follows the exact current chart scope without live noise'
 
   assert.match(
     chartsSource,
-    /const scopedDailyTokens = daily\.map\(\(row\) =>[\s\S]{0,420}modelSeriesPoint\(row, activeTool\.id, focusedAccessibleSeries\)\.tokens[\s\S]{0,300}num\(row, activeTool\.tokenKey\)[\s\S]{0,300}TOOLS\.reduce/,
+    /const scopedDailyTokens = daily\.map\(\(row\) =>[\s\S]{0,160}activeTool[\s\S]{0,100}num\(row, activeTool\.tokenKey\)[\s\S]{0,180}TOOLS\.reduce/,
   )
   assert.match(chartsSource, /className="chart-run-record"/)
   assert.match(chartsSource, /className="chart-run-record__title">RUN RECORD/)
@@ -706,114 +694,73 @@ test('run record board follows the exact current chart scope without live noise'
   )
 })
 
-test('RUN COMPLETE is a data-backed state inside the persistent stage', () => {
-  const ticketStart = appSource.indexOf('id="run-stage"')
-  const ticket = appSource.slice(ticketStart, appSource.indexOf('</section>', ticketStart))
+test('the archive world exposes one native exact-value date control', () => {
+  const nativeRanges = runArchiveSource.match(/type="range"/g) ?? []
+  const svgElements = runArchiveSource.match(/<svg\b/g) ?? []
+  const hiddenSvgs =
+    runArchiveSource.match(/<svg[\s\S]{0,180}aria-hidden="true"/g) ?? []
 
-  assert.notEqual(ticketStart, -1)
+  assert.equal(nativeRanges.length, 1)
+  assert.equal(hiddenSvgs.length, svgElements.length)
+  assert.match(runArchiveSource, /aria-valuetext=\{sliderValueText\}/)
   assert.match(
-    ticket,
-    /\{runStageState === 'completed' \? \([\s\S]{0,180}className="run-stage-complete"[\s\S]{0,180}RUN COMPLETE/,
-  )
-  assert.match(ticket, /runMetrics/)
-  assert.match(ticket, /fmtExactTokens\(runMetrics\?\.[^)]+\)/)
-  assert.match(ticket, /fmtExactUsd\(runMetrics\?\.[^)]+\)/)
-  assert.match(ticket, /label=\{runStageActionLabel\}[\s\S]{0,220}onClick=\{runStageAction\}/)
-  assert.match(
-    appSource,
-    /const replayRun[\s\S]{0,180}setRunReplayCycle\(\(cycle\) => cycle \+ 1\)/,
+    runArchiveSource,
+    /const sliderValueText = selectedPoint[\s\S]{0,420}formatTokens\(selectedPoint\.tokens\)[\s\S]{0,180}formatCost\(selectedPoint\.cost\)[\s\S]{0,120}pointStateAnnouncement\(selectedPoint\.state\)[\s\S]{0,80}\.\.\.selectedLandmarks/,
   )
   assert.match(
-    appSource,
-    /runStageState === 'completed'[\s\S]{0,80}\? replayRun/,
-  )
-  assert.match(
-    ticket,
-    /className="run-stage-viewport"[\s\S]{0,120}key=\{`run-stage-world-\$\{runReplayCycle\}`\}/,
-  )
-  assert.match(ticket, /key=\{`run-stage-results-\$\{runReplayCycle\}`\}/)
-  assert.match(
-    appSource,
-    /visible\.map\([\s\S]{0,320}modelSeriesPoint\(/,
-  )
-  assert.match(
-    appSource,
-    /points\.reduce\([\s\S]{0,180}total \+ point\.tokens/,
-  )
-  assert.match(
-    appSource,
-    /points\.reduce\([\s\S]{0,180}total \+ point\.cost/,
-  )
-  assert.match(
-    appSource,
-    /findRunRecord\([\s\S]{0,220}points\.map\(\(point\) => point\.tokens\)[\s\S]{0,120}dates/,
+    runArchiveSource,
+    /onChange=\{\(event\) => \{[\s\S]{0,160}onSelectedDayChange\(point\.date\)/,
   )
   assert.doesNotMatch(
-    jsxTextContent(ticket),
-    /\b(?:demo|mock|placeholder|score|reward|XP|level)\b/i,
+    runArchiveSource,
+    /role="application"|onKeyDown=|addEventListener\(['"]keydown|aria-live=/,
   )
 })
 
-test('lifetime archive follows the run stage instead of replacing it', () => {
-  const stageStart = appSource.indexOf('id="run-stage"')
-  const archiveStart = appSource.indexOf(
-    'className="checkpoint-log lifetime-archive"',
+test('archive world input remains touch, motion, contrast, and overflow safe', () => {
+  assert.match(
+    stylesheetSource,
+    /\.run-archive-world \{[\s\S]{0,300}max-width: 100%;[\s\S]{0,180}overflow: hidden;/,
   )
+  assert.match(
+    stylesheetSource,
+    /\.run-archive-world__viewport \{[\s\S]{0,260}overflow: hidden;[\s\S]{0,340}touch-action: pan-y;/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.run-archive-world__slider \{[\s\S]{0,180}height: 44px;[\s\S]{0,180}touch-action: pan-y;/,
+  )
+  assert.match(
+    stylesheetSource,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,260}\.run-archive-world__camera,[\s\S]{0,160}transition: none !important;/,
+  )
+  assert.match(
+    stylesheetSource,
+    /@media \(forced-colors: active\)[\s\S]{0,300}\.run-archive-world/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.run-archive-world__slider:focus-visible \{[\s\S]{0,120}outline:/,
+  )
+})
 
-  assert.notEqual(stageStart, -1)
-  assert.ok(archiveStart > stageStart)
+test('obsolete persistent paths have zero product-source residue', () => {
+  const obsoletePathFragments = [
+    ['deriveRun', 'StageState'].join(''),
+    ['run', 'stage'].join('-'),
+    ['runStage', 'State'].join(''),
+    ['run', 'Re', 'play', 'Cycle'].join(''),
+    ['completedRun', 'Key'].join(''),
+    ['RUN', ' COMPLETE'].join(''),
+    ['Re', 'play'].join(''),
+    ['ar', 'rival'].join(''),
+    ['finish', '-line'].join(''),
+    ['LIFETIME', ' ARCHIVE'].join(''),
+  ]
   assert.doesNotMatch(
-    appSource.slice(stageStart, archiveStart),
-    /runComplete\s*\?\s*\(/,
+    `${appSource}\n${chartsSource}\n${runArchiveSource}\n${stylesheetSource}`,
+    new RegExp(obsoletePathFragments.join('|'), 'i'),
   )
-  assert.match(
-    appSource.slice(stageStart, archiveStart + 80),
-    /<\/section>\s*<details className="checkpoint-log lifetime-archive">/,
-  )
-  assert.match(
-    appSource.slice(archiveStart, archiveStart + 900),
-    /LIFETIME ARCHIVE/,
-  )
-})
-
-test('run record board reads as a finish-line gantry', () => {
-  assert.match(
-    stylesheetSource,
-    /\.chart-run-record \{[\s\S]{0,100}width: min\(100%, 760px\);[\s\S]{0,260}min-height: 64px;/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.chart-run-record::before \{[\s\S]{0,260}border-top: 4px solid var\(--gold\)[\s\S]{0,120}border-inline: 6px solid var\(--pixel-border\)[\s\S]{0,180}radial-gradient\(circle at 7px 1px, var\(--gold\)/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.chart-run-record::after \{[\s\S]{0,220}bottom: 0[\s\S]{0,120}height: 5px[\s\S]{0,160}repeating-linear-gradient\(90deg, var\(--moon\) 0 10px, var\(--road\) 10px 20px\)/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.chart-run-record__title \{[\s\S]{0,160}font-size: 0\.68rem;/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.chart-run-record__value \{[\s\S]{0,100}font-size: 1\.18rem;[\s\S]{0,100}font-variant-numeric: tabular-nums/,
-  )
-})
-
-test('chart arrival structures stay decorative behind truthful data', () => {
-  assert.match(chartsSource, /className="chart-host"[\s\S]{0,100}role="img"/)
-  assert.match(
-    stylesheetSource,
-    /\.chart-host \{[\s\S]{0,100}isolation: isolate;[\s\S]{0,140}overflow: hidden;/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.chart-host::before,\s*\.chart-host::after \{[\s\S]{0,120}z-index: 0;[\s\S]{0,80}pointer-events: none;[\s\S]{0,80}content: '';/,
-  )
-  assert.match(
-    stylesheetSource,
-    /\.chart-host > \* \{[\s\S]{0,80}z-index: 1;/,
-  )
-  assert.doesNotMatch(chartsSource, /arrival-series|arrival-value|arrival-data/)
 })
 
 test('run record board adds no explanatory metric labels', () => {
@@ -960,7 +907,7 @@ test('series keyboard navigation wraps and supports boundary keys', () => {
   assert.equal(nextSeriesIndex('ArrowRight', 0, 0), null)
 })
 
-test('report view state round-trips valid tool, model, and preset values', () => {
+test('report view state round-trips tool, model, preset, and selected day', () => {
   assert.match(
     appSource,
     /const savedView = parseReportView\(window\.location\.search\)/,
@@ -980,11 +927,12 @@ test('report view state round-trips valid tool, model, and preset values', () =>
     preset: '7',
     from: null,
     to: null,
+    day: '2026-07-29',
   })
 
   assert.equal(
     search,
-    '?keep=yes&tool=oneapi&model=deepseek%2Fv4+flash&range=7',
+    '?keep=yes&tool=oneapi&model=deepseek%2Fv4+flash&range=7&day=2026-07-29',
   )
   assert.deepEqual(parseReportView(search), {
     tool: 'oneapi',
@@ -992,6 +940,7 @@ test('report view state round-trips valid tool, model, and preset values', () =>
     preset: '7',
     from: null,
     to: null,
+    day: '2026-07-29',
   })
 })
 
@@ -1005,6 +954,7 @@ test('custom dates override presets and clamp to the available timeline', () => 
     preset: null,
     from: '2026-07-02',
     to: '2026-07-20',
+    day: null,
   })
   assert.deepEqual(
     indexRangeForDates(
@@ -1016,24 +966,28 @@ test('custom dates override presets and clamp to the available timeline', () => 
   )
 })
 
-test('invalid report view values safely collapse to defaults', () => {
+test('invalid report view values and malformed days safely collapse to defaults', () => {
   assert.deepEqual(
-    parseReportView('?tool=private&model=secret&range=365&from=no&to=also-no'),
+    parseReportView(
+      '?tool=private&model=secret&range=365&from=no&to=also-no&day=July-30',
+    ),
     {
       tool: null,
       model: null,
       preset: null,
       from: null,
       to: null,
+      day: null,
     },
   )
   assert.equal(
-    buildReportViewSearch('?tool=oneapi&model=old&range=7', {
+    buildReportViewSearch('?tool=oneapi&model=old&range=7&day=2026-07-01', {
       tool: null,
       model: null,
       preset: 'all',
       from: null,
       to: null,
+      day: 'not-a-date',
     }),
     '',
   )
@@ -1047,6 +1001,7 @@ test('non-default 30-day range remains durable in the URL', () => {
       preset: '30',
       from: null,
       to: null,
+      day: null,
     }),
     '?range=30',
   )
