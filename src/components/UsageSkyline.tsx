@@ -24,15 +24,54 @@ type SegmentGeometry = {
   tokens: number
 }
 
-const VIEWBOX_WIDTH = 960
-const VIEWBOX_HEIGHT = 236
-const PLOT_TOP = 18
-const PLOT_BOTTOM = 198
-const PLOT_LEFT = 10
-const PLOT_RIGHT = 950
+const WIDE_LAYOUT = {
+  width: 960,
+  height: 236,
+  plotTop: 18,
+  plotBottom: 198,
+  plotLeft: 10,
+  plotRight: 950,
+  peakY: 12,
+  dateY: 222,
+  labelFontSize: 11,
+} as const
+const COMPACT_LAYOUT = {
+  width: 360,
+  height: 236,
+  plotTop: 32,
+  plotBottom: 194,
+  plotLeft: 8,
+  plotRight: 352,
+  peakY: 18,
+  dateY: 224,
+  labelFontSize: 12,
+} as const
 const exactNumber = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 })
+const shortDate = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+})
+
+function compactRangeLabel(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00Z`)
+  const end = new Date(`${endDate}T00:00:00Z`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${startDate}–${endDate}`
+  }
+  const year = end.getUTCFullYear()
+  if (start.getUTCFullYear() !== year) {
+    return `${shortDate.format(start)}, ${start.getUTCFullYear()}–${shortDate.format(end)}, ${year}`
+  }
+  if (
+    start.getUTCMonth() === end.getUTCMonth()
+  ) {
+    return `${shortDate.format(start).replace(/ \d+$/, '')} ${start.getUTCDate()}–${end.getUTCDate()}, ${year}`
+  }
+  return `${shortDate.format(start)}–${shortDate.format(end)}, ${year}`
+}
 
 export function UsageSkyline({
   daily,
@@ -43,6 +82,7 @@ export function UsageSkyline({
   const titleId = useId()
   const summaryId = useId()
   const granularity = compact ? 'week' : 'day'
+  const layout = compact ? COMPACT_LAYOUT : WIDE_LAYOUT
   const periods = useMemo(
     () => buildChroniclePeriods(daily, { granularity, selectedTool }),
     [daily, granularity, selectedTool],
@@ -52,8 +92,8 @@ export function UsageSkyline({
   const { peakTokens, geometry, totalsByTool } = useMemo(() => {
     const peak = Math.max(0, ...periods.map((period) => period.totalTokens))
     const scalePeak = peak || 1
-    const plotHeight = PLOT_BOTTOM - PLOT_TOP
-    const plotWidth = PLOT_RIGHT - PLOT_LEFT
+    const plotHeight = layout.plotBottom - layout.plotTop
+    const plotWidth = layout.plotRight - layout.plotLeft
     const step = periods.length ? plotWidth / periods.length : plotWidth
     const gap = Math.min(2, step * 0.18)
     const barWidth = Math.max(0.75, step - gap)
@@ -71,9 +111,9 @@ export function UsageSkyline({
           periodKey: period.key,
           periodLabel: period.label,
           toolId: segment.toolId,
-          x: PLOT_LEFT + periodIndex * step + gap / 2,
+          x: layout.plotLeft + periodIndex * step + gap / 2,
           y:
-            PLOT_BOTTOM -
+            layout.plotBottom -
             ((stackedTokens + segment.tokens) / scalePeak) * plotHeight,
           width: barWidth,
           height,
@@ -84,7 +124,7 @@ export function UsageSkyline({
     })
 
     return { peakTokens: peak, geometry: shapes, totalsByTool: totals }
-  }, [periods])
+  }, [layout, periods])
 
   const firstPeriod = periods[0]
   const lastPeriod = periods.at(-1)
@@ -114,7 +154,7 @@ export function UsageSkyline({
         aria-labelledby={`${titleId} ${summaryId}`}
         className="usage-skyline__chart"
         role="img"
-        viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
+        viewBox={`0 0 ${layout.width} ${layout.height}`}
       >
         <title id={titleId}>All-history AI usage skyline</title>
         <desc id={summaryId}>{accessibleSummary}</desc>
@@ -122,19 +162,19 @@ export function UsageSkyline({
           aria-hidden="true"
           stroke="currentColor"
           strokeOpacity="0.14"
-          x1={PLOT_LEFT}
-          x2={PLOT_RIGHT}
-          y1={PLOT_BOTTOM}
-          y2={PLOT_BOTTOM}
+          x1={layout.plotLeft}
+          x2={layout.plotRight}
+          y1={layout.plotBottom}
+          y2={layout.plotBottom}
         />
         <text
           aria-hidden="true"
           className="usage-skyline__peak"
           fill="currentColor"
-          fontSize="11"
+          fontSize={layout.labelFontSize}
           opacity="0.62"
-          x={PLOT_LEFT}
-          y={12}
+          x={layout.plotLeft}
+          y={layout.peakY}
         >
           Peak {fmtCompact(peakTokens)}
         </text>
@@ -190,26 +230,27 @@ export function UsageSkyline({
           aria-hidden="true"
           className="usage-skyline__date"
           fill="currentColor"
-          fontSize="11"
+          fontSize={layout.labelFontSize}
           opacity="0.62"
           textAnchor="start"
-          x={PLOT_LEFT}
-          y={222}
+          x={layout.plotLeft}
+          y={layout.dateY}
         >
-          {firstPeriod.label}
+          {compact
+            ? compactRangeLabel(firstPeriod.startDate, firstPeriod.endDate)
+            : firstPeriod.label}
         </text>
         {lastPeriod && lastPeriod.key !== firstPeriod.key ? (
           <text
             aria-hidden="true"
             className="usage-skyline__date"
-            fill="currentColor"
-            fontSize="11"
-            opacity="0.62"
             textAnchor="end"
-            x={PLOT_RIGHT}
-            y={222}
+            x={layout.plotRight}
+            y={layout.dateY}
           >
-            {lastPeriod.label}
+            {compact
+              ? compactRangeLabel(lastPeriod.startDate, lastPeriod.endDate)
+              : lastPeriod.label}
           </text>
         ) : null}
       </svg>

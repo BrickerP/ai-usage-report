@@ -178,9 +178,30 @@ function ReportApp() {
 
   const summary = useMemo(() => summarizeRange(visible), [visible])
   const lifetime = useMemo(() => summarizeLifetime(daily), [daily])
+  const lifetimePeak = useMemo(
+    () =>
+      daily.reduce<DailyRow | null>(
+        (peak, row) =>
+          !peak || row.total_tokens > peak.total_tokens ? row : peak,
+        null,
+      ),
+    [daily],
+  )
+  const lifetimeToolCount = useMemo(
+    () =>
+      summarizeRange(daily).byTool.filter((tool) => tool.tokens > 0).length,
+    [daily],
+  )
   const activeTool = selectedTool
     ? TOOLS.find((tool) => tool.id === selectedTool) ?? null
     : null
+  const runState = pinnedModel
+    ? 'focused'
+    : selectedTool && isModelListOpen
+      ? 'inspecting'
+      : selectedTool
+        ? 'equipped'
+        : 'all'
   const activeToolSummary = selectedTool
     ? summary.byTool.find((tool) => tool.id === selectedTool) ?? null
     : null
@@ -391,21 +412,22 @@ function ReportApp() {
   if (error) {
     return (
       <div className="page report-state-page">
-        <Card variant="muted" padding={4}>
+        <Card variant="muted" padding={4} className="report-state-frame">
           <div
             className="report-state-card"
             role="alert"
             aria-live="assertive"
           >
-            <Badge label="Report unavailable" variant="neutral" />
-            <Heading level={1}>Could not load usage data</Heading>
+            <Badge label="Route interrupted" variant="neutral" />
+            <p className="state-kicker">SAVE FILE / ERROR</p>
+            <Heading level={1}>The run could not be restored</Heading>
             <Text color="secondary">{error}</Text>
             <Button
               label="Retry loading usage data"
               variant="primary"
               onClick={retryLoad}
             >
-              Retry
+              Retry route
             </Button>
           </div>
         </Card>
@@ -425,6 +447,7 @@ function ReportApp() {
           <span className="visually-hidden">
             Loading the latest published usage chronicle.
           </span>
+          <p className="state-kicker">SAVE FILE / LOADING</p>
           <div className="loading-meta skeleton-block" aria-hidden="true" />
           <div className="loading-hero skeleton-block" aria-hidden="true" />
           <div className="loading-copy skeleton-block" aria-hidden="true" />
@@ -458,7 +481,15 @@ function ReportApp() {
     : 'Viewing all tools.'
 
   return (
-    <div className="page">
+    <div
+      className="page pixel-run-shell"
+      data-run-state={runState}
+      style={
+        {
+          '--route-accent': activeTool?.hex ?? '#ffc84a',
+        } as CSSProperties
+      }
+    >
       <div
         className="selection-status visually-hidden"
         role="status"
@@ -467,10 +498,24 @@ function ReportApp() {
       >
         {selectionStatus}
       </div>
+      <div className="street-world" aria-hidden="true">
+        <span className="street-world__road" />
+        <span className="street-world__runner">&gt;_</span>
+        <span className="street-world__roofs" />
+        <span className="street-world__tower" />
+        <span className="street-world__sign" />
+        <span className="street-world__lanterns" />
+        <span className="street-world__bus-stop" />
+        <span className="street-world__bicycle" />
+      </div>
       <VStack gap={6}>
         <header className="chronicle-header">
           <div className="chronicle-topline">
-            <p className="chronicle-kicker">BRICKERP / AI USAGE CHRONICLE</p>
+            <div className="save-file-id">
+              <span className="save-file-light" aria-hidden="true" />
+              <p className="chronicle-kicker">BRICKERP / THE ENDLESS BUILD</p>
+              <span className="save-file-state">SAVE FILE 001 · LIVE</span>
+            </div>
             <div className="chronicle-update">
               <span>Updated {compactTimestamp(payload.generated_at)}</span>
               {degradedSources.length ? (
@@ -499,20 +544,34 @@ function ReportApp() {
           </div>
 
           <div className="lifetime-hero">
+            <div className="pixel-night-scene" aria-hidden="true">
+              <span className="pixel-moon" />
+              <span className="pixel-ring-sign">二环 · 2ND RING</span>
+              <span className="pixel-lanterns" />
+              <span className="pixel-gate pixel-gate--left" />
+              <span className="pixel-gate pixel-gate--right" />
+              <span className="pixel-road" />
+              <span className="command-runner">&gt;_</span>
+            </div>
+            <p className="hero-score-label">LIFETIME SCORE</p>
             <Heading level={1} type="display-2">
               {fmtHeroTokens(lifetime.recordedTokens)}
             </Heading>
-            <p className="hero-label">recorded tokens</p>
+            <p className="hero-label">TOTAL RECORDED TOKENS</p>
             <p className="hero-span">
               {lifetime.firstDate || '—'} — {lifetime.lastDate || '—'}
               <span aria-hidden="true"> · </span>
               <span>{lifetime.recordedDays} recorded days</span>
             </p>
             <p className="hero-disclosure">
-              Includes {fmtCompact(lifetime.cacheTokens)} cached context (
-              {fmtRatio(lifetime.cacheRatio)} of recorded traffic). This is
-              usage activity, not a measure of output or productivity.
+              <strong>{fmtCompact(lifetime.cacheTokens)}</strong> cache-reused ·{' '}
+              <strong>{fmtRatio(lifetime.cacheRatio)}</strong> of recorded
+              traffic. Usage history, not a measure of output or productivity.
             </p>
+            <a className="start-run-link" href="#endless-run">
+              <span className="command-cursor" aria-hidden="true">&gt;</span>
+              Start run
+            </a>
           </div>
 
           {isReportDetailsOpen ? (
@@ -565,24 +624,47 @@ function ReportApp() {
           ) : null}
         </header>
 
-        <section className="skyline-section" aria-labelledby="skyline-heading">
+        <section
+          id="endless-run"
+          className="skyline-section game-stage"
+          aria-labelledby="skyline-heading"
+        >
           <div className="section-heading">
             <div>
-              <p className="section-kicker">ALL TIME</p>
+              <p className="section-kicker">WORLD 01 · ALL TIME</p>
               <Heading level={2} id="skyline-heading">
-                <span className="skyline-daily-label">Daily Skyline</span>
-                <span className="skyline-weekly-label">Weekly Skyline</span>
+                <span className="skyline-daily-label">The Endless Run</span>
+                <span className="skyline-weekly-label">The Endless Run · Weekly</span>
               </Heading>
             </div>
             <p>
               <span className="skyline-daily-label">
-                Daily recorded token traffic, stacked by tool.
+                Run history · daily recorded tokens.
               </span>
               <span className="skyline-weekly-label">
-                Natural-week totals on small screens, stacked by tool.
+                Run history · natural-week totals.
               </span>{' '}
-              Select a tool to continue into its model history.
+              Choose a route to continue.
             </p>
+          </div>
+          <div className="stage-route" aria-hidden="true">
+            <span className="route-track">
+              <span className="route-line" />
+              <span className="route-runner">&gt;</span>
+              <span className="route-node route-node--all">◆</span>
+              <span className="route-node route-node--equipped">◆</span>
+              <span className="route-node route-node--inspecting">◆</span>
+              <span className="route-node route-node--focused">◆</span>
+            </span>
+            <span className="route-state-label">
+              {runState === 'focused'
+                ? 'Target locked'
+                : runState === 'inspecting'
+                  ? 'Model gate open'
+                  : runState === 'equipped'
+                    ? 'Loadout equipped'
+                    : 'All routes'}
+            </span>
           </div>
           <div className="skyline-desktop">
             <UsageSkyline
@@ -608,13 +690,12 @@ function ReportApp() {
         >
           <div className="explore-heading">
             <div>
-              <p className="section-kicker">DETAILS</p>
+              <p className="section-kicker">WORLD 02 · RUN CONSOLE</p>
               <Heading level={2} id="explore-heading">
-                Explore
+                Continue the build
               </Heading>
               <Text color="secondary">
-                Choose a tool, inspect its models, then focus one series. The
-                chart, URL, and accessible status stay in sync.
+                Equip a tool, inspect its model gate, then lock one route.
               </Text>
             </div>
             <div className="explore-range-summary" aria-live="polite">
@@ -623,9 +704,24 @@ function ReportApp() {
             </div>
           </div>
 
+          <div className="loadout-heading">
+            <div>
+              <p className="section-kicker">LOADOUT STATION</p>
+              <Heading level={3}>Choose your tool</Heading>
+            </div>
+            <span className="loadout-status">
+              {activeTool ? `${activeTool.label} equipped` : 'All tools ready'}
+            </span>
+          </div>
+
           <div className="tool-grid" aria-label="Explore tools">
           {summary.byTool.map((tool) => (
-            <Card key={tool.id} variant={tool.color} padding={3}>
+            <Card
+              key={tool.id}
+              variant={tool.color}
+              padding={3}
+              className={`loadout-card${selectedTool === tool.id ? ' is-equipped' : ''}`}
+            >
               <VStack gap={2}>
                 <HStack justify="between" align="center">
                   <Heading level={3}>{tool.label}</Heading>
@@ -687,7 +783,7 @@ function ReportApp() {
                         )
                       }
                     >
-                      {selectedTool === tool.id ? 'Viewing' : 'View models'}
+                      {selectedTool === tool.id ? 'Equipped' : 'Equip'}
                     </Button>
                   </div>
                 ) : null}
@@ -697,7 +793,7 @@ function ReportApp() {
           </div>
 
           <div className="explore-time-controls">
-          <Heading level={3}>Time range</Heading>
+          <Heading level={3}>Run window</Heading>
           <div className="controls-row">
             <SegmentedControl
               label="Range preset"
@@ -768,7 +864,19 @@ function ReportApp() {
           ) : null}
           </div>
 
-          <Card padding={3}>
+          <div className="model-gate-heading">
+            <div>
+              <p className="section-kicker">MODEL GATE</p>
+              <Heading level={3}>
+                {activeTool ? `${activeTool.label} route` : 'All-tool route'}
+              </Heading>
+            </div>
+            <span className="gate-state">
+              {pinnedModel ? `Target locked · ${pinnedModel}` : 'Awaiting focus'}
+            </span>
+          </div>
+
+          <Card padding={3} className="exact-ledger-card">
           {daily.length ? (
             <div
               id="usage-explorer-chart"
@@ -799,12 +907,12 @@ function ReportApp() {
                     <Heading level={3}>
                       {activeTool
                         ? `${activeTool.label} models`
-                        : 'Daily usage'}
+                        : 'Run history'}
                     </Heading>
                     {activeTool && pinnedModel ? (
                       <div className="chart-focus-state">
                         <span>
-                          Focused · <strong>{pinnedModel}</strong>
+                          Target locked · Focused · <strong>{pinnedModel}</strong>
                           {!pinnedModelUsage ? ' · No usage in range' : ''}
                         </span>
                         <button type="button" onClick={clearModelFocus}>
@@ -815,7 +923,7 @@ function ReportApp() {
                   </div>
                   {!activeTool ? (
                     <Text size="sm" color="secondary">
-                      Choose a tool to inspect its models.
+                      Equip a tool to open its model gate.
                     </Text>
                   ) : !pinnedModel ? (
                     <Text size="sm" color="secondary">
@@ -1036,6 +1144,42 @@ function ReportApp() {
             </div>
           )}
           </Card>
+
+          <section className="checkpoint-log" aria-labelledby="checkpoint-heading">
+            <div className="checkpoint-heading">
+              <div>
+                <p className="section-kicker">RUN RECORDS</p>
+                <Heading level={3} id="checkpoint-heading">Checkpoint log</Heading>
+              </div>
+              <span className="checkpoint-stamp" aria-hidden="true">SAVED</span>
+            </div>
+            <dl className="checkpoint-grid">
+              <div>
+                <dt>Highest day</dt>
+                <dd>{fmtHeroTokens(lifetimePeak?.total_tokens ?? 0)}</dd>
+                <span>{lifetimePeak?.date ?? '—'}</span>
+              </div>
+              <div>
+                <dt>Days recorded</dt>
+                <dd>{fmtExactTokens(lifetime.recordedDays)}</dd>
+                <span>{lifetime.firstDate ?? '—'} → {lifetime.lastDate ?? '—'}</span>
+              </div>
+              <div>
+                <dt>Tools used</dt>
+                <dd>{lifetimeToolCount}</dd>
+                <span>Real usage across the lifetime run</span>
+              </div>
+            </dl>
+          </section>
+
+          <footer className="exact-ledger">
+            <span className="command-cursor" aria-hidden="true">&gt;</span>
+            <div>
+              <strong>Exact ledger</strong>
+              <span>Tooltips, model details, costs, and token parts retain exact published values.</span>
+            </div>
+            <a href="#endless-run">Replay run ↑</a>
+          </footer>
         </section>
       </VStack>
     </div>
