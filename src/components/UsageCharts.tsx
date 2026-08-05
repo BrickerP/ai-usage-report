@@ -20,7 +20,13 @@ import {
   num,
   TOOLS,
 } from '../lib/usage'
-import { modelSeriesColor } from '../lib/chart'
+import {
+  findPeakGroup,
+  findRecordDayIndex,
+  findRunRecord,
+  modelSeriesColor,
+  stackSegment,
+} from '../lib/chart'
 import { fmtCompact } from '../lib/format'
 
 echarts.use([
@@ -44,38 +50,12 @@ type Props = {
   onOpenModelList: () => void
 }
 
-function mixChannel(c: number, t: number) {
-  return Math.round(c + (255 - c) * t)
-}
-
 function stackSegStyle(hex: string, cap: 'top' | 'mid' | 'bot') {
-  const value = hex.replace('#', '')
-  const r = parseInt(value.slice(0, 2), 16)
-  const g = parseInt(value.slice(2, 4), 16)
-  const b = parseInt(value.slice(4, 6), 16)
-  const topRgb = `${mixChannel(r, 0.15)},${mixChannel(g, 0.15)},${mixChannel(b, 0.15)}`
-  const radius = 6
-  const borderRadius =
-    cap === 'top'
-      ? [radius, radius, 0, 0]
-      : cap === 'bot'
-        ? [0, 0, radius, radius]
-        : [0, 0, 0, 0]
   return {
-    color: {
-      type: 'linear' as const,
-      x: 0,
-      y: 0,
-      x2: 0,
-      y2: 1,
-      colorStops: [
-        { offset: 0, color: `rgb(${topRgb})` },
-        { offset: 1, color: hex },
-      ],
-    },
-    borderColor: 'rgba(15,23,42,0.06)',
-    borderWidth: 1,
-    borderRadius,
+    color: hex,
+    borderColor: cap === 'top' ? '#f1e8d2' : '#07131f',
+    borderWidth: cap === 'top' ? 2 : 1,
+    borderRadius: 0,
   }
 }
 
@@ -83,75 +63,6 @@ function capFor(index: number, count: number): 'top' | 'mid' | 'bot' {
   if (count <= 1 || index === count - 1) return 'top'
   if (index === 0) return 'bot'
   return 'mid'
-}
-
-type SkylineLayer = 'ground' | 'sky'
-
-type PeakGroup = {
-  recordFloor: number
-  peakIndices: number[]
-  skyMax: number
-}
-
-function findPeakGroup(values: number[]): PeakGroup {
-  const peakTokens = Math.max(...values, 0)
-  const defaultFloor = Math.max(peakTokens * 1.16, 1)
-  const sorted = values
-    .filter((value) => value > 0)
-    .sort((a, b) => a - b)
-
-  if (sorted.length < 2) {
-    return { recordFloor: defaultFloor, peakIndices: [], skyMax: 0 }
-  }
-
-  let gapIndex = -1
-  let gapRatio = 1
-  for (let index = 1; index < sorted.length; index += 1) {
-    const ratio = sorted[index] / Math.max(sorted[index - 1], Number.EPSILON)
-    if (ratio >= gapRatio) {
-      gapIndex = index
-      gapRatio = ratio
-    }
-  }
-
-  const upperCount = gapIndex >= 0 ? sorted.length - gapIndex : 0
-  const upperLimit = Math.max(2, Math.ceil(sorted.length * 0.25))
-  const hasPeakGroup =
-    gapIndex > 0 && gapRatio >= 2.25 && upperCount <= upperLimit
-
-  if (!hasPeakGroup) {
-    return { recordFloor: defaultFloor, peakIndices: [], skyMax: 0 }
-  }
-
-  const bodyMax = sorted[gapIndex - 1]
-  const recordFloor = Math.max(bodyMax * 1.16, 1)
-  const peakIndices = values
-    .map((value, index) => (value > recordFloor ? index : -1))
-    .filter((index) => index >= 0)
-  const skyMax = Math.max(
-    ...values.map((value) => Math.max(value - recordFloor, 0)),
-    0,
-  )
-
-  return { recordFloor, peakIndices, skyMax }
-}
-
-function stackSegment(
-  values: number[],
-  index: number,
-  floor: number,
-  layer: SkylineLayer,
-) {
-  let start = 0
-  for (let seriesIndex = 0; seriesIndex < index; seriesIndex += 1) {
-    start += values[seriesIndex] ?? 0
-  }
-  const end = start + (values[index] ?? 0)
-
-  if (layer === 'ground') {
-    return Math.max(Math.min(end, floor) - Math.min(start, floor), 0)
-  }
-  return Math.max(end - Math.max(start, floor), 0)
 }
 
 function escapeHtml(value: string) {
@@ -261,21 +172,27 @@ export function UsageCharts({
           ? num(row, activeTool.costKey)
           : TOOLS.reduce((sum, tool) => sum + num(row, tool.costKey), 0),
     )
-    // Daily stacked-token totals (for record-skyline detection + labels).
+    // Daily stacked-token totals define the terrain and preserve every series.
     const totalDayTokens = daily.map((row) =>
       activeTool
         ? num(row, activeTool.tokenKey)
         : TOOLS.reduce((sum, tool) => sum + num(row, tool.tokenKey), 0),
     )
-    // Token Skyline: the data stays linear and intact, but a record day is
-    // split across a ground grid and a sky grid. The lower part remains in
-    // the ordinary daily distribution; the exact remainder is rendered above
-    // the record horizon. Nothing is clipped or transformed.
+    const recordDailyTokens = focusedSeries && activeTool
+      ? daily.map(
+          (row) => modelSeriesPoint(row, activeTool.id, focusedSeries).tokens,
+        )
+      : totalDayTokens
+    // The data stays linear and intact, but a record day is split across two
+    // connected stage grids. Ordinary days remain readable below while the
+    // exact record remainder continues into the upper stage. Nothing is
+    // clipped or transformed.
     const peakGroup = findPeakGroup(totalDayTokens)
     const enablePeakSkyline = peakGroup.peakIndices.length > 0
     const recordHorizon = enablePeakSkyline ? peakGroup.recordFloor : undefined
     const peakDayIndices = peakGroup.peakIndices
     const peakDaySet = new Set(peakDayIndices)
+    const recordDayIndex = findRecordDayIndex(recordDailyTokens)
     const specs = activeTool ? modelSelection?.series ?? [] : []
     const barSpecs = activeTool
       ? specs.map((spec, index) => ({
@@ -323,8 +240,8 @@ export function UsageCharts({
           type: 'bar' as const,
           stack: `${layer}-tokens`,
           cursor: spec.cursor,
-          barCategoryGap: '42%',
-          barMaxWidth: 34,
+          barCategoryGap: '18%',
+          barMaxWidth: 30,
           xAxisIndex: layer === 'sky' ? tokenXAxisIndex - 1 : tokenXAxisIndex,
           yAxisIndex: layer === 'sky' ? tokenGridIndex - 1 : tokenGridIndex,
           emphasis: {
@@ -344,36 +261,41 @@ export function UsageCharts({
                   silent: true,
                   symbol: ['none', 'none'],
                   lineStyle: {
-                    color: '#d99a2b',
-                    width: 1.5,
-                    type: 'dashed',
+                    color: 'rgba(255,200,74,0.42)',
+                    width: 1,
+                    type: [5, 3],
                   },
-                  label: {
-                    show: true,
-                    position: 'insideEndTop',
-                    color: '#9a6a19',
-                    fontSize: 10,
-                    formatter: 'RECORD HORIZON',
-                  },
+                  label: { show: false },
                   data: [{ yAxis: recordHorizon }],
                 }
               : undefined,
-          data: stackValues.map((parts) =>
-            parts[index]?.[layer] ?? 0,
-          ),
+          data: stackValues.map((parts, dayIndex) => {
+            const value = parts[index]?.[layer] ?? 0
+            return peakDaySet.has(dayIndex) && value > 0
+              ? {
+                  value,
+                  itemStyle: {
+                    borderColor: '#ffc84a',
+                    borderWidth: 2,
+                    shadowBlur: layer === 'sky' ? 8 : 0,
+                    shadowColor: 'rgba(255,200,74,0.35)',
+                  },
+                }
+              : value
+          }),
         }
       })
     const groundBars = makeBars('ground')
     const skyBase = enablePeakSkyline
       ? {
           id: 'sky-base',
-          name: 'Record horizon base',
+          name: 'Record checkpoint base',
           type: 'bar' as const,
           stack: 'sky-tokens',
           xAxisIndex: tokenXAxisIndex - 1,
           yAxisIndex: tokenGridIndex - 1,
-          barCategoryGap: '42%',
-          barMaxWidth: 34,
+          barCategoryGap: '18%',
+          barMaxWidth: 30,
           itemStyle: { color: 'transparent' },
           emphasis: { disabled: true },
           silent: true,
@@ -387,8 +309,30 @@ export function UsageCharts({
     const bars = enablePeakSkyline
       ? [...(skyBase ? [skyBase] : []), ...skyBars, ...groundBars]
       : groundBars
-    const lineColor = activeTool?.hex ?? '#334155'
-    const rotate = dates.length > 24 ? 32 : 0
+    const lineColor = activeTool?.hex ?? '#f1e8d2'
+    const latestRunIndex = totalDayTokens.reduce(
+      (latest, value, index) => (value > 0 ? index : latest),
+      -1,
+    )
+    const terrainMax = enablePeakSkyline
+      ? recordHorizon ?? 1
+      : Math.max(...totalDayTokens, 1)
+    const dateLabelInterval =
+      dates.length > 12 ? Math.ceil(dates.length / 6) - 1 : 0
+    const recordPlaquePosition =
+      recordDayIndex >= dates.length * 0.72 ? 'left' : 'right'
+    const recordValue =
+      recordDayIndex >= 0 ? recordDailyTokens[recordDayIndex] ?? 0 : 0
+    const recordBeaconInSky =
+      enablePeakSkyline && peakDaySet.has(recordDayIndex)
+    const recordBeaconXAxisIndex = recordBeaconInSky
+      ? tokenXAxisIndex - 1
+      : tokenXAxisIndex
+    const recordBeaconYAxisIndex = recordBeaconInSky
+      ? tokenGridIndex - 1
+      : tokenGridIndex
+    const recordBeaconValue =
+      recordDayIndex >= 0 ? totalDayTokens[recordDayIndex] ?? 0 : 0
     const reduceMotion = window.matchMedia(
       '(prefers-reduced-motion: reduce)',
     ).matches
@@ -397,15 +341,15 @@ export function UsageCharts({
       {
         animation: !reduceMotion,
         textStyle: {
-          fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+          fontFamily: 'ui-monospace, "SFMono-Regular", Consolas, monospace',
         },
         aria: {
           enabled: true,
           description: activeTool
             ? focusedSeries
-              ? `${activeTool.label} daily model tokens, focused on ${focusedSeries.label}; other model tokens are dimmed and spend follows the focused model${enablePeakSkyline ? '; record days continue above the record horizon' : ''}`
-              : `${activeTool.label} daily model tokens and spend${enablePeakSkyline ? '; record days continue above the record horizon' : ''}`
-            : `Daily tokens and spend by AI coding tool${enablePeakSkyline ? '; record days continue above the record horizon' : ''}`,
+              ? `${activeTool.label} daily model tokens, focused on ${focusedSeries.label}; other model tokens are dimmed and spend follows the focused model${enablePeakSkyline ? '; record days extend into the upper stage with their exact totals labeled' : ''}`
+              : `${activeTool.label} daily model tokens and spend${enablePeakSkyline ? '; record days extend into the upper stage with their exact totals labeled' : ''}`
+            : `Daily tokens and spend by AI coding tool${enablePeakSkyline ? '; record days extend into the upper stage with their exact totals labeled' : ''}`,
         },
         axisPointer: {
           link: [
@@ -420,16 +364,16 @@ export function UsageCharts({
           confine: true,
           axisPointer: {
             type: 'shadow',
-            shadowStyle: { color: 'rgba(15, 23, 42, 0.05)' },
+            shadowStyle: { color: 'rgba(255, 200, 74, 0.08)' },
           },
-          borderRadius: 8,
+          borderRadius: 0,
           padding: [8, 10],
-          backgroundColor: 'rgba(255,255,255,0.98)',
-          borderColor: '#e2e8f0',
-          borderWidth: 1,
-          textStyle: { color: '#0f172a', fontSize: 12 },
+          backgroundColor: 'rgba(241,232,210,0.98)',
+          borderColor: '#07131f',
+          borderWidth: 2,
+          textStyle: { color: '#07131f', fontSize: 12 },
           extraCssText:
-            'box-shadow:0 8px 24px rgba(15,23,42,0.08);max-height:60vh;overflow:auto;',
+            'box-shadow:4px 4px 0 rgba(7,19,31,0.28);max-height:60vh;overflow:auto;',
           formatter: (params: unknown) => {
             const list = params as Array<{ dataIndex: number }>
             if (!list?.length) return ''
@@ -438,9 +382,11 @@ export function UsageCharts({
             const lines = [
               `<strong>${escapeHtml(row.date)}${activeTool ? ` · ${escapeHtml(activeTool.label)}` : ''}</strong>`,
             ]
-            if (enablePeakSkyline && peakDaySet.has(list[0].dataIndex)) {
+            if (
+              recordDayIndex >= 0 && list[0].dataIndex === recordDayIndex
+            ) {
               lines.push(
-                `<span style="color:#9a6a19">Record sky: <strong>${fmtExact(totalDayTokens[list[0].dataIndex])}</strong> tokens</span>`,
+                `<span style="color:#8a5a00">RECORD: <strong>${fmtExact(recordDailyTokens[list[0].dataIndex])}</strong> tokens</span>`,
               )
             }
 
@@ -489,13 +435,58 @@ export function UsageCharts({
         },
         grid: enablePeakSkyline
           ? [
-              { left: 58, right: 28, top: 28, height: '24%' },
-              { left: 58, right: 28, top: '36%', height: '29%' },
-              { left: 58, right: 28, top: '75%', height: '18%' },
+              {
+                left: 58,
+                right: 28,
+                top: 28,
+                height: '27%',
+                show: true,
+                backgroundColor: 'rgba(7,19,31,0.05)',
+                borderColor: 'rgba(255,200,74,0.14)',
+                borderWidth: 1,
+              },
+              {
+                left: 58,
+                right: 28,
+                top: '34%',
+                height: '31%',
+                show: true,
+                backgroundColor: 'rgba(7,19,31,0.1)',
+                borderColor: 'rgba(241,232,210,0.12)',
+                borderWidth: 1,
+              },
+              {
+                left: 58,
+                right: 28,
+                top: '75%',
+                height: '18%',
+                show: true,
+                backgroundColor: 'rgba(7,19,31,0.06)',
+                borderColor: 'rgba(241,232,210,0.1)',
+                borderWidth: 1,
+              },
             ]
           : [
-              { left: 58, right: 28, top: 28, height: '50%' },
-              { left: 58, right: 28, top: '68%', height: '22%' },
+              {
+                left: 58,
+                right: 28,
+                top: 28,
+                height: '50%',
+                show: true,
+                backgroundColor: 'rgba(7,19,31,0.1)',
+                borderColor: 'rgba(241,232,210,0.12)',
+                borderWidth: 1,
+              },
+              {
+                left: 58,
+                right: 28,
+                top: '68%',
+                height: '22%',
+                show: true,
+                backgroundColor: 'rgba(7,19,31,0.06)',
+                borderColor: 'rgba(241,232,210,0.1)',
+                borderWidth: 1,
+              },
             ],
         xAxis: [
           ...(enablePeakSkyline
@@ -506,7 +497,13 @@ export function UsageCharts({
                   data: dates,
                   gridIndex: 0,
                   axisLabel: { show: false },
-                  axisLine: { lineStyle: { color: '#f3e3bf' } },
+                  axisLine: {
+                    lineStyle: {
+                      color: 'rgba(255,200,74,0.36)',
+                      width: 1,
+                      type: [4, 4],
+                    },
+                  },
                   axisTick: { show: false },
                 },
               ]
@@ -517,7 +514,9 @@ export function UsageCharts({
             data: dates,
             gridIndex: tokenGridIndex,
             axisLabel: { show: false },
-            axisLine: { lineStyle: { color: '#e2e8f0' } },
+            axisLine: {
+              lineStyle: { color: 'rgba(241,232,210,0.22)', width: 1 },
+            },
             axisTick: { show: false },
           },
           {
@@ -527,16 +526,19 @@ export function UsageCharts({
             gridIndex: spendGridIndex,
             axisLabel: {
               formatter: (value: string) => value.slice(5),
+              interval: dateLabelInterval,
               hideOverlap: true,
-              rotate,
-              fontSize: 11,
-              color: '#64748b',
+              rotate: 0,
+              fontSize: 10,
+              color: 'rgba(158,170,173,0.72)',
               margin: 10,
             },
-            axisLine: { lineStyle: { color: '#e2e8f0' } },
+            axisLine: {
+              lineStyle: { color: 'rgba(241,232,210,0.2)', width: 1 },
+            },
             axisTick: {
               alignWithLabel: true,
-              lineStyle: { color: '#e2e8f0' },
+              lineStyle: { color: 'rgba(241,232,210,0.18)' },
             },
           },
         ],
@@ -546,22 +548,18 @@ export function UsageCharts({
                 {
                   type: 'value' as const,
                   gridIndex: 0,
-                  name: 'RECORD SKY',
-                  nameTextStyle: {
-                    fontSize: 10,
-                    color: '#b1812d',
-                    padding: [0, 0, 0, 8],
-                  },
+                  name: '',
                   axisLabel: {
                     formatter: (value: number) => fmtCompact(value),
-                    color: '#9a6a19',
+                    color: 'rgba(255,200,74,0.72)',
+                    fontSize: 10,
                   },
                   min: recordHorizon,
                   max: (recordHorizon ?? 0) + peakGroup.skyMax * 1.1,
                   splitNumber: 2,
                   splitLine: {
                     show: true,
-                    lineStyle: { color: 'rgba(217,154,43,0.18)', type: [4, 4] },
+                    lineStyle: { color: 'rgba(255,200,74,0.12)', type: [2, 4] },
                   },
                 },
               ]
@@ -569,42 +567,34 @@ export function UsageCharts({
           {
             type: 'value',
             gridIndex: tokenGridIndex,
-            name: enablePeakSkyline ? 'GROUND / TOKENS PER DAY' : 'Tokens / day',
-            nameTextStyle: {
-              fontSize: 11,
-              color: '#94a3b8',
-              padding: [0, 0, 0, 8],
-            },
+            name: '',
             axisLabel: {
               formatter: (value: number) => fmtCompact(value),
-              color: '#64748b',
+              color: 'rgba(158,170,173,0.7)',
+              fontSize: 10,
             },
             min: 0,
             max: enablePeakSkyline ? (recordHorizon ?? 0) * 1.06 : undefined,
             splitNumber: 4,
             splitLine: {
               show: true,
-              lineStyle: { color: 'rgba(148,163,184,0.2)', type: [4, 4] },
+              lineStyle: { color: 'rgba(241,232,210,0.08)', type: [2, 4] },
             },
           },
           {
             type: 'value',
             gridIndex: spendGridIndex,
-            name: 'Spend / day',
-            nameTextStyle: {
-              fontSize: 11,
-              color: '#94a3b8',
-              padding: [0, 0, 0, 8],
-            },
+            name: '',
             axisLabel: {
               formatter: (value: number) => fmtAxisUsd(value),
-              color: '#64748b',
+              color: 'rgba(158,170,173,0.62)',
+              fontSize: 10,
             },
             min: 0,
             splitNumber: 3,
             splitLine: {
               show: true,
-              lineStyle: { color: 'rgba(148,163,184,0.14)', type: [4, 4] },
+              lineStyle: { color: 'rgba(241,232,210,0.06)', type: [2, 4] },
             },
           },
         ],
@@ -618,12 +608,17 @@ export function UsageCharts({
             type: 'line',
             xAxisIndex: spendXAxisIndex,
             yAxisIndex: spendGridIndex,
-            smooth: 0.35,
-            symbol: 'circle',
+            smooth: false,
+            step: 'middle',
+            symbol: 'rect',
             symbolSize: dates.length > 72 ? 0 : 5,
             showSymbol: dates.length <= 72,
-            lineStyle: { width: 2.4, color: lineColor },
-            itemStyle: { color: lineColor, borderWidth: 0 },
+            lineStyle: { width: 2, color: lineColor },
+            itemStyle: {
+              color: lineColor,
+              borderColor: '#07131f',
+              borderWidth: 1,
+            },
             areaStyle: {
               color: {
                 type: 'linear',
@@ -639,16 +634,17 @@ export function UsageCharts({
             },
             data: totalDaySpend,
           },
-          ...(enablePeakSkyline
+          ...(recordDayIndex >= 0
             ? [
                 {
                   id: 'record-beacon',
-                  name: 'Peak day',
+                  name: 'Record day',
                   type: 'scatter' as const,
-                  xAxisIndex: 0,
-                  yAxisIndex: 0,
+                  xAxisIndex: recordBeaconXAxisIndex,
+                  yAxisIndex: recordBeaconYAxisIndex,
                   symbol: 'diamond' as const,
                   symbolSize: 11,
+                  clip: false,
                   itemStyle: {
                     color: '#f4b740',
                     borderColor: '#fff7ed',
@@ -658,48 +654,58 @@ export function UsageCharts({
                   },
                   silent: true,
                   tooltip: { show: false },
-                  z: 20,
-                  data: totalDayTokens.map((_value, index) =>
-                    peakDaySet.has(index)
-                      ? [index, totalDayTokens[index]]
-                      : null,
-                  ),
-                },
-                {
-                  id: 'record-label',
-                  name: 'Peak day',
-                  type: 'scatter' as const,
-                  xAxisIndex: 0,
-                  yAxisIndex: 0,
-                  symbol: 'none' as const,
-                  silent: true,
-                  tooltip: { show: false },
                   label: {
                     show: true,
-                    position: 'top',
-                    distance: 10,
-                    color: '#9a6a19',
+                    position: recordPlaquePosition,
+                    distance: 9,
+                    align: recordPlaquePosition === 'left' ? 'right' : 'left',
+                    verticalAlign: 'middle',
+                    color: '#07131f',
                     fontSize: 12,
                     fontWeight: 700,
-                    backgroundColor: 'rgba(255,251,235,0.96)',
-                    borderColor: 'rgba(245,158,11,0.5)',
-                    borderWidth: 1,
-                    borderRadius: 5,
-                    padding: [3, 6],
-                    formatter: (params: { dataIndex: number }) => {
-                      const value = totalDayTokens[params.dataIndex] ?? 0
-                      return `RECORD · ${fmtCompact(value)}`
-                    },
+                    backgroundColor: '#ffc84a',
+                    borderColor: '#07131f',
+                    borderWidth: 2,
+                    borderRadius: 0,
+                    padding: [4, 7],
+                    overflow: 'none',
+                    formatter: () => `◆ RECORD\n${fmtExact(recordValue)}`,
                   },
                   z: 21,
-                  data: totalDayTokens.map((_value, index) =>
-                    peakDaySet.has(index)
-                      ? [index, totalDayTokens[index]]
-                      : null,
-                  ),
+                  data: [[recordDayIndex, recordBeaconValue]],
                 },
               ]
             : []),
+          {
+            id: 'run-cursor',
+            name: 'Current run position',
+            type: 'scatter',
+            xAxisIndex: tokenXAxisIndex,
+            yAxisIndex: tokenGridIndex,
+            symbol: 'rect',
+            symbolSize: [20, 16],
+            silent: true,
+            tooltip: { show: false },
+            itemStyle: {
+              color: '#ffc84a',
+              borderColor: '#07131f',
+              borderWidth: 2,
+            },
+            label: {
+              show: true,
+              position: 'inside',
+              color: '#07131f',
+              fontFamily: 'ui-monospace, "SFMono-Regular", Consolas, monospace',
+              fontSize: 11,
+              fontWeight: 800,
+              formatter: '>_',
+            },
+            z: 30,
+            data:
+              latestRunIndex >= 0
+                ? [[latestRunIndex, terrainMax * 0.045]]
+                : [],
+          },
         ],
       },
       { notMerge: true },
@@ -724,7 +730,22 @@ export function UsageCharts({
       : `${activeTool.label} daily model usage`
     : 'Daily usage by AI coding tool'
   const skylineAccessibilityNote =
-    ' Record days, when present, continue above a labeled record horizon; exact daily totals remain available below.'
+    ' Record days, when present, extend into the upper stage and show their exact totals; exact daily data remains available below.'
+  const recordScope =
+    focusedAccessibleSeries && activeTool
+      ? `${activeTool.label} / ${focusedAccessibleSeries.label}`
+      : activeTool?.label ?? 'All tools'
+  const scopedDailyTokens = daily.map((row) =>
+    activeTool && focusedAccessibleSeries
+      ? modelSeriesPoint(row, activeTool.id, focusedAccessibleSeries).tokens
+      : activeTool
+        ? num(row, activeTool.tokenKey)
+        : TOOLS.reduce((sum, tool) => sum + num(row, tool.tokenKey), 0),
+  )
+  const runRecord = findRunRecord(
+    scopedDailyTokens,
+    daily.map((row) => row.date),
+  )
   const accessibleSeries = activeTool
     ? modelSelection?.series ?? []
     : TOOLS.map((tool) => ({
@@ -738,6 +759,20 @@ export function UsageCharts({
 
   return (
     <>
+      <div
+        className="chart-run-record"
+        role="group"
+        aria-label={`Run record for ${recordScope}`}
+        data-record-state={runRecord ? 'recorded' : 'empty'}
+      >
+        <span className="chart-run-record__title">RUN RECORD</span>
+        <strong className="chart-run-record__value">
+          {fmtExact(runRecord?.value ?? 0)}
+        </strong>
+        <span className="chart-run-record__meta">
+          {recordScope} · {runRecord?.date ?? 'No recorded day'}
+        </span>
+      </div>
       <div
         className="chart-host"
         ref={hostRef}

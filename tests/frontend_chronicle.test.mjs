@@ -163,3 +163,36 @@ test('chronicle segments carry existing tool colors and selected-tool emphasis',
     ],
   )
 })
+
+test('equipping a tool changes emphasis without changing truthful weekly totals', () => {
+  const rows = [
+    {
+      date: '2026-08-03',
+      codex_tokens: 40,
+      claude_tokens: 30,
+      cursor_tokens: 20,
+      oneapi_tokens: 10,
+    },
+    {
+      date: '2026-08-04',
+      codex_tokens: 5,
+      claude_tokens: 15,
+    },
+  ]
+
+  const [allTools] = buildChroniclePeriods(rows, { granularity: 'week' })
+  const [codexEquipped] = buildChroniclePeriods(rows, {
+    granularity: 'week',
+    selectedTool: 'codex',
+  })
+
+  assert.equal(codexEquipped.totalTokens, allTools.totalTokens)
+  assert.deepEqual(
+    codexEquipped.segments.map(({ toolId, tokens }) => ({ toolId, tokens })),
+    allTools.segments.map(({ toolId, tokens }) => ({ toolId, tokens })),
+  )
+  assert.equal(
+    codexEquipped.segments.find(({ toolId }) => toolId === 'codex')?.emphasis,
+    'selected',
+  )
+})

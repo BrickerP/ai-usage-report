@@ -20,6 +20,12 @@ import {
   nextSeriesIndex,
   parseReportView,
 } from '../src/lib/interaction.ts'
+import {
+  findPeakGroup,
+  findRecordDayIndex,
+  findRunRecord,
+  stackSegment,
+} from '../src/lib/chart.ts'
 
 const rows = [
   {
@@ -57,22 +63,170 @@ const chartsSource = readFileSync(
   new URL('../src/components/UsageCharts.tsx', import.meta.url),
   'utf8',
 )
+const skylineSource = readFileSync(
+  new URL('../src/components/UsageSkyline.tsx', import.meta.url),
+  'utf8',
+)
+const mobile500Start = stylesheetSource.lastIndexOf('@media (max-width: 500px)')
+const mobile500Source = stylesheetSource.slice(
+  mobile500Start,
+  stylesheetSource.indexOf('@media', mobile500Start + 1),
+)
 
-test('chronicle hero and skyline are dynamic, all-time, and separate from Explore', () => {
+function jsxTextContent(source) {
+  return [...source.matchAll(/>([^<>{}]*)</g)]
+    .map((match) => match[1].trim())
+    .filter(Boolean)
+    .join('\n')
+}
+
+test('save-file hero and endless run derive their score from published data', () => {
+  const heroScores = appSource.match(/type="display-2"/g) ?? []
+
   assert.match(appSource, /summarizeLifetime\(daily\)/)
   assert.match(appSource, /\{fmtHeroTokens\(lifetime\.recordedTokens\)\}/)
-  assert.match(appSource, /recorded tokens/)
+  assert.equal(heroScores.length, 1)
+  assert.match(appSource, /TOTAL RECORDED TOKENS/)
   assert.match(appSource, /lifetime\.cacheRatio/)
+  assert.match(appSource, /fmtCompact\(lifetime\.cacheTokens\)/)
   assert.match(appSource, /className="skyline-desktop"/)
   assert.match(appSource, /className="skyline-compact"/)
-  assert.match(appSource, /className="skyline-weekly-label"[\s\S]{0,120}Weekly Skyline/)
-  assert.match(appSource, /Natural-week totals on small screens/)
+  assert.match(appSource, /className="skyline-weekly-label"[\s\S]{0,120}The Endless Run · Weekly/)
+  assert.match(appSource, /Run history · natural-week totals/)
   assert.match(stylesheetSource, /\.skyline-weekly-label/)
   assert.match(appSource, /<UsageSkyline[\s\S]{0,240}daily=\{daily\}/)
   assert.match(appSource, /compact/)
   assert.match(appSource, /id="explore"/)
-  assert.match(appSource, /id="explore-heading"[\s\S]{0,80}Explore/)
+  assert.match(appSource, /id="endless-run"/)
   assert.doesNotMatch(appSource, /75\.2B|68\.8B|91\.5%/)
+})
+
+test('pixel platformer language is original and avoids borrowed game assets', () => {
+  const visitorCopy = jsxTextContent(appSource)
+
+  assert.match(appSource, /THE ENDLESS BUILD/)
+  assert.match(appSource, /The Endless Run/)
+  assert.match(appSource, /LOADOUT STATION/)
+  assert.match(appSource, /MODEL GATE/)
+  assert.match(appSource, /Checkpoint log/)
+  assert.match(appSource, /Exact ledger/i)
+  assert.match(appSource, /command-(?:runner|cursor)/)
+  assert.doesNotMatch(
+    `${appSource}\n${stylesheetSource}`,
+    /mario|luigi|goomba|koopa|question[-_ ]?block|coin[-_ ]?sprite|warp[-_ ]?pipe/i,
+  )
+  assert.doesNotMatch(
+    visitorCopy,
+    /\b(?:XP|LEVEL)\b|reward points|unlock reward/i,
+  )
+})
+
+test('decorative second-ring scenery stays outside the accessibility tree', () => {
+  const sceneStart = appSource.indexOf(
+    '<div className="pixel-night-scene" aria-hidden="true">',
+  )
+  const scene = appSource.slice(sceneStart, appSource.indexOf('</div>', sceneStart))
+
+  assert.notEqual(sceneStart, -1)
+  assert.match(scene, /className="pixel-ring-sign">二环 · 2ND RING/)
+  assert.match(scene, /className="pixel-lanterns"/)
+})
+
+test('hero light is a small anchored stepped pixel shape', () => {
+  assert.match(
+    stylesheetSource,
+    /\.pixel-moon \{[\s\S]{0,120}top: 42px;[\s\S]{0,80}right: 104px;[\s\S]{0,80}width: 36px;[\s\S]{0,60}height: 36px;/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.pixel-moon \{[\s\S]{0,300}box-shadow: -6px 0 var\(--gold\), 6px 0 var\(--gold\), 0 -6px var\(--gold\), 0 6px var\(--gold\)[\s\S]{0,180}clip-path: polygon/,
+  )
+})
+
+test('Beijing roof landmark remains recognizable without text', () => {
+  assert.match(appSource, /<span className="pixel-gate pixel-gate--right" \/>/)
+  assert.match(
+    stylesheetSource,
+    /\.pixel-gate--right \{[\s\S]{0,100}width: 144px;[\s\S]{0,60}height: 104px;[\s\S]{0,260}repeating-linear-gradient\(90deg/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.pixel-gate--right::before \{[\s\S]{0,220}box-shadow: 14px -10px 0 #172c39, 29px -20px 0 #6b342f/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.pixel-gate--right::after \{[\s\S]{0,180}background: repeating-linear-gradient\(90deg, #b48b45 0 4px, #101a21 4px 13px\)/,
+  )
+})
+
+test('one aria-hidden street world carries the continuous route props', () => {
+  const worldStart = appSource.indexOf(
+    '<div className="street-world" aria-hidden="true">',
+  )
+  const world = appSource.slice(worldStart, appSource.indexOf('</div>', worldStart))
+
+  assert.notEqual(worldStart, -1)
+  for (const prop of [
+    'road',
+    'runner',
+    'roofs',
+    'tower',
+    'sign',
+    'lanterns',
+    'bus-stop',
+    'bicycle',
+  ]) {
+    assert.match(world, new RegExp(`className="street-world__${prop}"`))
+  }
+})
+
+test('route vehicle is decorative and follows the existing run state', () => {
+  const worldStart = appSource.indexOf(
+    '<div className="street-world" aria-hidden="true">',
+  )
+  const world = appSource.slice(worldStart, appSource.indexOf('</div>', worldStart))
+
+  assert.match(world, /<span className="street-world__runner">&gt;_<\/span>/)
+  assert.doesNotMatch(world, /aria-live=|role=|tabIndex=|onClick=/)
+  assert.match(
+    stylesheetSource,
+    /\.street-world__runner \{[\s\S]{0,100}top: var\(--street-run-position\);[\s\S]{0,100}width: 24px;[\s\S]{0,60}height: 16px;[\s\S]{0,180}border: 2px solid var\(--route-accent\)/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.street-world__runner::after \{[\s\S]{0,220}background: var\(--route-accent\);[\s\S]{0,100}content: '';/,
+  )
+  for (const state of ['all', 'equipped', 'inspecting', 'focused']) {
+    const selector =
+      state === 'all'
+        ? '\\.pixel-run-shell \\{'
+        : `\\.pixel-run-shell\\[data-run-state='${state}'\\] \\{`
+    assert.match(
+      stylesheetSource,
+      new RegExp(`${selector}[\\s\\S]{0,180}--street-run-position:`),
+    )
+  }
+  assert.match(
+    stylesheetSource,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,300}\.street-world__runner,[\s\S]{0,160}transition: none/,
+  )
+})
+
+test('street world stays visually strong without covering interaction', () => {
+  assert.match(
+    stylesheetSource,
+    /\.street-world \{[\s\S]{0,180}z-index: 4;[\s\S]{0,180}overflow: hidden;[\s\S]{0,80}pointer-events: none;/,
+  )
+  assert.match(stylesheetSource, /\.street-world__roofs \{[\s\S]{0,260}opacity:/)
+  assert.match(stylesheetSource, /\.street-world__lanterns \{[\s\S]{0,220}opacity:/)
+})
+
+test('visitor-facing chart language keeps the record but removes implementation jargon', () => {
+  assert.match(chartsSource, /◆ RECORD/)
+  assert.doesNotMatch(
+    `${appSource}\n${chartsSource}`,
+    /RECORD SKY|RECORD HORIZON|GROUND \/ TOKENS PER DAY/,
+  )
 })
 
 test('all time is the default view and the URL omits only the default preset', () => {
@@ -111,8 +265,73 @@ test('core interaction and data-state semantics remain explicit', () => {
   assert.match(appSource, /aria-describedby="series-keyboard-help"/)
   assert.match(appSource, /onKeyDown=\{moveSeriesFocus\}/)
   assert.match(stylesheetSource, /@media \(prefers-reduced-motion: reduce\)/)
+  assert.match(stylesheetSource, /@media \(max-width:/)
+  assert.match(stylesheetSource, /\.skyline-compact/)
   assert.match(appSource, /behavior: reduceMotion \? 'auto' : 'smooth'/)
   assert.match(chartsSource, /animation: !reduceMotion/)
+})
+
+test('the run shell advances through finite exploration states', () => {
+  assert.match(
+    appSource,
+    /const runState = pinnedModel[\s\S]{0,220}\? 'focused'[\s\S]{0,80}selectedTool && isModelListOpen[\s\S]{0,80}\? 'inspecting'[\s\S]{0,80}selectedTool[\s\S]{0,80}\? 'equipped'[\s\S]{0,40}: 'all'/,
+  )
+  assert.match(
+    appSource,
+    /className="page pixel-run-shell"[\s\S]{0,100}data-run-state=\{runState\}/,
+  )
+  assert.match(appSource, /'--route-accent': activeTool\?\.hex \?\? '#ffc84a'/)
+
+  for (const [state, progress] of [
+    ['all', '0%'],
+    ['equipped', '33.333%'],
+    ['inspecting', '66.666%'],
+    ['focused', '100%'],
+  ]) {
+    const stateRule = new RegExp(
+      `(?:\\.pixel-run-shell(?:\\[data-run-state='${state}'\\])?)[\\s\\S]{0,100}--run-progress: ${progress.replace('.', '\\.')}`,
+    )
+    assert.match(stylesheetSource, stateRule)
+  }
+
+  assert.match(
+    stylesheetSource,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,300}\.route-runner[\s\S]{0,180}transition: none/,
+  )
+})
+
+test('checkpoint tool count comes from the lifetime run', () => {
+  assert.match(
+    appSource,
+    /const lifetimeToolCount = useMemo\([\s\S]{0,160}summarizeRange\(daily\)\.byTool\.filter\(\(tool\) => tool\.tokens > 0\)\.length/,
+  )
+  assert.match(appSource, /<dt>Tools used<\/dt>[\s\S]{0,80}<dd>\{lifetimeToolCount\}<\/dd>/)
+})
+
+test('tool selection announces once through the canonical atomic live region', () => {
+  const loadedView = appSource.slice(
+    appSource.indexOf('className="page pixel-run-shell"'),
+  )
+
+  assert.match(
+    loadedView,
+    /className="selection-status visually-hidden"[\s\S]{0,100}role="status"[\s\S]{0,80}aria-live="polite"[\s\S]{0,80}aria-atomic="true"/,
+  )
+  assert.match(loadedView, /className="loadout-status"(?![^>]*aria-live)[^>]*>/)
+})
+
+test('loading and failure states remain announced while using the save-file narrative', () => {
+  assert.match(appSource, /SAVE FILE \/ LOADING/)
+  assert.match(appSource, /SAVE FILE \/ ERROR/)
+  assert.match(appSource, /The run could not be restored/)
+  assert.match(
+    appSource,
+    /role="alert"[\s\S]{0,120}aria-live="assertive"/,
+  )
+  assert.match(
+    appSource,
+    /role="status"[\s\S]{0,140}aria-live="polite"[\s\S]{0,80}aria-busy="true"/,
+  )
 })
 
 test('report context is concise by default and fully disclosed on demand', () => {
@@ -147,9 +366,74 @@ test('tool cards expose one model action without permanent inventories', () => {
     appSource,
     /onClick=\{\(\) => selectTool\(tool\.id, true\)\}/,
   )
+  assert.match(appSource, /selectedTool === tool\.id \? 'Equipped' : 'Equip'/)
+  assert.match(appSource, /activeTool \? `\$\{activeTool\.label\} equipped` : 'All tools ready'/)
   assert.doesNotMatch(appSource, /tool\.models\.map\(/)
   assert.doesNotMatch(appSource, /className="model-row"/)
   assert.doesNotMatch(stylesheetSource, /\.model-row/)
+})
+
+test('desktop loadout reads as one continuous street station', () => {
+  const stationStart = stylesheetSource.indexOf('.tool-grid { gap: 6px; }')
+  const station = stylesheetSource.slice(
+    stationStart,
+    stylesheetSource.indexOf('.model-drill-trigger {', stationStart),
+  )
+
+  assert.notEqual(stationStart, -1)
+  assert.match(station, /\.tool-grid > \* \{[\s\S]{0,260}box-shadow: inset/)
+  assert.match(station, /\.tool-grid > \*::before \{[\s\S]{0,280}clip-path: polygon/)
+  assert.match(
+    station,
+    /\.tool-grid > \*::after \{[\s\S]{0,420}repeating-linear-gradient[\s\S]{0,240}linear-gradient[\s\S]{0,220}repeating-linear-gradient/,
+  )
+  assert.match(station, /\.tool-grid > \* > \* \{[\s\S]{0,80}z-index: 1;/)
+})
+
+test('each loadout station keeps controls inside a distinct facade', () => {
+  assert.match(appSource, /className=\{`loadout-card/)
+  assert.match(appSource, /className=\{`model-drill-trigger/)
+  for (const index of [1, 2, 3, 4]) {
+    assert.match(
+      stylesheetSource,
+      new RegExp(`\\.tool-grid > :nth-child\\(${index}\\) \\{ --station-accent:`),
+    )
+  }
+  for (const index of [2, 3, 4]) {
+    const roofSelector = `.tool-grid > :nth-child(${index})::before {`
+    const roofStart = stylesheetSource.indexOf(roofSelector)
+    const roof = stylesheetSource.slice(
+      roofStart,
+      stylesheetSource.indexOf('}', roofStart) + 1,
+    )
+    const facadeSelector = `.tool-grid > :nth-child(${index})::after {`
+    const facadeStart = stylesheetSource.indexOf(facadeSelector)
+    const facade = stylesheetSource.slice(
+      facadeStart,
+      stylesheetSource.indexOf('}', facadeStart) + 1,
+    )
+
+    assert.notEqual(roofStart, -1)
+    assert.match(roof, /clip-path: polygon/)
+    assert.notEqual(facadeStart, -1)
+    assert.match(facade, /background:/)
+  }
+  assert.match(
+    stylesheetSource,
+    /\.tool-grid > :nth-child\(1\)::before \{[\s\S]{0,180}background: #1b3040;[\s\S]{0,180}clip-path: polygon/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.tool-grid > :nth-child\(2\)::after \{[\s\S]{0,180}radial-gradient\(circle, #ef5548/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.tool-grid > :nth-child\(3\)::before \{[\s\S]{0,200}linear-gradient\(#55d6c2, #55d6c2\)/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.tool-grid > :nth-child\(4\)::after \{[\s\S]{0,200}repeating-linear-gradient\(to bottom[\s\S]{0,160}radial-gradient\(circle, #b594ff/,
+  )
 })
 
 test('advanced time controls are disclosed without losing capability', () => {
@@ -248,7 +532,7 @@ test('model details and focus preserve keyboard and accessible state', () => {
   assert.match(appSource, /if \(wasOpen === isModelListOpen\) return/)
   assert.match(appSource, /aria-pressed=\{canFocus \? isFocused : undefined\}/)
   assert.match(appSource, /className="chart-focus-state"/)
-  assert.match(appSource, /Focused · <strong>\{pinnedModel\}<\/strong>/)
+  assert.match(appSource, /Target locked · Focused · <strong>\{pinnedModel\}<\/strong>/)
   assert.match(
     appSource,
     /className="chart-focus-state"[\s\S]{0,360}onClick=\{clearModelFocus\}/,
@@ -311,22 +595,433 @@ test('tooltips follow plotted series instead of dumping raw detail', () => {
     /spec\.kind === 'other'[\s\S]{0,220}modelSeriesMembers\(/,
   )
   assert.match(chartsSource, /Tool total:/)
-  assert.match(chartsSource, /name: enablePeakCap \? 'Tokens \/ day \(peak capped\)' : 'Tokens \/ day'/)
-  assert.match(chartsSource, /name: 'Spend \/ day'/)
+  assert.doesNotMatch(chartsSource, /name: '(?:TOKENS|SPEND) \/ DAY'/)
+  assert.match(
+    chartsSource,
+    /RECORD: <strong>\$\{fmtExact\(recordDailyTokens\[list\[0\]\.dataIndex\]\)\}<\/strong> tokens/,
+  )
   assert.doesNotMatch(chartsSource, /const rawModels =/)
   assert.doesNotMatch(chartsSource, /tool\.breakdown/)
 })
 
-test('peak-cap truncates stack segments proportionally and crowns the peak day', () => {
+test('multiple split peaks keep one truthful argmax record label', () => {
+  const values = [100, 120, 110, 1_000, 900]
+  const peakGroup = findPeakGroup(values)
+
+  assert.deepEqual(peakGroup.peakIndices, [3, 4])
+  assert.equal(findRecordDayIndex(values), 3)
   assert.match(
     chartsSource,
-    /const capTotalFor = \(dayIndex: number\): number => \{/,
+    /const recordDailyTokens = focusedSeries && activeTool[\s\S]{0,220}modelSeriesPoint\(row, activeTool\.id, focusedSeries\)\.tokens[\s\S]{0,80}: totalDayTokens/,
   )
-  assert.match(chartsSource, /total > cap\s*\n\s*\? cap \/ Math\.max\(total, 1\)\s*\n\s*: 1/)
-  assert.match(chartsSource, /const peakDaySet = new Set\(peakDayIndices\)/)
-  assert.match(chartsSource, /id: 'peak-crown'[\s\S]{0,180}symbol: 'rect' as const/)
-  assert.match(chartsSource, /id: 'peak-crown-label'[\s\S]{0,1000}♛ \$\{fmtCompact\(value\)\}/)
-  assert.match(chartsSource, /max: enablePeakCap \? \(peakCap \?\? 0\) \* 1\.18 : undefined/)
+  assert.match(
+    chartsSource,
+    /const peakGroup = findPeakGroup\(totalDayTokens\)[\s\S]{0,360}const recordDayIndex = findRecordDayIndex\(recordDailyTokens\)/,
+  )
+  assert.match(chartsSource, /id: 'record-beacon'[\s\S]{0,300}symbol: 'diamond' as const/)
+  assert.match(
+    chartsSource,
+    /const recordBeaconInSky =[^;]+peakDaySet\.has\(recordDayIndex\)/,
+  )
+  assert.match(
+    chartsSource,
+    /xAxisIndex: recordBeaconXAxisIndex,[\s\S]{0,80}yAxisIndex: recordBeaconYAxisIndex/,
+  )
+  assert.match(
+    chartsSource,
+    /data: \[\[recordDayIndex, recordBeaconValue\]\]/,
+  )
+  assert.match(
+    chartsSource,
+    /formatter: \(\) => `◆ RECORD\\n\$\{fmtExact\(recordValue\)\}`/,
+  )
+})
+
+test('focused record labels do not redefine or clip the tool-total terrain', () => {
+  const toolTotals = [100, 120, 140, 1_000]
+  const focusedModelTokens = [2, 3, 10, 4]
+  const terrain = findPeakGroup(toolTotals)
+  const terrainPeakDays = new Set(terrain.peakIndices)
+  const focusedRecordDay = findRecordDayIndex(focusedModelTokens)
+  const peakDayStack = [4, 996]
+  const splitStack = peakDayStack.map((_value, index) => ({
+    ground: stackSegment(peakDayStack, index, terrain.recordFloor, 'ground'),
+    sky: stackSegment(peakDayStack, index, terrain.recordFloor, 'sky'),
+  }))
+
+  assert.deepEqual(terrain.peakIndices, [3])
+  assert.equal(focusedRecordDay, 2)
+  assert.equal(terrainPeakDays.has(focusedRecordDay), false)
+  assert.equal(focusedModelTokens[focusedRecordDay], 10)
+  assert.equal(toolTotals[focusedRecordDay], 140)
+  assert.equal(
+    splitStack.reduce((sum, segment) => sum + segment.ground, 0),
+    terrain.recordFloor,
+  )
+  assert.equal(
+    splitStack.reduce((sum, segment) => sum + segment.sky, 0),
+    toolTotals[3] - terrain.recordFloor,
+  )
+  assert.equal(
+    splitStack.reduce(
+      (sum, segment) => sum + segment.ground + segment.sky,
+      0,
+    ),
+    toolTotals[3],
+  )
+})
+
+test('the exact record plaque stays visible at either chart edge', () => {
+  const plaqueSource = chartsSource.slice(
+    chartsSource.indexOf("id: 'record-beacon'"),
+    chartsSource.indexOf("id: 'run-cursor'"),
+  )
+
+  assert.match(
+    chartsSource,
+    /const recordPlaquePosition =[\s\S]{0,100}recordDayIndex >= dates\.length \* 0\.72 \? 'left' : 'right'/,
+  )
+  assert.match(plaqueSource, /clip: false/)
+  assert.match(plaqueSource, /symbol: 'diamond' as const/)
+  assert.match(plaqueSource, /label: \{[\s\S]{0,80}show: true/)
+  assert.match(plaqueSource, /position: recordPlaquePosition/)
+  assert.match(plaqueSource, /overflow: 'none'/)
+  assert.match(
+    plaqueSource,
+    /formatter: \(\) => `◆ RECORD\\n\$\{fmtExact\(recordValue\)\}`/,
+  )
+  assert.doesNotMatch(chartsSource, /id: 'record-label'/)
+})
+
+test('run record board follows the exact current chart scope without live noise', () => {
+  const recordBoardStart = stylesheetSource.indexOf('.chart-run-record {')
+  const recordBoardStyles = stylesheetSource.slice(
+    recordBoardStart,
+    stylesheetSource.indexOf('.chart-breadcrumb button', recordBoardStart),
+  )
+
+  assert.deepEqual(
+    findRunRecord([12, 45, 45, 20], ['d1', 'd2', 'd3', 'd4']),
+    { index: 1, date: 'd2', value: 45 },
+  )
+  assert.equal(findRunRecord([0, 0], ['d1', 'd2']), null)
+  assert.equal(findRunRecord([10], []), null)
+
+  assert.match(
+    chartsSource,
+    /const scopedDailyTokens = daily\.map\(\(row\) =>[\s\S]{0,420}modelSeriesPoint\(row, activeTool\.id, focusedAccessibleSeries\)\.tokens[\s\S]{0,300}num\(row, activeTool\.tokenKey\)[\s\S]{0,300}TOOLS\.reduce/,
+  )
+  assert.match(chartsSource, /className="chart-run-record"/)
+  assert.match(chartsSource, /className="chart-run-record__title">RUN RECORD/)
+  assert.match(chartsSource, /fmtExact\(runRecord\?\.value \?\? 0\)/)
+  assert.match(chartsSource, /recordScope} · \{runRecord\?\.date/)
+  assert.match(chartsSource, /aria-label=\{`Run record for \$\{recordScope\}`\}/)
+  assert.doesNotMatch(chartsSource, /chart-run-record[\s\S]{0,500}aria-live=/)
+  assert.match(
+    recordBoardStyles,
+    /\.chart-run-record \{[\s\S]{0,180}max-width: 100%[\s\S]{0,240}border: 2px solid[\s\S]{0,180}var\(--night-panel\)[\s\S]{0,180}clip-path: polygon/,
+  )
+  assert.match(
+    recordBoardStyles,
+    /\.chart-run-record__value \{[\s\S]{0,160}var\(--gold\)[\s\S]{0,120}font-variant-numeric: tabular-nums/,
+  )
+  assert.match(
+    recordBoardStyles,
+    /\.chart-run-record__meta \{[\s\S]{0,160}overflow-wrap: anywhere/,
+  )
+  assert.match(
+    mobile500Source,
+    /\.chart-run-record \{[\s\S]{0,100}width: 100%[\s\S]{0,140}grid-template-columns: auto minmax\(0, 1fr\)/,
+  )
+})
+
+test('run record board reads as a finish-line gantry', () => {
+  assert.match(
+    stylesheetSource,
+    /\.chart-run-record \{[\s\S]{0,100}width: min\(100%, 760px\);[\s\S]{0,260}min-height: 64px;/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.chart-run-record::before \{[\s\S]{0,260}border-top: 4px solid var\(--gold\)[\s\S]{0,120}border-inline: 6px solid var\(--pixel-border\)[\s\S]{0,180}radial-gradient\(circle at 7px 1px, var\(--gold\)/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.chart-run-record::after \{[\s\S]{0,220}bottom: 0[\s\S]{0,120}height: 5px[\s\S]{0,160}repeating-linear-gradient\(90deg, var\(--moon\) 0 10px, var\(--road\) 10px 20px\)/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.chart-run-record__title \{[\s\S]{0,160}font-size: 0\.68rem;/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.chart-run-record__value \{[\s\S]{0,100}font-size: 1\.18rem;[\s\S]{0,100}font-variant-numeric: tabular-nums/,
+  )
+})
+
+test('chart arrival structures stay decorative behind truthful data', () => {
+  assert.match(chartsSource, /className="chart-host"[\s\S]{0,100}role="img"/)
+  assert.match(
+    stylesheetSource,
+    /\.chart-host \{[\s\S]{0,100}isolation: isolate;[\s\S]{0,140}overflow: hidden;/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.chart-host::before,\s*\.chart-host::after \{[\s\S]{0,120}z-index: 0;[\s\S]{0,80}pointer-events: none;[\s\S]{0,80}content: '';/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.chart-host > \* \{[\s\S]{0,80}z-index: 1;/,
+  )
+  assert.doesNotMatch(chartsSource, /arrival-series|arrival-value|arrival-data/)
+})
+
+test('run record board adds no explanatory metric labels', () => {
+  const boardStart = chartsSource.indexOf('className="chart-run-record"')
+  const boardMarkup = chartsSource.slice(
+    boardStart,
+    chartsSource.indexOf('</div>', boardStart),
+  )
+
+  assert.notEqual(boardStart, -1)
+  assert.doesNotMatch(
+    jsxTextContent(boardMarkup),
+    /record horizon|record sky|ground|tokens per day|percentile|axis|scale/i,
+  )
+})
+
+test('chart and model details share one record-wall platform', () => {
+  const cardStart = appSource.indexOf('<Card padding={3} className="exact-ledger-card">')
+  const card = appSource.slice(cardStart, appSource.indexOf('</Card>', cardStart))
+
+  assert.notEqual(cardStart, -1)
+  assert.match(card, /className="chart-panel"/)
+  assert.match(card, /className="model-detail-panel"/)
+  assert.match(
+    stylesheetSource,
+    /\.exact-ledger-card \{[\s\S]{0,420}linear-gradient\(rgba\(72, 97, 118, 0\.1\) 1px, transparent 1px\)[\s\S]{0,220}inset 0 -7px var\(--road\)/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.exact-ledger-card::before \{[\s\S]{0,320}clip-path: polygon/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.exact-ledger-card::after \{[\s\S]{0,260}repeating-linear-gradient\(90deg, var\(--moon-muted\)[\s\S]{0,100}var\(--road\)/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.exact-ledger-card > \* \{[\s\S]{0,80}z-index: 1;/,
+  )
+})
+
+test('long ranges bound date-label density without exposing axis jargon', () => {
+  assert.match(
+    chartsSource,
+    /const dateLabelInterval =[\s\S]{0,100}dates\.length > 12 \? Math\.ceil\(dates\.length \/ 6\) - 1 : 0/,
+  )
+  assert.match(
+    chartsSource,
+    /formatter: \(value: string\) => value\.slice\(5\),[\s\S]{0,80}interval: dateLabelInterval[\s\S]{0,60}hideOverlap: true/,
+  )
+  assert.doesNotMatch(
+    chartsSource,
+    /RECORD SKY|RECORD HORIZON|GROUND \/ TOKENS PER DAY|TOKENS \/ DAY|SPEND \/ DAY/,
+  )
+})
+
+test('compact weekly skyline keeps peak and endpoint labels readable', () => {
+  assert.match(
+    skylineSource,
+    /const COMPACT_LAYOUT = \{[\s\S]{0,240}width: 360,[\s\S]{0,80}height: 236,[\s\S]{0,80}plotTop: 32,[\s\S]{0,160}peakY: 18,[\s\S]{0,80}dateY: 224,[\s\S]{0,80}labelFontSize: 12/,
+  )
+  assert.match(
+    skylineSource,
+    /const layout = compact \? COMPACT_LAYOUT : WIDE_LAYOUT/,
+  )
+  assert.match(
+    skylineSource,
+    /viewBox=\{`0 0 \$\{layout\.width\} \$\{layout\.height\}`\}/,
+  )
+  assert.match(
+    skylineSource,
+    /className="usage-skyline__peak"[\s\S]{0,100}fontSize=\{layout\.labelFontSize\}[\s\S]{0,100}y=\{layout\.peakY\}/,
+  )
+  assert.match(
+    skylineSource,
+    /lastPeriod && lastPeriod\.key !== firstPeriod\.key[\s\S]{0,300}compactRangeLabel\(lastPeriod\.startDate, lastPeriod\.endDate\)/,
+  )
+  assert.match(
+    mobile500Source,
+    /\.skyline-section \.usage-skyline__peak,[\s\S]{0,100}\.skyline-section \.usage-skyline__date \{[^}]*opacity: 1;[^}]*font-weight: 900;[^}]*\}/,
+  )
+})
+
+test('mobile hero scenery stays anchored while yielding to cache disclosure', () => {
+  assert.match(mobile500Source, /\.pixel-night-scene \{ opacity: 0\.48; \}/)
+  assert.match(
+    mobile500Source,
+    /\.pixel-moon \{[\s\S]{0,160}top: 180px;[\s\S]{0,80}right: 18px;[\s\S]{0,80}opacity: 0\.2;[\s\S]{0,80}transform: scale\(0\.52\)/,
+  )
+  assert.match(appSource, /className="hero-disclosure"[\s\S]{0,180}lifetime\.cacheTokens/)
+})
+
+test('a persistent route spine connects every run-console stage', () => {
+  assert.match(
+    stylesheetSource,
+    /\.skyline-section::before,[\s\S]{0,80}\.explore-section::before/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.explore-section::before[\s\S]{0,220}var\(--route-accent\) 0 var\(--spine-progress\)[\s\S]{0,100}var\(--pixel-border\) var\(--spine-progress\) 100%/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.loadout-heading::before,[\s\S]{0,100}\.model-gate-heading::before,[\s\S]{0,100}\.checkpoint-heading::before,[\s\S]{0,100}\.exact-ledger::before/,
+  )
+})
+
+test('mobile road ribbon stays in the edge gutter away from content', () => {
+  assert.match(
+    mobile500Source,
+    /\.chronicle-header,\s*\.skyline-section,\s*\.explore-section \{[\s\S]{0,120}border-inline-width: 1px;[\s\S]{0,100}border-inline-color: rgba\(72, 97, 118, 0\.46\)/,
+  )
+  assert.match(
+    mobile500Source,
+    /\.skyline-section::before,\s*\.explore-section::before \{ display: none; \}/,
+  )
+  assert.match(
+    mobile500Source,
+    /\.street-world__road \{[\s\S]{0,80}left: auto;[\s\S]{0,60}right: 3px;[\s\S]{0,60}width: 14px;[\s\S]{0,80}transform: none;/,
+  )
+  assert.match(
+    mobile500Source,
+    /\.street-world__runner \{[\s\S]{0,80}left: auto;[\s\S]{0,60}right: 2px;/,
+  )
+})
+
+test('World 01 and World 02 share one seamless night surface', () => {
+  assert.match(
+    stylesheetSource,
+    /\.skyline-section \{[\s\S]{0,120}margin-bottom: -\d+px;[\s\S]{0,60}border-bottom: 0;[\s\S]{0,220}80px 100%/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.explore-section \{[\s\S]{0,160}border-top: 1px dashed[\s\S]{0,220}80px 100%/,
+  )
+})
+
+test('mobile world keeps one text-free Beijing landmark', () => {
+  assert.match(appSource, /<span className="street-world__tower" \/>/)
+  assert.match(
+    stylesheetSource,
+    /\.street-world__tower::before \{[\s\S]{0,260}content: '';/,
+  )
+  assert.match(
+    mobile500Source,
+    /\.street-world__tower \{[\s\S]{0,180}transform: scale\([^)]+\);[\s\S]{0,80}transform-origin: right top;[\s\S]{0,80}opacity: [^;]+;/,
+  )
+})
+
+test('pixel materials keep stepped geometry and readable route contrast', () => {
+  assert.match(stylesheetSource, /--moon-muted: #c9c2b3;/)
+  assert.match(stylesheetSource, /--pixel-border: #486176;/)
+  assert.match(
+    stylesheetSource,
+    /\.pixel-night-scene::after \{[\s\S]{0,320}clip-path: polygon\(/,
+  )
+  assert.match(stylesheetSource, /\.route-node \{[\s\S]{0,260}opacity: 0\.92;/)
+  assert.match(
+    stylesheetSource,
+    /\.route-state-label \{[\s\S]{0,240}text-shadow: 2px 2px 0 #02060a;/,
+  )
+})
+
+test('the night world reuses roof, road, and terminal materials across stages', () => {
+  const heroRoofs = stylesheetSource.slice(
+    stylesheetSource.indexOf('.pixel-night-scene::before'),
+    stylesheetSource.indexOf('.pixel-night-scene::after'),
+  )
+  const skylineWorld = stylesheetSource.slice(
+    stylesheetSource.lastIndexOf('.skyline-section {'),
+    stylesheetSource.indexOf('.skyline-section::before', stylesheetSource.lastIndexOf('.skyline-section {')),
+  )
+
+  assert.match(heroRoofs, /linear-gradient\(135deg[\s\S]{0,180}repeat-x/)
+  assert.match(skylineWorld, /linear-gradient\(135deg[\s\S]{0,180}repeat-x/)
+  assert.match(
+    stylesheetSource,
+    /\.pixel-road::before[\s\S]{0,280}linear-gradient\(#28655e, #28655e\) center top/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.explore-section \{[\s\S]{0,220}repeating-linear-gradient\(90deg[\s\S]{0,140}80px 100%/,
+  )
+  const stationStart = stylesheetSource.indexOf('.tool-grid { gap: 6px; }')
+  const station = stylesheetSource.slice(
+    stationStart,
+    stylesheetSource.indexOf('.model-drill-trigger {', stationStart),
+  )
+  assert.match(station, /\.tool-grid > \* \{[\s\S]*clip-path: polygon/)
+  assert.match(stylesheetSource, /\.exact-ledger-card \{[\s\S]{0,180}clip-path: polygon/)
+  assert.match(
+    stylesheetSource,
+    /\.checkpoint-log::after[\s\S]{0,260}repeating-linear-gradient\(90deg[\s\S]{0,100}var\(--moon-muted\)/,
+  )
+  assert.match(
+    stylesheetSource,
+    /\.exact-ledger::after[\s\S]{0,220}repeating-linear-gradient\(90deg, var\(--road\)[\s\S]{0,80}var\(--gold\)/,
+  )
+})
+
+test('a low-tail ratio cannot suppress a valid upper-tail record split', () => {
+  const peakGroup = findPeakGroup([1, 10, 11, 12, 100, 110])
+
+  assert.deepEqual(peakGroup.peakIndices, [4, 5])
+  assert.equal(peakGroup.recordFloor, 12 * 1.16)
+})
+
+test('a continuous normal distribution remains on one unsplit stage', () => {
+  const peakGroup = findPeakGroup([100, 115, 130, 145, 160, 175, 190, 205])
+
+  assert.deepEqual(peakGroup.peakIndices, [])
+  assert.equal(peakGroup.skyMax, 0)
+})
+
+test('adjacent upper record-growth peaks stay in the same split group', () => {
+  const values = [100, 110, 120, 130, 140, 150, 160, 170, 180, 500, 650, 800]
+  const peakGroup = findPeakGroup(values)
+
+  assert.deepEqual(peakGroup.peakIndices, [9, 10, 11])
+  assert.equal(findRecordDayIndex(values), 11)
+})
+
+test('record ties resolve to the first truthful argmax', () => {
+  assert.equal(findRecordDayIndex([]), -1)
+  assert.equal(findRecordDayIndex([5, 10, 10, 8]), 1)
+  assert.equal(findRecordDayIndex([10, 10]), 0)
+})
+
+test('every ground and sky series segment conserves its original value', () => {
+  const values = [40, 30, 20, 10]
+
+  for (const floor of [0, 25, 55, 100, 150]) {
+    values.forEach((value, index) => {
+      const ground = stackSegment(values, index, floor, 'ground')
+      const sky = stackSegment(values, index, floor, 'sky')
+      assert.equal(ground + sky, value)
+    })
+  }
+})
+
+test('a run with no positive usage renders no command cursor data', () => {
+  assert.match(
+    chartsSource,
+    /const latestRunIndex = totalDayTokens\.reduce\([\s\S]{0,120}\(value > 0 \? index : latest\)[\s\S]{0,60}-1/,
+  )
+  assert.match(
+    chartsSource,
+    /latestRunIndex >= 0[\s\S]{0,100}\? \[\[latestRunIndex, terrainMax \* 0\.045\]\][\s\S]{0,40}: \[\]/,
+  )
 })
 
 test('series keyboard navigation wraps and supports boundary keys', () => {
