@@ -3,39 +3,31 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m4-local",
   "hostname": "yupengdeMacBook-Pro.local",
-  "collected_at": "2026-08-06T00:23:00+08:00",
-  "captured_at": "2026-08-06T00:23:00+08:00",
-  "snapshot_id": "mac-m4-local@2026-08-06T00:23:00+08:00",
+  "collected_at": "2026-08-06T00:48:40+08:00",
+  "captured_at": "2026-08-06T00:48:40+08:00",
+  "snapshot_id": "mac-m4-local@2026-08-06T00:48:40+08:00",
   "seeded_at": "2026-08-04T15:18:58+08:00",
   "seeded": true,
   "append_mode": true,
   "mutable_from": "2026-08-05",
   "last_mode": "append",
   "last_append_stats": {
-    "frozen_kept": 21,
+    "frozen_kept": 22,
     "appended": 0,
-    "refreshed": 2,
-    "today_updated": 0,
+    "refreshed": 1,
+    "today_updated": 1,
     "skipped": 0,
     "regression_kept": 0,
     "regression_dates": [],
     "regression_reasons": {},
     "pricing_changes": [
       {
-        "date": "2026-08-05",
+        "date": "2026-08-06",
         "tool": "codex",
-        "from": 1779.9367692,
-        "to": 2577.9485602,
+        "from": 0.0,
+        "to": 2.031174,
         "pricing_version": "2026-07-31.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-08-05",
-        "tool": "claude",
-        "from": 619.750915,
-        "to": 1160.625665,
-        "pricing_version": "2026-07-31.v1",
-        "pricing_complete": true
+        "pricing_complete": false
       }
     ]
   },
@@ -1794,6 +1786,55 @@
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
       "claude_pricing_provenance": "pinned-ledger"
+    },
+    {
+      "date": "2026-08-06",
+      "codex_tokens": 811013982,
+      "codex_cost": 2.031174,
+      "codex_input": 21733577,
+      "codex_cache_read": 787749376,
+      "codex_output": 1531029,
+      "codex_reasoning": 614517,
+      "claude_tokens": 0,
+      "claude_cost": 0.0,
+      "claude_input": 0,
+      "claude_cache_create": 0,
+      "claude_cache_read": 0,
+      "claude_output": 0,
+      "codex_models": [
+        {
+          "model": "gpt-5.3-codex-spark",
+          "tokens": 808831888,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 21589691,
+          "output": 1521109,
+          "cache_read": 785721088,
+          "cache_create": 0,
+          "reasoning": 610088,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 2182094,
+          "cost": 2.031174,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 143886,
+          "output": 9920,
+          "cache_read": 2028288,
+          "cache_create": 0,
+          "reasoning": 4429,
+          "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
+        }
+      ],
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_complete": false,
+      "codex_pricing_provenance": "mixed-legacy",
+      "claude_models": []
     }
   ],
   "model_breakdown_version": 3,
