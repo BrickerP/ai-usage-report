@@ -9,6 +9,8 @@ import {
   TooltipComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
+import { RunArchiveWorld } from './RunArchiveWorld'
+import type { RunLevel } from '../lib/runLevel'
 import type {
   DailyRow,
   ModelSeriesSelection,
@@ -44,8 +46,10 @@ echarts.use([
 type Props = {
   daily: DailyRow[]
   selectedTool: ToolId | null
-  focusedModel: string | null
   modelSelection: ModelSeriesSelection | null
+  runLevel: RunLevel | null
+  selectedDay: string | null
+  onSelectedDayChange: (day: string) => void
   onSelectTool: (toolId: ToolId) => void
   onOpenModelList: () => void
 }
@@ -101,11 +105,49 @@ function fmtAxisUsd(value: number) {
   })}`
 }
 
+function FocusedDailyTable({
+  level,
+  scopeLabel,
+}: {
+  level: RunLevel
+  scopeLabel: string
+}) {
+  return (
+    <div className="visually-hidden">
+      <table>
+        <caption>{scopeLabel} exact daily data.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">{level.model} tokens</th>
+            <th scope="col">{level.model} spend</th>
+            <th scope="col">History state</th>
+          </tr>
+        </thead>
+        <tbody>
+          {level.points.map((point) => (
+            <tr key={point.date}>
+              <th scope="row">{point.date}</th>
+              <td>{point.tokens === null ? 'Unavailable' : fmtExact(point.tokens)}</td>
+              <td>
+                {point.cost === null ? 'Unavailable' : fmtTooltipUsd(point.cost)}
+              </td>
+              <td>{point.state}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function UsageCharts({
   daily,
   selectedTool,
-  focusedModel,
   modelSelection,
+  runLevel,
+  selectedDay,
+  onSelectedDayChange,
   onSelectTool,
   onOpenModelList,
 }: Props) {
@@ -115,7 +157,7 @@ export function UsageCharts({
   stateRef.current = { selectedTool, onSelectTool, onOpenModelList }
 
   useEffect(() => {
-    if (!hostRef.current) return
+    if (runLevel || !hostRef.current) return
     const chart = echarts.init(hostRef.current, undefined, { renderer: 'canvas' })
     chartRef.current = chart
 
@@ -142,11 +184,11 @@ export function UsageCharts({
       chart.dispose()
       chartRef.current = null
     }
-  }, [])
+  }, [runLevel])
 
   useEffect(() => {
     const chart = chartRef.current
-    if (!chart) return
+    if (!chart || runLevel) return
     if (!daily.length) {
       chart.clear()
       return
@@ -156,21 +198,10 @@ export function UsageCharts({
     const activeTool = selectedTool
       ? TOOLS.find((tool) => tool.id === selectedTool)
       : undefined
-    const focusedSeries = activeTool && focusedModel
-      ? modelSelection?.series.find(
-          (series) =>
-            series.kind === 'model' &&
-            series.models.length === 1 &&
-            series.models[0] === focusedModel,
-        )
-      : undefined
-    const hasFocusedModel = Boolean(focusedSeries)
     const totalDaySpend = daily.map((row) =>
-      activeTool && focusedSeries
-        ? modelSeriesPoint(row, activeTool.id, focusedSeries).cost
-        : activeTool
-          ? num(row, activeTool.costKey)
-          : TOOLS.reduce((sum, tool) => sum + num(row, tool.costKey), 0),
+      activeTool
+        ? num(row, activeTool.costKey)
+        : TOOLS.reduce((sum, tool) => sum + num(row, tool.costKey), 0),
     )
     // Daily stacked-token totals define the terrain and preserve every series.
     const totalDayTokens = daily.map((row) =>
@@ -178,11 +209,6 @@ export function UsageCharts({
         ? num(row, activeTool.tokenKey)
         : TOOLS.reduce((sum, tool) => sum + num(row, tool.tokenKey), 0),
     )
-    const recordDailyTokens = focusedSeries && activeTool
-      ? daily.map(
-          (row) => modelSeriesPoint(row, activeTool.id, focusedSeries).tokens,
-        )
-      : totalDayTokens
     // The data stays linear and intact, but a record day is split across two
     // connected stage grids. Ordinary days remain readable below while the
     // exact record remainder continues into the upper stage. Nothing is
@@ -192,7 +218,7 @@ export function UsageCharts({
     const recordHorizon = enablePeakSkyline ? peakGroup.recordFloor : undefined
     const peakDayIndices = peakGroup.peakIndices
     const peakDaySet = new Set(peakDayIndices)
-    const recordDayIndex = findRecordDayIndex(recordDailyTokens)
+    const recordDayIndex = findRecordDayIndex(totalDayTokens)
     const specs = activeTool ? modelSelection?.series ?? [] : []
     const barSpecs = activeTool
       ? specs.map((spec, index) => ({
@@ -231,8 +257,6 @@ export function UsageCharts({
     const spendXAxisIndex = spendGridIndex
     const makeBars = (layer: 'ground' | 'sky') =>
       barSpecs.map((spec, index) => {
-        const isFocused = hasFocusedModel && spec.id === focusedSeries?.id
-        const isDimmed = hasFocusedModel && !isFocused
         const seriesId = `${layer}:${spec.id}`
         return {
           id: seriesId,
@@ -253,7 +277,7 @@ export function UsageCharts({
               spec.color,
               capFor(index, barSpecs.length),
             ),
-            opacity: isDimmed ? 0.22 : 1,
+            opacity: 1,
           },
           markLine:
             layer === 'ground' && index === 0 && recordHorizon
@@ -322,7 +346,7 @@ export function UsageCharts({
     const recordPlaquePosition =
       recordDayIndex >= dates.length * 0.72 ? 'left' : 'right'
     const recordValue =
-      recordDayIndex >= 0 ? recordDailyTokens[recordDayIndex] ?? 0 : 0
+      recordDayIndex >= 0 ? totalDayTokens[recordDayIndex] ?? 0 : 0
     const recordBeaconInSky =
       enablePeakSkyline && peakDaySet.has(recordDayIndex)
     const recordBeaconXAxisIndex = recordBeaconInSky
@@ -346,9 +370,7 @@ export function UsageCharts({
         aria: {
           enabled: true,
           description: activeTool
-            ? focusedSeries
-              ? `${activeTool.label} daily model tokens, focused on ${focusedSeries.label}; other model tokens are dimmed and spend follows the focused model${enablePeakSkyline ? '; record days extend into the upper stage with their exact totals labeled' : ''}`
-              : `${activeTool.label} daily model tokens and spend${enablePeakSkyline ? '; record days extend into the upper stage with their exact totals labeled' : ''}`
+            ? `${activeTool.label} daily model tokens and spend${enablePeakSkyline ? '; record days extend into the upper stage with their exact totals labeled' : ''}`
             : `Daily tokens and spend by AI coding tool${enablePeakSkyline ? '; record days extend into the upper stage with their exact totals labeled' : ''}`,
         },
         axisPointer: {
@@ -386,15 +408,14 @@ export function UsageCharts({
               recordDayIndex >= 0 && list[0].dataIndex === recordDayIndex
             ) {
               lines.push(
-                `<span style="color:#8a5a00">RECORD: <strong>${fmtExact(recordDailyTokens[list[0].dataIndex])}</strong> tokens</span>`,
+                `<span style="color:#8a5a00">RECORD: <strong>${fmtExact(totalDayTokens[list[0].dataIndex])}</strong> tokens</span>`,
               )
             }
 
             if (activeTool) {
-              const tooltipSeries = focusedSeries ? [focusedSeries] : specs
-              for (const spec of tooltipSeries) {
+              for (const spec of specs) {
                 const point = modelSeriesPoint(row, activeTool.id, spec)
-                if (!focusedSeries && !point.tokens && !point.cost) continue
+                if (!point.tokens && !point.cost) continue
                 const label =
                   spec.kind === 'legacy' ? 'Unattributed' : spec.label
                 lines.push(
@@ -603,7 +624,7 @@ export function UsageCharts({
           {
             id: 'spend',
             name: activeTool
-              ? `${focusedSeries?.label ?? activeTool.label} spend`
+              ? `${activeTool.label} spend`
               : 'Daily spend (all tools)',
             type: 'line',
             xAxisIndex: spendXAxisIndex,
@@ -710,37 +731,38 @@ export function UsageCharts({
       },
       { notMerge: true },
     )
-  }, [daily, focusedModel, modelSelection, selectedTool])
+  }, [daily, modelSelection, runLevel, selectedTool])
 
   const activeTool = selectedTool
     ? TOOLS.find((tool) => tool.id === selectedTool)
     : undefined
-  const focusedAccessibleSeries =
-    activeTool && focusedModel
-      ? modelSelection?.series.find(
-          (series) =>
-            series.kind === 'model' &&
-            series.models.length === 1 &&
-            series.models[0] === focusedModel,
-        )
-      : undefined
+  if (runLevel) {
+    const focusedTool =
+      TOOLS.find((tool) => tool.id === runLevel.toolId) ?? activeTool
+    const scopeLabel = `${focusedTool?.label ?? runLevel.toolId} / ${runLevel.model}`
+    return (
+      <>
+        <RunArchiveWorld
+          level={runLevel}
+          selectedDay={selectedDay}
+          onSelectedDayChange={onSelectedDayChange}
+          scopeLabel={scopeLabel}
+        />
+        <FocusedDailyTable level={runLevel} scopeLabel={scopeLabel} />
+      </>
+    )
+  }
+
   const label = activeTool
-    ? focusedAccessibleSeries
-      ? `${activeTool.label} daily model usage, focused on ${focusedAccessibleSeries.label}; other model tokens are dimmed and spend follows the focused model`
-      : `${activeTool.label} daily model usage`
+    ? `${activeTool.label} daily model usage`
     : 'Daily usage by AI coding tool'
   const skylineAccessibilityNote =
     ' Record days, when present, extend into the upper stage and show their exact totals; exact daily data remains available below.'
-  const recordScope =
-    focusedAccessibleSeries && activeTool
-      ? `${activeTool.label} / ${focusedAccessibleSeries.label}`
-      : activeTool?.label ?? 'All tools'
+  const recordScope = activeTool?.label ?? 'All tools'
   const scopedDailyTokens = daily.map((row) =>
-    activeTool && focusedAccessibleSeries
-      ? modelSeriesPoint(row, activeTool.id, focusedAccessibleSeries).tokens
-      : activeTool
-        ? num(row, activeTool.tokenKey)
-        : TOOLS.reduce((sum, tool) => sum + num(row, tool.tokenKey), 0),
+    activeTool
+      ? num(row, activeTool.tokenKey)
+      : TOOLS.reduce((sum, tool) => sum + num(row, tool.tokenKey), 0),
   )
   const runRecord = findRunRecord(
     scopedDailyTokens,
@@ -794,7 +816,7 @@ export function UsageCharts({
               ))}
               <th scope="col">
                 {activeTool
-                  ? `${focusedAccessibleSeries?.label ?? activeTool.label} spend`
+                  ? `${activeTool.label} spend`
                   : 'All tools spend'}
               </th>
             </tr>
@@ -819,14 +841,8 @@ export function UsageCharts({
                 ))}
                 <td>
                   {fmtTooltipUsd(
-                    activeTool && focusedAccessibleSeries
-                      ? modelSeriesPoint(
-                          row,
-                          activeTool.id,
-                          focusedAccessibleSeries,
-                        ).cost
-                      : activeTool
-                        ? num(row, activeTool.costKey)
+                    activeTool
+                      ? num(row, activeTool.costKey)
                       : TOOLS.reduce(
                           (sum, tool) => sum + num(row, tool.costKey),
                           0,

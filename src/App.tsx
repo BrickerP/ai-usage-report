@@ -28,24 +28,23 @@ import {
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { UsageSkyline } from './components/UsageSkyline'
 import { UsageCharts } from './components/UsageCharts'
-import { findRunRecord, modelSeriesColor } from './lib/chart'
+import { modelSeriesColor } from './lib/chart'
 import { summarizeLifetime } from './lib/chronicle'
 import { fmtCompact, fmtUsd } from './lib/format'
 import {
   buildReportViewSearch,
-  deriveRunStageState,
   explorationBackAction,
   indexRangeForDates,
   nextSeriesIndex,
   parseReportView,
   type ViewPreset,
 } from './lib/interaction'
+import { deriveRunLevel } from './lib/runLevel'
 import {
   degradedSourceNotices,
   describeRange,
   indexForPreset,
   loadUsage,
-  modelSeriesPoint,
   percentageTenths,
   selectModelSeries,
   summarizeRange,
@@ -98,15 +97,13 @@ function ReportApp() {
   const [range, setRange] = useState<[number, number]>([0, -1])
   const [selectedTool, setSelectedTool] = useState<ToolId | null>(null)
   const [pinnedModel, setPinnedModel] = useState<string | null>(null)
-  const [completedRunKey, setCompletedRunKey] = useState<string | null>(null)
-  const [runReplayCycle, setRunReplayCycle] = useState(0)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [isSelectedDayCommitted, setIsSelectedDayCommitted] = useState(false)
   const [isModelListOpen, setIsModelListOpen] = useState(false)
   const [isReportDetailsOpen, setIsReportDetailsOpen] = useState(false)
   const [isRangeDetailsOpen, setIsRangeDetailsOpen] = useState(false)
   const [isViewHydrated, setIsViewHydrated] = useState(false)
   const chartSectionRef = useRef<HTMLDivElement>(null)
-  const runStageRef = useRef<HTMLElement>(null)
-  const loadoutStationRef = useRef<HTMLDivElement>(null)
   const modelDetailsToggleRef = useRef<HTMLButtonElement>(null)
   const modelDetailsPanelRef = useRef<HTMLDivElement>(null)
   const wasModelListOpen = useRef(false)
@@ -156,7 +153,13 @@ function ReportApp() {
             (model) => model.model === savedView.model,
           )
         : false
+      const savedDay = knownModel ? savedView.day : null
       setPinnedModel(knownModel ? savedView.model : null)
+      setSelectedDay(savedDay)
+      setIsSelectedDayCommitted(Boolean(savedDay))
+    } else {
+      setSelectedDay(null)
+      setIsSelectedDayCommitted(false)
     }
     setIsViewHydrated(true)
   }, [isViewHydrated, payload])
@@ -222,64 +225,38 @@ function ReportApp() {
     )
   }, [modelSelection])
 
-  const focusedRunSeries = useMemo(
+  const focusedRunLevel = useMemo(
     () =>
       selectedTool && pinnedModel
-        ? modelSelection?.series.find(
-            (series) =>
-              series.kind === 'model' &&
-              series.models.length === 1 &&
-              series.models[0] === pinnedModel,
-          ) ?? null
+        ? deriveRunLevel(visible, selectedTool, pinnedModel)
         : null,
-    [modelSelection, pinnedModel, selectedTool],
+    [pinnedModel, selectedTool, visible],
   )
-  const runMetrics = useMemo(() => {
-    if (!activeTool || !selectedTool || !pinnedModel || !focusedRunSeries) {
-      return null
-    }
-    const points = visible.map((row) =>
-      modelSeriesPoint(row, selectedTool, focusedRunSeries),
-    )
-    const dates = visible.map((row) => row.date)
-    const peak = findRunRecord(
-      points.map((point) => point.tokens),
-      dates,
-    )
-    return {
-      scope: `${activeTool.label} / ${pinnedModel}`,
-      range: visible.length
-        ? `${visible[0].date} — ${visible.at(-1)?.date ?? '—'}`
-        : '—',
-      totalTokens: points.reduce((total, point) => total + point.tokens, 0),
-      estimatedCost: points.reduce((total, point) => total + point.cost, 0),
-      peak,
-    }
-  }, [activeTool, focusedRunSeries, pinnedModel, selectedTool, visible])
-  const runSelectionKey = useMemo(
-    () =>
-      runMetrics && selectedTool && pinnedModel
-        ? `${runMetrics.range}|${selectedTool}|${pinnedModel}`
-        : null,
-    [pinnedModel, runMetrics, selectedTool],
-  )
-  const runStageState = deriveRunStageState({
-    hydrated: isViewHydrated,
-    selectedTool,
-    focusedModel: pinnedModel,
-    selectionKey: runSelectionKey,
-    completedRunKey,
-  })
 
   useEffect(() => {
-    if (completedRunKey && completedRunKey !== runSelectionKey) {
-      setCompletedRunKey(null)
+    if (!isViewHydrated) return
+    if (!focusedRunLevel) {
+      if (selectedDay !== null) setSelectedDay(null)
+      if (isSelectedDayCommitted) setIsSelectedDayCommitted(false)
+      return
     }
-  }, [completedRunKey, runSelectionKey])
 
-  useEffect(() => {
-    setRunReplayCycle(0)
-  }, [runSelectionKey])
+    const isSelectedDayValid = Boolean(
+      selectedDay &&
+        focusedRunLevel.points.some((point) => point.date === selectedDay),
+    )
+    if (isSelectedDayValid) return
+
+    if (selectedDay !== focusedRunLevel.defaultDay) {
+      setSelectedDay(focusedRunLevel.defaultDay)
+    }
+    if (isSelectedDayCommitted) setIsSelectedDayCommitted(false)
+  }, [
+    focusedRunLevel,
+    isSelectedDayCommitted,
+    isViewHydrated,
+    selectedDay,
+  ])
 
   const dateRangeValue: DateRange | null = useMemo(() => {
     if (!visible.length) return null
@@ -299,16 +276,26 @@ function ReportApp() {
       preset: isCustomRange ? null : preset,
       from: isCustomRange ? visible[0].date : null,
       to: isCustomRange ? visible[visible.length - 1].date : null,
+      day:
+        isSelectedDayCommitted &&
+        focusedRunLevel &&
+        selectedDay &&
+        focusedRunLevel.points.some((point) => point.date === selectedDay)
+          ? selectedDay
+          : null,
     })
     const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`
     window.history.replaceState(window.history.state, '', nextUrl)
   }, [
     daily.length,
+    isSelectedDayCommitted,
     isViewHydrated,
     payload,
     pinnedModel,
     preset,
     range,
+    focusedRunLevel,
+    selectedDay,
     selectedTool,
     visible,
   ])
@@ -379,40 +366,12 @@ function ReportApp() {
     })
   }, [])
 
-  const focusRunStage = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      const stage = runStageRef.current
-      if (!stage) return
-      const reduceMotion = window.matchMedia(
-        '(prefers-reduced-motion: reduce)',
-      ).matches
-      stage.scrollIntoView({
-        behavior: reduceMotion ? 'auto' : 'smooth',
-        block: 'center',
-      })
-      stage.focus({ preventScroll: true })
-    })
-  }, [])
-
-  const focusLoadout = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      const loadout = loadoutStationRef.current
-      if (!loadout) return
-      const reduceMotion = window.matchMedia(
-        '(prefers-reduced-motion: reduce)',
-      ).matches
-      loadout.scrollIntoView({
-        behavior: reduceMotion ? 'auto' : 'smooth',
-        block: 'center',
-      })
-      loadout.focus({ preventScroll: true })
-    })
-  }, [])
-
   const selectTool = useCallback(
     (toolId: ToolId, scrollToChart = false) => {
       setSelectedTool(toolId)
       setPinnedModel(null)
+      setSelectedDay(null)
+      setIsSelectedDayCommitted(false)
       setIsModelListOpen(false)
       focusChartSection(scrollToChart)
     },
@@ -422,14 +381,17 @@ function ReportApp() {
   const returnToTools = useCallback(() => {
     setSelectedTool(null)
     setPinnedModel(null)
+    setSelectedDay(null)
+    setIsSelectedDayCommitted(false)
     setIsModelListOpen(false)
     focusChartSection()
   }, [focusChartSection])
 
   const clearModelFocus = useCallback(() => {
     setPinnedModel(null)
-    focusChartSection()
-  }, [focusChartSection])
+    setSelectedDay(null)
+    setIsSelectedDayCommitted(false)
+  }, [])
 
   const stepBackInChart = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -462,19 +424,32 @@ function ReportApp() {
   const toggleModelFocus = useCallback(
     (model: string) => {
       if (pinnedModel === model) clearModelFocus()
-      else setPinnedModel(model)
-      setIsModelListOpen(false)
+      else {
+        setPinnedModel(model)
+        setSelectedDay(null)
+        setIsSelectedDayCommitted(false)
+      }
     },
     [clearModelFocus, pinnedModel],
   )
 
   const retryLoad = useCallback(() => {
-    setCompletedRunKey(null)
     setError(null)
     setPayload(null)
+    setSelectedDay(null)
+    setIsSelectedDayCommitted(false)
     setIsViewHydrated(false)
     setLoadAttempt((attempt) => attempt + 1)
   }, [])
+
+  const selectRunDay = useCallback(
+    (day: string) => {
+      if (!focusedRunLevel?.points.some((point) => point.date === day)) return
+      setSelectedDay(day)
+      setIsSelectedDayCommitted(true)
+    },
+    [focusedRunLevel],
+  )
 
   const moveSeriesFocus = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -497,51 +472,6 @@ function ReportApp() {
     },
     [],
   )
-
-  const replayRun = useCallback(() => {
-    setRunReplayCycle((cycle) => cycle + 1)
-  }, [])
-
-  const chooseAnotherRoute = useCallback(() => {
-    setCompletedRunKey(null)
-    setRunReplayCycle(0)
-    setSelectedTool(null)
-    setPinnedModel(null)
-    setIsModelListOpen(false)
-    focusLoadout()
-  }, [focusLoadout])
-
-  const openModelGate = useCallback(() => {
-    if (!selectedTool) return
-    setIsModelListOpen(true)
-    focusChartSection(true)
-  }, [focusChartSection, selectedTool])
-
-  const revealRunRecord = useCallback(() => {
-    if (!runSelectionKey) return
-    setCompletedRunKey(runSelectionKey)
-  }, [runSelectionKey])
-
-  const runStageActionLabel =
-    runStageState === 'loading'
-      ? 'Restoring route'
-      : runStageState === 'needs-tool'
-        ? 'Choose a tool'
-        : runStageState === 'needs-model'
-          ? 'Open model gate'
-          : runStageState === 'record-ready'
-            ? 'Reveal record'
-            : 'Replay stage'
-  const runStageAction =
-    runStageState === 'needs-tool'
-      ? focusLoadout
-      : runStageState === 'needs-model'
-        ? openModelGate
-        : runStageState === 'record-ready'
-          ? revealRunRecord
-          : runStageState === 'completed'
-            ? replayRun
-            : focusRunStage
 
   if (error) {
     return (
@@ -575,7 +505,6 @@ function ReportApp() {
         <div
           className="report-state-card chronicle-loading-state"
           role="status"
-          aria-live="polite"
           aria-busy="true"
         >
           <span className="visually-hidden">
@@ -608,49 +537,20 @@ function ReportApp() {
     payload.timeline_meta?.span ||
     `${daily[0]?.date || '—'} — ${daily.at(-1)?.date || '—'}`
   const degradedSources = degradedSourceNotices(payload.source_status)
-  const baseSelectionStatus = activeTool
-    ? pinnedModel
-      ? `Viewing ${activeTool.label} models. Focused on ${pinnedModel}.`
-      : `Viewing ${activeTool.label} models.`
-    : 'Viewing all tools.'
-  const runStageStatus =
-    runStageState === 'loading'
-      ? 'Restoring the recorded route.'
-      : runStageState === 'needs-tool'
-        ? 'Choose one tool to enter the run.'
-        : runStageState === 'needs-model'
-          ? `${activeTool?.label ?? 'Tool'} equipped. Focus one exact model to open the record gate.`
-          : runStageState === 'record-ready'
-            ? `${runMetrics?.scope ?? 'Focused model'} is ready. Reveal the exact record for ${runMetrics?.range ?? 'the selected range'}.`
-            : `${runReplayCycle > 0 ? 'Replay complete' : 'Run complete'}. ${runMetrics?.scope ?? 'Focused model'}, ${fmtExactTokens(runMetrics?.totalTokens ?? 0)} total recorded tokens.`
-  const selectionStatus = `${baseSelectionStatus} ${runStageStatus}${
-    runStageState === 'completed' && runReplayCycle > 0
-      ? ` Replay confirmation ${runReplayCycle}.`
+  const selectionStatus =
+    activeTool && focusedRunLevel
+      ? `Focused on ${focusedRunLevel.model}. Run Signature: ${focusedRunLevel.signature.name}. ${focusedRunLevel.signature.evidence}.`
       : ''
-  }`
-  const runStageCheckpointIndex =
-    runStageState === 'loading' || runStageState === 'needs-tool'
-      ? 0
-      : runStageState === 'needs-model'
-        ? 1
-        : 2
 
   return (
     <div
       className="page endless-run-shell"
-      data-run-stage={runStageState}
       style={
         {
           '--route-accent': activeTool?.hex ?? '#ffc84a',
         } as CSSProperties
       }
     >
-      <div className="data-world" aria-hidden="true">
-        <span data-terrain="archive-grid" />
-        <span data-signal="usage-pulse" />
-        <span data-cursor="range-position" />
-        <span data-save="lifetime-record" />
-      </div>
       <VStack gap={6}>
         <header className="chronicle-header">
           <div className="chronicle-topline">
@@ -702,14 +602,6 @@ function ReportApp() {
               <strong>{fmtRatio(lifetime.cacheRatio)}</strong> of recorded
               traffic. Usage history, not a measure of output or productivity.
             </p>
-            <button
-              type="button"
-              className="start-run-link"
-              onClick={focusRunStage}
-            >
-              <span className="command-cursor" aria-hidden="true">&gt;</span>
-              Enter run stage
-            </button>
           </div>
 
           {isReportDetailsOpen ? (
@@ -805,20 +697,16 @@ function ReportApp() {
                 Explore recorded usage
               </Heading>
               <Text color="secondary">
-                Select a tool, focus a model, then reveal its exact record in the run stage.
+                Select a tool, focus a model, then traverse its exact recorded history.
               </Text>
             </div>
-            <div className="explore-range-summary" aria-live="polite">
+            <div className="explore-range-summary">
               <span>{spanLabel}</span>
               <strong>{fmtCompact(summary.tokens)} recorded tokens</strong>
             </div>
           </div>
 
-          <div
-            className="loadout-heading"
-            ref={loadoutStationRef}
-            tabIndex={-1}
-          >
+          <div className="loadout-heading">
             <div>
               <p className="section-kicker">LOADOUT STATION</p>
               <Heading level={3}>Choose your tool</Heading>
@@ -990,6 +878,15 @@ function ReportApp() {
             </span>
           </div>
 
+          <div
+            className="selection-status visually-hidden"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {selectionStatus}
+          </div>
+
           <Card padding={3} className="exact-ledger-card">
           {daily.length ? (
             <div
@@ -1152,8 +1049,10 @@ function ReportApp() {
               <UsageCharts
                 daily={visible}
                 selectedTool={selectedTool}
-                focusedModel={pinnedModel}
                 modelSelection={modelSelection}
+                runLevel={focusedRunLevel}
+                selectedDay={selectedDay}
+                onSelectedDayChange={selectRunDay}
                 onSelectTool={(toolId) => selectTool(toolId)}
                 onOpenModelList={() => setIsModelListOpen(true)}
               />
@@ -1166,7 +1065,6 @@ function ReportApp() {
                   id="model-details-panel"
                   className="model-detail-panel"
                   role="region"
-                  aria-live="polite"
                   aria-labelledby="model-details-heading"
                   ref={modelDetailsPanelRef}
                   tabIndex={-1}
@@ -1177,8 +1075,8 @@ function ReportApp() {
                         {activeTool.label} model details
                       </Heading>
                       <Text size="sm" color="secondary">
-                        Exact totals for {spanLabel}. Select an identified model
-                        to keep it visible in the chart.
+                        Exact totals for {spanLabel}. Focus an identified model
+                        to regenerate the chart and its archive world.
                       </Text>
                     </div>
                     <Button
@@ -1210,7 +1108,7 @@ function ReportApp() {
                           className="model-detail-row"
                           key={model.model}
                           aria-pressed={isLegacy ? undefined : isFocused}
-                          aria-label={`${isLegacy ? 'Unattributed legacy' : model.model}, ${fmtExactTokens(model.tokens)} tokens, ${share} percent, ${fmtExactUsd(model.cost)} spend${isLegacy ? '' : ', focus in chart'}`}
+                          aria-label={`${isLegacy ? 'Unattributed legacy' : model.model}, ${fmtExactTokens(model.tokens)} tokens, ${share} percent, ${fmtExactUsd(model.cost)} spend${isLegacy ? '' : ', focus in the chart and archive world'}`}
                           onClick={() => {
                             if (!isLegacy) toggleModelFocus(model.model)
                           }}
@@ -1242,7 +1140,6 @@ function ReportApp() {
             <div
               className="chart-empty-state"
               role="status"
-              aria-live="polite"
             >
               <EmptyState
                 title="No usage data yet"
@@ -1259,187 +1156,12 @@ function ReportApp() {
           )}
           </Card>
 
-          <section
-            id="run-stage"
-            ref={runStageRef}
-            className="run-stage"
-            data-stage={runStageState}
-            aria-labelledby="run-stage-heading"
-            aria-describedby="run-stage-status"
-            tabIndex={-1}
-          >
-            <div
-              className="selection-status visually-hidden"
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {selectionStatus}
+          <section className="save-strip" aria-labelledby="save-strip-heading">
+            <div className="save-strip-heading">
+              <span className="section-kicker">SAVE STRIP</span>
+              <strong id="save-strip-heading">Lifetime records</strong>
             </div>
-            <div className="run-stage-heading">
-              <div>
-                <p className="section-kicker">RUN STAGE</p>
-                <Heading level={3} id="run-stage-heading">
-                  Recorded route
-                </Heading>
-              </div>
-              <span className="run-stage-state">
-                {runStageState.replace('-', ' ')}
-              </span>
-            </div>
-            <p id="run-stage-status" className="run-stage-status">
-              {runStageStatus}
-            </p>
-
-            <div
-              className="run-stage-viewport"
-              aria-hidden="true"
-              key={`run-stage-world-${runReplayCycle}`}
-            >
-              <span className="run-stage-grid" />
-              <span className="run-stage-route" />
-              <span className="run-stage-signal" />
-              <span className="run-stage-runner">
-                <i />
-              </span>
-              <span className="run-stage-terminal">
-                <b>
-                  {runStageState === 'completed'
-                    ? 'RECORDED'
-                    : runStageState === 'record-ready'
-                      ? 'SEALED'
-                      : runStageState === 'needs-model'
-                        ? 'NO SIGNAL'
-                        : runStageState === 'needs-tool'
-                          ? 'LOCKED'
-                          : 'SYNC'}
-                </b>
-              </span>
-            </div>
-
-            <ol className="run-stage-checkpoints" aria-label="Run stages">
-              {[
-                {
-                  label: 'LOADOUT',
-                  value: activeTool?.label ?? 'Choose a tool',
-                },
-                {
-                  label: 'MODEL GATE',
-                  value: pinnedModel ?? 'Focus a model',
-                },
-                {
-                  label: 'RECORD',
-                  value:
-                    runStageState === 'completed'
-                      ? 'Revealed'
-                      : runStageState === 'record-ready'
-                        ? 'Ready'
-                        : 'Sealed',
-                },
-              ].map((step, index) => {
-                const stepState =
-                  runStageState === 'completed' || index < runStageCheckpointIndex
-                    ? 'complete'
-                    : index === runStageCheckpointIndex
-                      ? 'current'
-                      : 'upcoming'
-                return (
-                  <li
-                    key={step.label}
-                    data-step-state={stepState}
-                    aria-current={stepState === 'current' ? 'step' : undefined}
-                  >
-                    <span>{String(index + 1).padStart(2, '0')}</span>
-                    <strong>{step.label}</strong>
-                    <small>{step.value}</small>
-                  </li>
-                )
-              })}
-            </ol>
-
-            {runStageState === 'completed' ? (
-              <div
-                className="run-stage-complete"
-                key={`run-stage-results-${runReplayCycle}`}
-              >
-                <p className="section-kicker">RUN COMPLETE</p>
-                <dl className="run-stage-results">
-                  <div>
-                    <dt>Scope</dt>
-                    <dd>{runMetrics?.scope ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Range</dt>
-                    <dd>{runMetrics?.range ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Total recorded tokens</dt>
-                    <dd>{fmtExactTokens(runMetrics?.totalTokens ?? 0)}</dd>
-                  </div>
-                  <div>
-                    <dt>Estimated cost</dt>
-                    <dd>{fmtExactUsd(runMetrics?.estimatedCost ?? 0)}</dd>
-                  </div>
-                  <div>
-                    <dt>Peak exact tokens</dt>
-                    <dd>
-                      {runMetrics?.peak
-                        ? fmtExactTokens(runMetrics.peak.value)
-                        : 'NO RECORDED USAGE'}
-                    </dd>
-                    <span>{runMetrics?.peak?.date ?? '—'}</span>
-                  </div>
-                </dl>
-              </div>
-            ) : (
-              <dl className="run-stage-scope">
-                <div>
-                  <dt>Loadout</dt>
-                  <dd>{activeTool?.label ?? 'Not selected'}</dd>
-                </div>
-                <div>
-                  <dt>Model</dt>
-                  <dd>{pinnedModel ?? 'Not focused'}</dd>
-                </div>
-                <div>
-                  <dt>Range</dt>
-                  <dd>{runMetrics?.range ?? spanLabel}</dd>
-                </div>
-              </dl>
-            )}
-
-            <div className="run-stage-actions">
-              <Button
-                label={runStageActionLabel}
-                variant="primary"
-                size="sm"
-                onClick={runStageAction}
-                isDisabled={runStageState === 'loading'}
-              >
-                {runStageActionLabel}
-              </Button>
-              {activeTool ? (
-                <Button
-                  label="Choose another route"
-                  variant="ghost"
-                  size="sm"
-                  onClick={chooseAnotherRoute}
-                >
-                  Choose another route
-                </Button>
-              ) : null}
-            </div>
-          </section>
-
-          <details className="checkpoint-log lifetime-archive">
-            <summary className="lifetime-archive-summary">
-              <span>
-                <span className="section-kicker">LIFETIME ARCHIVE</span>
-                <strong id="lifetime-archive-heading">Lifetime archive</strong>
-              </span>
-              <span className="lifetime-archive-toggle">Open records</span>
-            </summary>
-            <dl className="checkpoint-grid">
+            <dl className="save-strip-grid">
               <div>
                 <dt>Peak recorded day</dt>
                 <dd>{fmtExactTokens(lifetimePeak?.total_tokens ?? 0)}</dd>
@@ -1456,7 +1178,7 @@ function ReportApp() {
                 <span>Real usage across the lifetime data</span>
               </div>
             </dl>
-          </details>
+          </section>
 
           <footer className="exact-ledger">
             <span className="command-cursor" aria-hidden="true">&gt;</span>
@@ -1464,15 +1186,6 @@ function ReportApp() {
               <strong>Exact ledger</strong>
               <span>Tooltips, model details, costs, and token parts retain exact published values.</span>
             </div>
-            <a
-              href="#run-stage"
-              onClick={(event) => {
-                event.preventDefault()
-                focusRunStage()
-              }}
-            >
-              Run stage ↑
-            </a>
           </footer>
         </section>
       </VStack>
