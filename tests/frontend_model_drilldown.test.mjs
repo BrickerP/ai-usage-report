@@ -15,7 +15,7 @@ import {
 } from '../src/lib/usage.ts'
 import {
   buildReportViewSearch,
-  deriveGuidedRunStep,
+  deriveRunStageState,
   explorationBackAction,
   indexRangeForDates,
   nextSeriesIndex,
@@ -171,95 +171,96 @@ test('core interaction and data-state semantics remain explicit', () => {
   assert.match(chartsSource, /animation: !reduceMotion/)
 })
 
-test('guided run derives the complete five-state journey from interaction state', () => {
+test('run stage derives its visible state from hydrated report selection', () => {
   assert.equal(
-    deriveGuidedRunStep({
-      guidedActive: false,
-      runComplete: false,
+    deriveRunStageState({
+      hydrated: false,
       selectedTool: null,
       focusedModel: null,
+      selectionKey: null,
+      completedRunKey: null,
     }),
-    'free',
+    'loading',
   )
   assert.equal(
-    deriveGuidedRunStep({
-      guidedActive: true,
-      runComplete: false,
+    deriveRunStageState({
+      hydrated: true,
       selectedTool: null,
       focusedModel: null,
+      selectionKey: null,
+      completedRunKey: null,
     }),
-    'choose-tool',
+    'needs-tool',
   )
   assert.equal(
-    deriveGuidedRunStep({
-      guidedActive: true,
-      runComplete: false,
+    deriveRunStageState({
+      hydrated: true,
       selectedTool: 'oneapi',
       focusedModel: null,
+      selectionKey: null,
+      completedRunKey: null,
     }),
-    'choose-model',
+    'needs-model',
   )
   assert.equal(
-    deriveGuidedRunStep({
-      guidedActive: true,
-      runComplete: false,
+    deriveRunStageState({
+      hydrated: true,
       selectedTool: 'oneapi',
       focusedModel: 'deepseek-v4-flash',
+      selectionKey: 'all|oneapi|deepseek-v4-flash',
+      completedRunKey: null,
     }),
-    'reveal-record',
+    'record-ready',
   )
   assert.equal(
-    deriveGuidedRunStep({
-      guidedActive: true,
-      runComplete: true,
+    deriveRunStageState({
+      hydrated: true,
       selectedTool: 'oneapi',
       focusedModel: 'deepseek-v4-flash',
+      selectionKey: 'all|oneapi|deepseek-v4-flash',
+      completedRunKey: 'all|oneapi|deepseek-v4-flash',
     }),
-    'complete',
+    'completed',
+  )
+  assert.equal(
+    deriveRunStageState({
+      hydrated: true,
+      selectedTool: 'oneapi',
+      focusedModel: 'deepseek-v4-flash',
+      selectionKey: '7|oneapi|deepseek-v4-flash',
+      completedRunKey: 'all|oneapi|deepseek-v4-flash',
+    }),
+    'record-ready',
   )
 })
 
-test('the endless data world exposes an optional guided run without fake game metrics', () => {
+test('the endless data world always exposes a real-selection run stage', () => {
   const visitorCopy = jsxTextContent(appSource)
+  const stageStart = appSource.indexOf('id="run-stage"')
+  const archiveStart = appSource.indexOf(
+    'className="checkpoint-log lifetime-archive"',
+  )
 
   assert.match(appSource, /className="page endless-run-shell"/)
   assert.match(appSource, /className="data-world"/)
-  assert.match(appSource, /className="checkpoint-log guided-run-strip"/)
+  assert.notEqual(stageStart, -1)
+  assert.ok(archiveStart > stageStart)
+  assert.match(appSource, /className="run-stage"/)
+  assert.match(appSource, /data-stage=\{runStageState\}/)
+  assert.match(appSource, /aria-labelledby="run-stage-heading"/)
+  assert.match(
+    appSource,
+    /deriveRunStageState\(\{[\s\S]{0,220}hydrated: isViewHydrated[\s\S]{0,120}selectedTool[\s\S]{0,120}focusedModel: pinnedModel[\s\S]{0,120}selectionKey: runSelectionKey[\s\S]{0,120}completedRunKey/,
+  )
+  assert.match(appSource, /onClick=\{focusRunStage\}[\s\S]{0,180}Enter run stage/)
   assert.match(stylesheetSource, /\.endless-run-shell/)
   assert.match(stylesheetSource, /\.data-world/)
-  assert.match(stylesheetSource, /\.guided-run-strip/)
-  assert.match(appSource, /onClick=\{startGuidedRun\}[\s\S]{0,180}Start guided run/)
-  const freeRoamControl = appSource.match(
-    /label="Free roam"[\s\S]{0,180}onClick=\{([A-Za-z][A-Za-z0-9]*)\}/,
-  )
-  assert.ok(freeRoamControl)
-  const freeRoamHandlerStart = appSource.indexOf(
-    `const ${freeRoamControl[1]} =`,
-  )
-  const freeRoamHandler = appSource.slice(
-    freeRoamHandlerStart,
-    appSource.indexOf('\n  },', freeRoamHandlerStart),
-  )
-  assert.notEqual(freeRoamHandlerStart, -1)
-  assert.match(freeRoamHandler, /setRunComplete\(false\)/)
-  assert.match(freeRoamHandler, /setGuidedActive\(false\)/)
-  assert.match(appSource, /label="Replay"/)
-  assert.match(
-    appSource,
-    /<ol className="guided-run-steps" aria-label="Guided run steps">/,
-  )
-  assert.match(
-    appSource,
-    /const GUIDED_STEPS[\s\S]{0,600}key: 'choose-tool'[\s\S]{0,180}key: 'choose-model'[\s\S]{0,180}key: 'reveal-record'/,
-  )
-  assert.match(
-    appSource,
-    /GUIDED_STEPS\.map\(\(step, index\) =>[\s\S]{0,220}aria-current=\{[\s\S]{0,120}\? 'step' : undefined/,
-  )
+  assert.match(stylesheetSource, /\.run-stage/)
+  assert.doesNotMatch(appSource, /guidedActive|guided-run-strip|deriveGuidedRunStep/)
   assert.doesNotMatch(visitorCopy, /\b(?:XP|LEVEL|SCORE)\b|reward|Beijing|二环/i)
   assert.doesNotMatch(
     `${appSource}\n${stylesheetSource}`,
-    /street-world|stage-route|data-run-state|const runState/,
+    /street-world|className="stage-route"|\.stage-route\b|data-run-state|const runState/,
   )
 })
 
@@ -279,6 +280,7 @@ test('tool selection announces once through the canonical atomic live region', (
     appSource,
     /className="selection-status visually-hidden"[\s\S]{0,100}role="status"[\s\S]{0,80}aria-live="polite"[\s\S]{0,80}aria-atomic="true"/,
   )
+  assert.match(appSource, /Replay confirmation \$\{runReplayCycle\}/)
   assert.match(appSource, /className="loadout-status"(?![^>]*aria-live)[^>]*>/)
 })
 
@@ -704,22 +706,32 @@ test('run record board follows the exact current chart scope without live noise'
   )
 })
 
-test('RUN COMPLETE is a data-backed ticket with a replay action', () => {
-  const ticketStart = appSource.indexOf(
-    'className="checkpoint-log run-complete-card"',
-  )
-  const ticket = appSource.slice(
-    ticketStart,
-    appSource.indexOf('</section>', ticketStart),
-  )
+test('RUN COMPLETE is a data-backed state inside the persistent stage', () => {
+  const ticketStart = appSource.indexOf('id="run-stage"')
+  const ticket = appSource.slice(ticketStart, appSource.indexOf('</section>', ticketStart))
 
   assert.notEqual(ticketStart, -1)
-  assert.match(ticket, /RUN COMPLETE/)
-  assert.match(ticket, /Recorded run/)
+  assert.match(
+    ticket,
+    /\{runStageState === 'completed' \? \([\s\S]{0,180}className="run-stage-complete"[\s\S]{0,180}RUN COMPLETE/,
+  )
   assert.match(ticket, /runMetrics/)
   assert.match(ticket, /fmtExactTokens\(runMetrics\?\.[^)]+\)/)
   assert.match(ticket, /fmtExactUsd\(runMetrics\?\.[^)]+\)/)
-  assert.match(ticket, /label="Replay"[\s\S]{0,160}onClick=\{replayRun\}/)
+  assert.match(ticket, /label=\{runStageActionLabel\}[\s\S]{0,220}onClick=\{runStageAction\}/)
+  assert.match(
+    appSource,
+    /const replayRun[\s\S]{0,180}setRunReplayCycle\(\(cycle\) => cycle \+ 1\)/,
+  )
+  assert.match(
+    appSource,
+    /runStageState === 'completed'[\s\S]{0,80}\? replayRun/,
+  )
+  assert.match(
+    ticket,
+    /className="run-stage-viewport"[\s\S]{0,120}key=\{`run-stage-world-\$\{runReplayCycle\}`\}/,
+  )
+  assert.match(ticket, /key=\{`run-stage-results-\$\{runReplayCycle\}`\}/)
   assert.match(
     appSource,
     /visible\.map\([\s\S]{0,320}modelSeriesPoint\(/,
@@ -739,6 +751,28 @@ test('RUN COMPLETE is a data-backed ticket with a replay action', () => {
   assert.doesNotMatch(
     jsxTextContent(ticket),
     /\b(?:demo|mock|placeholder|score|reward|XP|level)\b/i,
+  )
+})
+
+test('lifetime archive follows the run stage instead of replacing it', () => {
+  const stageStart = appSource.indexOf('id="run-stage"')
+  const archiveStart = appSource.indexOf(
+    'className="checkpoint-log lifetime-archive"',
+  )
+
+  assert.notEqual(stageStart, -1)
+  assert.ok(archiveStart > stageStart)
+  assert.doesNotMatch(
+    appSource.slice(stageStart, archiveStart),
+    /runComplete\s*\?\s*\(/,
+  )
+  assert.match(
+    appSource.slice(stageStart, archiveStart + 80),
+    /<\/section>\s*<details className="checkpoint-log lifetime-archive">/,
+  )
+  assert.match(
+    appSource.slice(archiveStart, archiveStart + 900),
+    /LIFETIME ARCHIVE/,
   )
 })
 

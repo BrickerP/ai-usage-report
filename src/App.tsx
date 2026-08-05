@@ -33,12 +33,11 @@ import { summarizeLifetime } from './lib/chronicle'
 import { fmtCompact, fmtUsd } from './lib/format'
 import {
   buildReportViewSearch,
-  deriveGuidedRunStep,
+  deriveRunStageState,
   explorationBackAction,
   indexRangeForDates,
   nextSeriesIndex,
   parseReportView,
-  type GuidedRunStep,
   type ViewPreset,
 } from './lib/interaction'
 import {
@@ -91,30 +90,6 @@ function fmtRatio(value: number) {
   return `${(value * 100).toFixed(1)}%`
 }
 
-type GuidedStepKey = Exclude<GuidedRunStep, 'free' | 'complete'>
-
-const GUIDED_STEPS: Array<{
-  key: GuidedStepKey
-  label: string
-  description: string
-}> = [
-  {
-    key: 'choose-tool',
-    label: 'LOADOUT',
-    description: 'Select one tool from the recorded archive.',
-  },
-  {
-    key: 'choose-model',
-    label: 'MODEL',
-    description: 'Focus one exact model in the model gate.',
-  },
-  {
-    key: 'reveal-record',
-    label: 'RECORD',
-    description: 'Reveal the record for the current visible range.',
-  },
-]
-
 function ReportApp() {
   const [payload, setPayload] = useState<UsagePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -123,16 +98,15 @@ function ReportApp() {
   const [range, setRange] = useState<[number, number]>([0, -1])
   const [selectedTool, setSelectedTool] = useState<ToolId | null>(null)
   const [pinnedModel, setPinnedModel] = useState<string | null>(null)
-  const [guidedActive, setGuidedActive] = useState(false)
-  const [runComplete, setRunComplete] = useState(false)
+  const [completedRunKey, setCompletedRunKey] = useState<string | null>(null)
+  const [runReplayCycle, setRunReplayCycle] = useState(0)
   const [isModelListOpen, setIsModelListOpen] = useState(false)
   const [isReportDetailsOpen, setIsReportDetailsOpen] = useState(false)
   const [isRangeDetailsOpen, setIsRangeDetailsOpen] = useState(false)
   const [isViewHydrated, setIsViewHydrated] = useState(false)
   const chartSectionRef = useRef<HTMLDivElement>(null)
-  const guidedRunRef = useRef<HTMLElement>(null)
+  const runStageRef = useRef<HTMLElement>(null)
   const loadoutStationRef = useRef<HTMLDivElement>(null)
-  const runResultRef = useRef<HTMLElement>(null)
   const modelDetailsToggleRef = useRef<HTMLButtonElement>(null)
   const modelDetailsPanelRef = useRef<HTMLDivElement>(null)
   const wasModelListOpen = useRef(false)
@@ -202,22 +176,6 @@ function ReportApp() {
     })
   }, [isModelListOpen])
 
-  useEffect(() => {
-    if (!runComplete) return
-    window.requestAnimationFrame(() => {
-      const result = runResultRef.current
-      if (!result) return
-      const reduceMotion = window.matchMedia(
-        '(prefers-reduced-motion: reduce)',
-      ).matches
-      result.scrollIntoView({
-        behavior: reduceMotion ? 'auto' : 'smooth',
-        block: 'center',
-      })
-      result.focus({ preventScroll: true })
-    })
-  }, [runComplete])
-
   const daily = useMemo(() => payload?.daily ?? [], [payload])
   const visible = useMemo(() => {
     if (!daily.length || range[1] < range[0]) return [] as DailyRow[]
@@ -264,12 +222,6 @@ function ReportApp() {
     )
   }, [modelSelection])
 
-  const guidedStep = deriveGuidedRunStep({
-    guidedActive,
-    runComplete,
-    selectedTool,
-    focusedModel: pinnedModel,
-  })
   const focusedRunSeries = useMemo(
     () =>
       selectedTool && pinnedModel
@@ -304,6 +256,30 @@ function ReportApp() {
       peak,
     }
   }, [activeTool, focusedRunSeries, pinnedModel, selectedTool, visible])
+  const runSelectionKey = useMemo(
+    () =>
+      runMetrics && selectedTool && pinnedModel
+        ? `${runMetrics.range}|${selectedTool}|${pinnedModel}`
+        : null,
+    [pinnedModel, runMetrics, selectedTool],
+  )
+  const runStageState = deriveRunStageState({
+    hydrated: isViewHydrated,
+    selectedTool,
+    focusedModel: pinnedModel,
+    selectionKey: runSelectionKey,
+    completedRunKey,
+  })
+
+  useEffect(() => {
+    if (completedRunKey && completedRunKey !== runSelectionKey) {
+      setCompletedRunKey(null)
+    }
+  }, [completedRunKey, runSelectionKey])
+
+  useEffect(() => {
+    setRunReplayCycle(0)
+  }, [runSelectionKey])
 
   const dateRangeValue: DateRange | null = useMemo(() => {
     if (!visible.length) return null
@@ -339,7 +315,6 @@ function ReportApp() {
 
   const applyPreset = useCallback(
     (next: ViewPreset) => {
-      setRunComplete(false)
       setPreset(next)
       setRange(indexForPreset(daily, next))
       setIsRangeDetailsOpen(false)
@@ -350,7 +325,6 @@ function ReportApp() {
   const nudge = useCallback(
     (dir: -1 | 1) => {
       if (!daily.length || range[1] < range[0]) return
-      setRunComplete(false)
       const width = range[1] - range[0]
       let i0 = range[0] + dir
       let i1 = range[1] + dir
@@ -371,7 +345,6 @@ function ReportApp() {
   const onDatesChange = useCallback(
     (value: DateRange | null) => {
       if (!value?.start || !value?.end || !daily.length) return
-      setRunComplete(false)
       let i0 = daily.findIndex((r) => r.date >= value.start)
       let i1 = -1
       for (let i = daily.length - 1; i >= 0; i -= 1) {
@@ -406,18 +379,18 @@ function ReportApp() {
     })
   }, [])
 
-  const focusGuidedRun = useCallback(() => {
+  const focusRunStage = useCallback(() => {
     window.requestAnimationFrame(() => {
-      const guide = guidedRunRef.current
-      if (!guide) return
+      const stage = runStageRef.current
+      if (!stage) return
       const reduceMotion = window.matchMedia(
         '(prefers-reduced-motion: reduce)',
       ).matches
-      guide.scrollIntoView({
+      stage.scrollIntoView({
         behavior: reduceMotion ? 'auto' : 'smooth',
         block: 'center',
       })
-      guide.focus({ preventScroll: true })
+      stage.focus({ preventScroll: true })
     })
   }, [])
 
@@ -438,7 +411,6 @@ function ReportApp() {
 
   const selectTool = useCallback(
     (toolId: ToolId, scrollToChart = false) => {
-      setRunComplete(false)
       setSelectedTool(toolId)
       setPinnedModel(null)
       setIsModelListOpen(false)
@@ -448,7 +420,6 @@ function ReportApp() {
   )
 
   const returnToTools = useCallback(() => {
-    setRunComplete(false)
     setSelectedTool(null)
     setPinnedModel(null)
     setIsModelListOpen(false)
@@ -456,7 +427,6 @@ function ReportApp() {
   }, [focusChartSection])
 
   const clearModelFocus = useCallback(() => {
-    setRunComplete(false)
     setPinnedModel(null)
     focusChartSection()
   }, [focusChartSection])
@@ -491,7 +461,6 @@ function ReportApp() {
 
   const toggleModelFocus = useCallback(
     (model: string) => {
-      setRunComplete(false)
       if (pinnedModel === model) clearModelFocus()
       else setPinnedModel(model)
       setIsModelListOpen(false)
@@ -500,7 +469,7 @@ function ReportApp() {
   )
 
   const retryLoad = useCallback(() => {
-    setRunComplete(false)
+    setCompletedRunKey(null)
     setError(null)
     setPayload(null)
     setIsViewHydrated(false)
@@ -529,25 +498,18 @@ function ReportApp() {
     [],
   )
 
-  const startGuidedRun = useCallback(() => {
-    setRunComplete(false)
-    setGuidedActive(true)
-    focusGuidedRun()
-  }, [focusGuidedRun])
-
-  const freeRoam = useCallback(() => {
-    setRunComplete(false)
-    setGuidedActive(false)
+  const replayRun = useCallback(() => {
+    setRunReplayCycle((cycle) => cycle + 1)
   }, [])
 
-  const replayRun = useCallback(() => {
-    setRunComplete(false)
+  const chooseAnotherRoute = useCallback(() => {
+    setCompletedRunKey(null)
+    setRunReplayCycle(0)
     setSelectedTool(null)
     setPinnedModel(null)
     setIsModelListOpen(false)
-    setGuidedActive(true)
-    focusGuidedRun()
-  }, [focusGuidedRun])
+    focusLoadout()
+  }, [focusLoadout])
 
   const openModelGate = useCallback(() => {
     if (!selectedTool) return
@@ -556,30 +518,30 @@ function ReportApp() {
   }, [focusChartSection, selectedTool])
 
   const revealRunRecord = useCallback(() => {
-    if (!selectedTool || !pinnedModel) return
-    setRunComplete(true)
-  }, [pinnedModel, selectedTool])
+    if (!runSelectionKey) return
+    setCompletedRunKey(runSelectionKey)
+  }, [runSelectionKey])
 
-  const guidedCtaLabel =
-    guidedStep === 'choose-tool'
-      ? 'Go to loadout'
-      : guidedStep === 'choose-model'
-        ? 'Open model gate'
-        : guidedStep === 'reveal-record'
-          ? 'Reveal run record'
-          : guidedStep === 'complete'
-            ? 'Run another loadout'
-            : null
-  const guidedCtaAction =
-    guidedStep === 'choose-tool'
+  const runStageActionLabel =
+    runStageState === 'loading'
+      ? 'Restoring route'
+      : runStageState === 'needs-tool'
+        ? 'Choose a tool'
+        : runStageState === 'needs-model'
+          ? 'Open model gate'
+          : runStageState === 'record-ready'
+            ? 'Reveal record'
+            : 'Replay stage'
+  const runStageAction =
+    runStageState === 'needs-tool'
       ? focusLoadout
-      : guidedStep === 'choose-model'
+      : runStageState === 'needs-model'
         ? openModelGate
-        : guidedStep === 'reveal-record'
+        : runStageState === 'record-ready'
           ? revealRunRecord
-          : guidedStep === 'complete'
+          : runStageState === 'completed'
             ? replayRun
-            : null
+            : focusRunStage
 
   if (error) {
     return (
@@ -651,45 +613,38 @@ function ReportApp() {
       ? `Viewing ${activeTool.label} models. Focused on ${pinnedModel}.`
       : `Viewing ${activeTool.label} models.`
     : 'Viewing all tools.'
-  const guidedAnnouncement = guidedActive
-    ? runComplete
-      ? ' Guided run complete. Recorded run revealed.'
-      : guidedStep === 'choose-tool'
-        ? ' Guided step: LOADOUT — choose a tool.'
-        : guidedStep === 'choose-model'
-          ? ' Guided step: MODEL — focus an exact model.'
-          : ' Guided step: RECORD — reveal the run record.'
-    : ''
-  const selectionStatus = `${baseSelectionStatus}${guidedAnnouncement}`
-  const guidedStepKey =
-    guidedStep === 'complete' || guidedStep === 'free'
-        ? null
-        : guidedStep
-  const guidedStepIndex =
-    guidedStep === 'complete'
-      ? GUIDED_STEPS.length
-      : guidedStepKey
-        ? GUIDED_STEPS.findIndex((step) => step.key === guidedStepKey)
-        : -1
+  const runStageStatus =
+    runStageState === 'loading'
+      ? 'Restoring the recorded route.'
+      : runStageState === 'needs-tool'
+        ? 'Choose one tool to enter the run.'
+        : runStageState === 'needs-model'
+          ? `${activeTool?.label ?? 'Tool'} equipped. Focus one exact model to open the record gate.`
+          : runStageState === 'record-ready'
+            ? `${runMetrics?.scope ?? 'Focused model'} is ready. Reveal the exact record for ${runMetrics?.range ?? 'the selected range'}.`
+            : `${runReplayCycle > 0 ? 'Replay complete' : 'Run complete'}. ${runMetrics?.scope ?? 'Focused model'}, ${fmtExactTokens(runMetrics?.totalTokens ?? 0)} total recorded tokens.`
+  const selectionStatus = `${baseSelectionStatus} ${runStageStatus}${
+    runStageState === 'completed' && runReplayCycle > 0
+      ? ` Replay confirmation ${runReplayCycle}.`
+      : ''
+  }`
+  const runStageCheckpointIndex =
+    runStageState === 'loading' || runStageState === 'needs-tool'
+      ? 0
+      : runStageState === 'needs-model'
+        ? 1
+        : 2
 
   return (
     <div
       className="page endless-run-shell"
-      data-guided-step={guidedStep}
+      data-run-stage={runStageState}
       style={
         {
           '--route-accent': activeTool?.hex ?? '#ffc84a',
         } as CSSProperties
       }
     >
-      <div
-        className="selection-status visually-hidden"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        {selectionStatus}
-      </div>
       <div className="data-world" aria-hidden="true">
         <span data-terrain="archive-grid" />
         <span data-signal="usage-pulse" />
@@ -750,10 +705,10 @@ function ReportApp() {
             <button
               type="button"
               className="start-run-link"
-              onClick={startGuidedRun}
+              onClick={focusRunStage}
             >
               <span className="command-cursor" aria-hidden="true">&gt;</span>
-              Start guided run
+              Enter run stage
             </button>
           </div>
 
@@ -850,7 +805,7 @@ function ReportApp() {
                 Explore recorded usage
               </Heading>
               <Text color="secondary">
-                Select a tool, inspect its model gate, and optionally reveal a run record.
+                Select a tool, focus a model, then reveal its exact record in the run stage.
               </Text>
             </div>
             <div className="explore-range-summary" aria-live="polite">
@@ -858,63 +813,6 @@ function ReportApp() {
               <strong>{fmtCompact(summary.tokens)} recorded tokens</strong>
             </div>
           </div>
-
-          {guidedActive ? (
-            <aside
-              id="guided-run"
-              ref={guidedRunRef}
-              className="checkpoint-log guided-run-strip"
-              aria-labelledby="guided-run-heading"
-              tabIndex={-1}
-            >
-              <div>
-                <p className="section-kicker">OPTIONAL GUIDE</p>
-                <Heading level={3} id="guided-run-heading">
-                  Guided run
-                </Heading>
-              </div>
-              <ol className="guided-run-steps" aria-label="Guided run steps">
-                {GUIDED_STEPS.map((step, index) => (
-                  <li
-                    key={step.key}
-                    aria-current={
-                      guidedStepKey === step.key ? 'step' : undefined
-                    }
-                    data-step-state={
-                      guidedStepKey === step.key
-                        ? 'current'
-                        : index < guidedStepIndex
-                          ? 'complete'
-                          : 'upcoming'
-                    }
-                  >
-                    <strong>{step.label}</strong>
-                    <span>{step.description}</span>
-                  </li>
-                ))}
-              </ol>
-              <HStack gap={2}>
-                {guidedCtaLabel && guidedCtaAction ? (
-                  <Button
-                    label={guidedCtaLabel}
-                    variant="primary"
-                    size="sm"
-                    onClick={guidedCtaAction}
-                  >
-                    {guidedCtaLabel}
-                  </Button>
-                ) : null}
-                <Button
-                  label="Free roam"
-                  variant="ghost"
-                  size="sm"
-                  onClick={freeRoam}
-                >
-                  Free roam
-                </Button>
-              </HStack>
-            </aside>
-          ) : null}
 
           <div
             className="loadout-heading"
@@ -1361,99 +1259,204 @@ function ReportApp() {
           )}
           </Card>
 
-          {runComplete ? (
-            <section
-              ref={runResultRef}
-              className="checkpoint-log run-complete-card"
-              aria-labelledby="run-complete-heading"
-              tabIndex={-1}
+          <section
+            id="run-stage"
+            ref={runStageRef}
+            className="run-stage"
+            data-stage={runStageState}
+            aria-labelledby="run-stage-heading"
+            aria-describedby="run-stage-status"
+            tabIndex={-1}
+          >
+            <div
+              className="selection-status visually-hidden"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
             >
-              <div className="checkpoint-heading">
-                <div>
-                  <p className="section-kicker">RUN COMPLETE</p>
-                  <Heading level={3} id="run-complete-heading">
-                    Recorded run
-                  </Heading>
-                </div>
+              {selectionStatus}
+            </div>
+            <div className="run-stage-heading">
+              <div>
+                <p className="section-kicker">RUN STAGE</p>
+                <Heading level={3} id="run-stage-heading">
+                  Recorded route
+                </Heading>
               </div>
-              <dl className="checkpoint-grid">
+              <span className="run-stage-state">
+                {runStageState.replace('-', ' ')}
+              </span>
+            </div>
+            <p id="run-stage-status" className="run-stage-status">
+              {runStageStatus}
+            </p>
+
+            <div
+              className="run-stage-viewport"
+              aria-hidden="true"
+              key={`run-stage-world-${runReplayCycle}`}
+            >
+              <span className="run-stage-grid" />
+              <span className="run-stage-route" />
+              <span className="run-stage-signal" />
+              <span className="run-stage-runner">
+                <i />
+              </span>
+              <span className="run-stage-terminal">
+                <b>
+                  {runStageState === 'completed'
+                    ? 'RECORDED'
+                    : runStageState === 'record-ready'
+                      ? 'SEALED'
+                      : runStageState === 'needs-model'
+                        ? 'NO SIGNAL'
+                        : runStageState === 'needs-tool'
+                          ? 'LOCKED'
+                          : 'SYNC'}
+                </b>
+              </span>
+            </div>
+
+            <ol className="run-stage-checkpoints" aria-label="Run stages">
+              {[
+                {
+                  label: 'LOADOUT',
+                  value: activeTool?.label ?? 'Choose a tool',
+                },
+                {
+                  label: 'MODEL GATE',
+                  value: pinnedModel ?? 'Focus a model',
+                },
+                {
+                  label: 'RECORD',
+                  value:
+                    runStageState === 'completed'
+                      ? 'Revealed'
+                      : runStageState === 'record-ready'
+                        ? 'Ready'
+                        : 'Sealed',
+                },
+              ].map((step, index) => {
+                const stepState =
+                  runStageState === 'completed' || index < runStageCheckpointIndex
+                    ? 'complete'
+                    : index === runStageCheckpointIndex
+                      ? 'current'
+                      : 'upcoming'
+                return (
+                  <li
+                    key={step.label}
+                    data-step-state={stepState}
+                    aria-current={stepState === 'current' ? 'step' : undefined}
+                  >
+                    <span>{String(index + 1).padStart(2, '0')}</span>
+                    <strong>{step.label}</strong>
+                    <small>{step.value}</small>
+                  </li>
+                )
+              })}
+            </ol>
+
+            {runStageState === 'completed' ? (
+              <div
+                className="run-stage-complete"
+                key={`run-stage-results-${runReplayCycle}`}
+              >
+                <p className="section-kicker">RUN COMPLETE</p>
+                <dl className="run-stage-results">
+                  <div>
+                    <dt>Scope</dt>
+                    <dd>{runMetrics?.scope ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Range</dt>
+                    <dd>{runMetrics?.range ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Total recorded tokens</dt>
+                    <dd>{fmtExactTokens(runMetrics?.totalTokens ?? 0)}</dd>
+                  </div>
+                  <div>
+                    <dt>Estimated cost</dt>
+                    <dd>{fmtExactUsd(runMetrics?.estimatedCost ?? 0)}</dd>
+                  </div>
+                  <div>
+                    <dt>Peak exact tokens</dt>
+                    <dd>
+                      {runMetrics?.peak
+                        ? fmtExactTokens(runMetrics.peak.value)
+                        : 'NO RECORDED USAGE'}
+                    </dd>
+                    <span>{runMetrics?.peak?.date ?? '—'}</span>
+                  </div>
+                </dl>
+              </div>
+            ) : (
+              <dl className="run-stage-scope">
                 <div>
-                  <dt>Scope</dt>
-                  <dd>{runMetrics?.scope ?? '—'}</dd>
+                  <dt>Loadout</dt>
+                  <dd>{activeTool?.label ?? 'Not selected'}</dd>
+                </div>
+                <div>
+                  <dt>Model</dt>
+                  <dd>{pinnedModel ?? 'Not focused'}</dd>
                 </div>
                 <div>
                   <dt>Range</dt>
-                  <dd>{runMetrics?.range ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt>Total recorded tokens</dt>
-                  <dd>{fmtExactTokens(runMetrics?.totalTokens ?? 0)}</dd>
-                </div>
-                <div>
-                  <dt>Estimated cost</dt>
-                  <dd>{fmtExactUsd(runMetrics?.estimatedCost ?? 0)}</dd>
-                </div>
-                <div>
-                  <dt>Peak exact tokens</dt>
-                  <dd>
-                    {runMetrics?.peak
-                      ? fmtExactTokens(runMetrics.peak.value)
-                      : 'NO RECORDED USAGE'}
-                  </dd>
-                  <span>{runMetrics?.peak?.date ?? '—'}</span>
+                  <dd>{runMetrics?.range ?? spanLabel}</dd>
                 </div>
               </dl>
-              <HStack gap={2}>
+            )}
+
+            <div className="run-stage-actions">
+              <Button
+                label={runStageActionLabel}
+                variant="primary"
+                size="sm"
+                onClick={runStageAction}
+                isDisabled={runStageState === 'loading'}
+              >
+                {runStageActionLabel}
+              </Button>
+              {activeTool ? (
                 <Button
-                  label="Replay"
-                  variant="primary"
-                  size="sm"
-                  onClick={replayRun}
-                >
-                  Replay
-                </Button>
-                <Button
-                  label="Free roam"
+                  label="Choose another route"
                   variant="ghost"
                   size="sm"
-                  onClick={freeRoam}
+                  onClick={chooseAnotherRoute}
                 >
-                  Free roam
+                  Choose another route
                 </Button>
-              </HStack>
-            </section>
-          ) : (
-            <section
-              className="checkpoint-log"
-              aria-labelledby="lifetime-archive-heading"
-            >
-              <div className="checkpoint-heading">
-                <div>
-                  <p className="section-kicker">LIFETIME ARCHIVE</p>
-                  <Heading level={3} id="lifetime-archive-heading">
-                    Lifetime archive
-                  </Heading>
-                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <details className="checkpoint-log lifetime-archive">
+            <summary className="lifetime-archive-summary">
+              <span>
+                <span className="section-kicker">LIFETIME ARCHIVE</span>
+                <strong id="lifetime-archive-heading">Lifetime archive</strong>
+              </span>
+              <span className="lifetime-archive-toggle">Open records</span>
+            </summary>
+            <dl className="checkpoint-grid">
+              <div>
+                <dt>Peak recorded day</dt>
+                <dd>{fmtExactTokens(lifetimePeak?.total_tokens ?? 0)}</dd>
+                <span>{lifetimePeak?.date ?? '—'}</span>
               </div>
-              <dl className="checkpoint-grid">
-                <div>
-                  <dt>Peak recorded day</dt>
-                  <dd>{fmtExactTokens(lifetimePeak?.total_tokens ?? 0)}</dd>
-                  <span>{lifetimePeak?.date ?? '—'}</span>
-                </div>
-                <div>
-                  <dt>Days recorded</dt>
-                  <dd>{fmtExactTokens(lifetime.recordedDays)}</dd>
-                  <span>{lifetime.firstDate ?? '—'} → {lifetime.lastDate ?? '—'}</span>
-                </div>
-                <div>
-                  <dt>Tools recorded</dt>
-                  <dd>{lifetimeToolCount}</dd>
-                  <span>Real usage across the lifetime data</span>
-                </div>
-              </dl>
-            </section>
-          )}
+              <div>
+                <dt>Days recorded</dt>
+                <dd>{fmtExactTokens(lifetime.recordedDays)}</dd>
+                <span>{lifetime.firstDate ?? '—'} → {lifetime.lastDate ?? '—'}</span>
+              </div>
+              <div>
+                <dt>Tools recorded</dt>
+                <dd>{lifetimeToolCount}</dd>
+                <span>Real usage across the lifetime data</span>
+              </div>
+            </dl>
+          </details>
 
           <footer className="exact-ledger">
             <span className="command-cursor" aria-hidden="true">&gt;</span>
@@ -1462,13 +1465,13 @@ function ReportApp() {
               <span>Tooltips, model details, costs, and token parts retain exact published values.</span>
             </div>
             <a
-              href="#endless-run"
+              href="#run-stage"
               onClick={(event) => {
                 event.preventDefault()
-                startGuidedRun()
+                focusRunStage()
               }}
             >
-              Start guided run ↑
+              Run stage ↑
             </a>
           </footer>
         </section>

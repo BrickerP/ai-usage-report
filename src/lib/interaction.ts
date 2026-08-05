@@ -13,24 +13,25 @@ export function nextSeriesIndex(
   return null
 }
 
-export type GuidedRunStep =
-  | 'free'
-  | 'choose-tool'
-  | 'choose-model'
-  | 'reveal-record'
-  | 'complete'
+export type RunStageState =
+  | 'loading'
+  | 'needs-tool'
+  | 'needs-model'
+  | 'record-ready'
+  | 'completed'
 
-export function deriveGuidedRunStep(input: {
-  guidedActive: boolean
-  runComplete: boolean
+export function deriveRunStageState(input: {
+  hydrated: boolean
   selectedTool: ToolId | null
   focusedModel: string | null
-}): GuidedRunStep {
-  if (!input.guidedActive) return 'free'
-  if (input.runComplete) return 'complete'
-  if (!input.selectedTool) return 'choose-tool'
-  if (!input.focusedModel) return 'choose-model'
-  return 'reveal-record'
+  selectionKey: string | null
+  completedRunKey: string | null
+}): RunStageState {
+  if (!input.hydrated) return 'loading'
+  if (!input.selectedTool) return 'needs-tool'
+  if (!input.focusedModel || !input.selectionKey) return 'needs-model'
+  if (input.completedRunKey === input.selectionKey) return 'completed'
+  return 'record-ready'
 }
 
 export type ViewPreset = '7' | '30' | '90' | 'all'
