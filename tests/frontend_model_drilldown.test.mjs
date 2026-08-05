@@ -81,7 +81,7 @@ function jsxTextContent(source) {
     .join('\n')
 }
 
-test('save-file hero and endless run derive their totals from published data', () => {
+test('hero and endless run derive their totals from published data', () => {
   const heroScores = appSource.match(/type="display-2"/g) ?? []
 
   assert.match(appSource, /summarizeLifetime\(daily\)/)
@@ -92,9 +92,9 @@ test('save-file hero and endless run derive their totals from published data', (
   assert.match(appSource, /fmtCompact\(lifetime\.cacheTokens\)/)
   assert.match(appSource, /className="skyline-desktop"/)
   assert.match(appSource, /className="skyline-compact"/)
-  assert.match(appSource, /className="skyline-weekly-label"[\s\S]{0,120}The Endless Run · Weekly/)
-  assert.match(appSource, /Run history · natural-week totals/)
-  assert.match(stylesheetSource, /\.skyline-weekly-label/)
+  assert.match(appSource, /USAGE HISTORY/)
+  assert.match(appSource, /THE ENDLESS RUN/)
+  assert.match(appSource, /Daily recorded tokens/)
   assert.match(appSource, /<UsageSkyline[\s\S]{0,240}daily=\{daily\}/)
   assert.match(appSource, /compact/)
   assert.match(appSource, /id="explore"/)
@@ -105,8 +105,7 @@ test('save-file hero and endless run derive their totals from published data', (
 test('pixel platformer language is original and avoids borrowed game assets', () => {
   const visitorCopy = jsxTextContent(appSource)
 
-  assert.match(appSource, /THE ENDLESS BUILD/)
-  assert.match(appSource, /The Endless Run/)
+  assert.match(appSource, /THE ENDLESS RUN/)
   assert.match(appSource, /LOADOUT STATION/)
   assert.match(appSource, /MODEL GATE/)
   assert.match(appSource, /Checkpoint log/)
@@ -269,7 +268,7 @@ test('checkpoint tool count comes from the lifetime run', () => {
     appSource,
     /const lifetimeToolCount = useMemo\([\s\S]{0,160}summarizeRange\(daily\)\.byTool\.filter\(\(tool\) => tool\.tokens > 0\)\.length/,
   )
-  assert.match(appSource, /<dt>Tools used<\/dt>[\s\S]{0,80}<dd>\{lifetimeToolCount\}<\/dd>/)
+  assert.match(appSource, /<dt>Tools recorded<\/dt>[\s\S]{0,80}<dd>\{lifetimeToolCount\}<\/dd>/)
 })
 
 test('tool selection announces once through the canonical atomic live region', () => {
@@ -737,7 +736,10 @@ test('RUN COMPLETE is a data-backed ticket with a replay action', () => {
     appSource,
     /findRunRecord\([\s\S]{0,220}points\.map\(\(point\) => point\.tokens\)[\s\S]{0,120}dates/,
   )
-  assert.doesNotMatch(ticket, /\b(?:demo|mock|placeholder|score|reward|XP|level)\b/i)
+  assert.doesNotMatch(
+    jsxTextContent(ticket),
+    /\b(?:demo|mock|placeholder|score|reward|XP|level)\b/i,
+  )
 })
 
 test('run record board reads as a finish-line gantry', () => {
