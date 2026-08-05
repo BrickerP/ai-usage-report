@@ -505,6 +505,7 @@ function ReportApp() {
         <div
           className="report-state-card chronicle-loading-state"
           role="status"
+          aria-live="polite"
           aria-busy="true"
         >
           <span className="visually-hidden">
@@ -540,7 +541,9 @@ function ReportApp() {
   const selectionStatus =
     activeTool && focusedRunLevel
       ? `Focused on ${focusedRunLevel.model}. Run Signature: ${focusedRunLevel.signature.name}. ${focusedRunLevel.signature.evidence}.`
-      : ''
+      : activeTool
+        ? `Viewing ${activeTool.label} models.`
+        : ''
 
   return (
     <div

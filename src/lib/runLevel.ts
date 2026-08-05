@@ -1,5 +1,5 @@
-import { findPeakGroup } from './chart'
-import { TOOLS, type DailyRow, type ToolId } from './usage'
+import { findPeakGroup } from './chart.ts'
+import { TOOLS, type DailyRow, type ToolId } from './usage.ts'
 
 export const RUN_SIGNATURE_VERSION = 1 as const
 
