@@ -8,10 +8,14 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   frontend:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-frontend-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -40,6 +44,17 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./docs
+
+  rerun-on-cancel:
+    if: always() && needs.frontend.result == 'cancelled' && github.event_name == 'push' && github.run_attempt < 3
+    needs: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Rerun cancelled frontend job
+        run: gh run rerun ${{ github.run_id }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
