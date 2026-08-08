@@ -319,8 +319,15 @@ if not isinstance(notice, dict) or not notice.get("required"):
     raise SystemExit(0)
 key = str(notice.get("dedupe_key") or "")
 warning = str(session.get("warning") or "") if isinstance(session, dict) else ""
-if key:
-    print(key + "\t" + ("expiry" if warning == "oneapi_auth_expiring" else "reauth"))
+code = str(payload.get("error_code") or "") if isinstance(payload, dict) else ""
+if not key:
+    raise SystemExit(0)
+if code:
+    print(key + "\t" + code)
+elif warning == "oneapi_auth_expiring":
+    print(key + "\texpiry")
+else:
+    print(key + "\treauth")
 ' "$ONEAPI_STATUS_PATH")"; then
     log "WARN: could not read One API notification status"
     return 0
@@ -337,11 +344,23 @@ if key:
   [[ "$current_key" != "$dedupe_key" ]] || return 0
 
   title="AI Usage · One API"
-  if [[ "$kind" == "expiry" ]]; then
-    message="One API 应用会话将在 48 小时内到期；脚本会尝试静默续期，只有 UUAP 要求确认时才需介入。"
-  else
-    message="One API 需要重新登录；历史用量已保留，本次发布不会清零。"
-  fi
+  case "$kind" in
+    expiry)
+      message="One API 应用会话将在 48 小时内到期；脚本会尝试静默续期，只有 UUAP 要求确认时才需介入。"
+      ;;
+    oneapi_browser_unavailable)
+      message="One API 采集失败（浏览器不可用）；本次发布沿用旧快照，今天的用量可能不完整，请检查后手动重跑。"
+      ;;
+    oneapi_network_unavailable)
+      message="One API 采集失败（网络不可用）；本次发布沿用旧快照，今天的用量可能不完整。"
+      ;;
+    oneapi_refresh_failed)
+      message="One API 采集失败（数据刷新异常）；本次发布沿用旧快照，今天的用量可能不完整。"
+      ;;
+    *)
+      message="One API 需要重新登录；历史用量已保留，本次发布不会清零。"
+      ;;
+  esac
   if /usr/bin/osascript \
       -e 'on run argv' \
       -e 'display notification (item 2 of argv) with title (item 1 of argv)' \

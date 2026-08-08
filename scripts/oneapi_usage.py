@@ -1242,7 +1242,7 @@ def failed_status_metadata(
         "notification": _notification_metadata(
             error.error_code,
             today=observed.date().isoformat(),
-            required=requires_reauth,
+            required=True,
         ),
     }
 

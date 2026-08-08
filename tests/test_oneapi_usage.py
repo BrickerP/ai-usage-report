@@ -917,6 +917,28 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
         self.assertNotIn("cookie", json.dumps(status).lower())
         self.assertNotIn("token", json.dumps(status).lower())
 
+    def test_failed_collection_status_requests_daily_deduplicated_notification(self):
+        for error_cls in (
+            oneapi_usage.OneApiBrowserUnavailable,
+            oneapi_usage.OneApiNetworkUnavailable,
+            oneapi_usage.OneApiRefreshFailed,
+        ):
+            with self.subTest(error_code=error_cls.error_code):
+                error = error_cls("collection failed")
+                status = oneapi_usage.failed_status_metadata(
+                    error,
+                    timezone="Asia/Shanghai",
+                )
+                self.assertEqual(status["status"], "failed")
+                self.assertEqual(status["error_code"], error_cls.error_code)
+                self.assertTrue(status["notification"]["required"])
+                self.assertRegex(
+                    status["notification"]["dedupe_key"],
+                    rf"^{error_cls.error_code}:\d{{4}}-\d{{2}}-\d{{2}}$",
+                )
+                self.assertNotIn("cookie", json.dumps(status).lower())
+                self.assertNotIn("token", json.dumps(status).lower())
+
 
 class OneApiPublishFlowTests(unittest.TestCase):
     def test_account_snapshot_is_atomic_five_day_and_collected_after_pull(self):
