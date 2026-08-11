@@ -24,7 +24,7 @@ export type ReportViewState = {
   day: string | null
 }
 
-const TOOL_IDS = new Set<ToolId>(['codex', 'claude', 'cursor', 'oneapi'])
+const TOOL_IDS = new Set<ToolId>(['codex', 'claude', 'opencode', 'cursor', 'oneapi'])
 const PRESETS = new Set<ViewPreset>(['7', '30', '90', 'all'])
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
