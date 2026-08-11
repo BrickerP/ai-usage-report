@@ -1,39 +1,39 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m4-local",
   "hostname": "yupengdeMacBook-Pro.local",
-  "collected_at": "2026-08-12T00:08:12+08:00",
-  "captured_at": "2026-08-12T00:08:12+08:00",
-  "snapshot_id": "mac-m4-local@2026-08-12T00:08:12+08:00",
+  "collected_at": "2026-08-12T01:30:35+08:00",
+  "captured_at": "2026-08-12T01:30:35+08:00",
+  "snapshot_id": "mac-m4-local@2026-08-12T01:30:35+08:00",
   "seeded_at": "2026-08-04T15:18:58+08:00",
   "seeded": true,
   "append_mode": true,
   "mutable_from": "2026-08-11",
   "last_mode": "append",
   "last_append_stats": {
-    "frozen_kept": 27,
-    "appended": 1,
-    "refreshed": 2,
-    "today_updated": 0,
+    "frozen_kept": 28,
+    "appended": 0,
+    "refreshed": 1,
+    "today_updated": 1,
     "skipped": 0,
     "regression_kept": 0,
     "regression_dates": [],
     "regression_reasons": {},
     "pricing_changes": [
       {
-        "date": "2026-08-11",
+        "date": "2026-08-12",
         "tool": "codex",
-        "from": 405.175891,
-        "to": 3145.2001131,
+        "from": 15.3075984,
+        "to": 350.81673059999997,
         "pricing_version": "2026-07-31.v1",
         "pricing_complete": true
       },
       {
-        "date": "2026-08-11",
+        "date": "2026-08-12",
         "tool": "claude",
-        "from": 14.517768,
-        "to": 284.980631,
+        "from": 3.9267250000000002,
+        "to": 49.924170000000004,
         "pricing_version": "2026-07-31.v1",
         "pricing_complete": true
       }
@@ -43,7 +43,8 @@
   "scope": "machine-local",
   "tools": [
     "codex",
-    "claude"
+    "claude",
+    "opencode"
   ],
   "policy": "Durable ledger: dates before mutable_from are finalized; every run re-collects mutable_from through today and always keeps yesterday + today open. Lower source snapshots remain at their previous high-water.",
   "daily": [
@@ -61,6 +62,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -81,7 +88,8 @@
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_complete": true,
       "codex_pricing_provenance": "pinned-ledger",
-      "claude_models": []
+      "claude_models": [],
+      "opencode_models": []
     },
     {
       "date": "2026-07-14",
@@ -97,6 +105,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 968485,
       "claude_output": 435773,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -187,7 +201,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-15",
@@ -203,6 +218,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 857467,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -241,7 +262,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-16",
@@ -257,6 +279,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 16540,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -295,7 +323,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-17",
@@ -311,6 +340,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 130801,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [],
       "claude_models": [
         {
@@ -330,7 +365,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-19",
@@ -346,6 +382,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 41496,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -426,7 +468,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-20",
@@ -442,6 +485,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 72621557,
       "claude_output": 686137,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -535,7 +584,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-21",
@@ -551,6 +601,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 29263077,
       "claude_output": 221264,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [],
       "claude_models": [
         {
@@ -583,7 +639,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-22",
@@ -599,6 +656,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 695534,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [],
       "claude_models": [
         {
@@ -644,7 +707,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-23",
@@ -660,6 +724,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 1437362,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -753,7 +823,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-24",
@@ -769,6 +840,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 162184,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [],
       "claude_models": [
         {
@@ -788,7 +865,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-25",
@@ -804,6 +882,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 724733,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [],
       "claude_models": [
         {
@@ -823,7 +907,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-26",
@@ -839,6 +924,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 501978,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -919,7 +1010,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-27",
@@ -935,6 +1027,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 994928,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -1015,7 +1113,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-28",
@@ -1031,6 +1130,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 1139663,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -1124,7 +1229,8 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": []
     },
     {
       "date": "2026-07-29",
@@ -1140,6 +1246,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 1368905,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -1206,12 +1318,16 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-07-30",
       "codex_tokens": 2866670721,
-      "codex_cost": 1988.2415282,
+      "codex_cost": 2020.0271842000002,
       "codex_input": 84731025,
       "codex_cache_read": 2774902272,
       "codex_output": 7037424,
@@ -1222,18 +1338,24 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 674294,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 2741677809,
-          "cost": 1914.3781529999999,
+          "tokens": 2794216652,
+          "cost": 1954.1102230000001,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 76180061,
-          "output": 6804372,
-          "cache_read": 2658693376,
+          "input": 78086849,
+          "output": 6969867,
+          "cache_read": 2709159936,
           "cache_create": 0,
-          "reasoning": 2746435,
+          "reasoning": 2809342,
           "canonical_model": "gpt-5.5",
           "pricing_version": "2026-07-31.v1"
         },
@@ -1253,15 +1375,15 @@
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 54963604,
-          "cost": 8.4968632,
+          "tokens": 2424761,
+          "cost": 0.5504492,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 2171356,
-          "output": 177336,
-          "cache_read": 52614912,
+          "input": 264568,
+          "output": 11841,
+          "cache_read": 2148352,
           "cache_create": 0,
-          "reasoning": 63898,
+          "reasoning": 991,
           "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1"
         }
@@ -1288,12 +1410,16 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-07-31",
       "codex_tokens": 1714996460,
-      "codex_cost": 1120.4224109,
+      "codex_cost": 1262.3702965000002,
       "codex_input": 61447903,
       "codex_cache_read": 1648893184,
       "codex_output": 4655373,
@@ -1304,33 +1430,25 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 539569,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 1377292263,
-          "cost": 1026.23292,
+          "tokens": 1625828309,
+          "cost": 1203.6677770000001,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 48940362,
-          "output": 3978141,
-          "cache_read": 1324373760,
+          "input": 57082877,
+          "output": 4538328,
+          "cache_read": 1564207104,
           "cache_create": 0,
-          "reasoning": 1692687,
+          "reasoning": 1927871,
           "canonical_model": "gpt-5.5",
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-5.6-luna",
-          "tokens": 258827976,
-          "cost": 37.220946399999995,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 8689652,
-          "output": 596180,
-          "cache_read": 249542144,
-          "cache_create": 0,
-          "reasoning": 245416,
-          "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -1345,6 +1463,20 @@
           "cache_create": 0,
           "reasoning": 18785,
           "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 10291930,
+          "cost": 1.733975,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 547137,
+          "output": 35993,
+          "cache_read": 9708800,
+          "cache_create": 0,
+          "reasoning": 10232,
+          "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -1384,12 +1516,16 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-01",
       "codex_tokens": 2872716811,
-      "codex_cost": 1796.5023173999998,
+      "codex_cost": 1951.4470502,
       "codex_input": 73843171,
       "codex_cache_read": 2792414464,
       "codex_output": 6459176,
@@ -1400,33 +1536,25 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 148341,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 2413073752,
-          "cost": 1657.1903829999999,
+          "tokens": 2711975028,
+          "cost": 1850.871299,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 61524617,
-          "output": 5891279,
-          "cache_read": 2345657856,
+          "input": 68327261,
+          "output": 6352919,
+          "cache_read": 2637294848,
           "cache_create": 0,
-          "reasoning": 2372811,
+          "reasoning": 2556302,
           "canonical_model": "gpt-5.5",
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-5.6-luna",
-          "tokens": 313989142,
-          "cost": 40.674012399999995,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 7153334,
-          "output": 480864,
-          "cache_read": 306354944,
-          "cache_create": 0,
-          "reasoning": 189758,
-          "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -1441,6 +1569,20 @@
           "cache_create": 0,
           "reasoning": 18344,
           "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 15087866,
+          "cost": 1.9378292,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 350690,
+          "output": 19224,
+          "cache_read": 14717952,
+          "cache_create": 0,
+          "reasoning": 6267,
+          "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1"
         }
       ],
@@ -1466,12 +1608,16 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-02",
       "codex_tokens": 85018062,
-      "codex_cost": 24.702583999999998,
+      "codex_cost": 59.587204,
       "codex_input": 3033412,
       "codex_cache_read": 81730560,
       "codex_output": 254090,
@@ -1482,33 +1628,39 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 35193,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 70714929,
-          "cost": 9.738114,
+          "model": "gpt-5.6-sol",
+          "tokens": 77275002,
+          "cost": 55.228938,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 1869780,
-          "output": 166749,
-          "cache_read": 68678400,
+          "input": 2340370,
+          "output": 205416,
+          "cache_read": 74729216,
           "cache_create": 0,
-          "reasoning": 70518,
-          "canonical_model": "gpt-5.6-luna",
+          "reasoning": 94069,
+          "canonical_model": "gpt-5.5",
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-sol",
-          "tokens": 10666898,
-          "cost": 11.623163,
+          "model": "gpt-5.6-luna",
+          "tokens": 4106825,
+          "cost": 1.016959,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 863561,
-          "output": 81481,
-          "cache_read": 9721856,
+          "input": 392971,
+          "output": 42814,
+          "cache_read": 3671040,
           "cache_create": 0,
-          "reasoning": 45541,
-          "canonical_model": "gpt-5.5",
+          "reasoning": 21990,
+          "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -1548,7 +1700,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-03",
@@ -1564,6 +1720,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 47230,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -1644,7 +1806,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-04",
@@ -1660,6 +1826,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 378012,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-luna",
@@ -1725,7 +1897,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-05",
@@ -1741,6 +1917,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 164060,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -1793,7 +1975,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-06",
@@ -1809,6 +1995,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 143653,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.3-codex-spark",
@@ -1888,7 +2080,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-07",
@@ -1904,6 +2100,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 155211,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -1956,7 +2158,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-08",
@@ -1972,6 +2178,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 166708,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -2024,7 +2236,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-09",
@@ -2040,6 +2256,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 483676,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -2120,7 +2342,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-10",
@@ -2136,6 +2362,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 643677,
       "claude_output": 630457,
+      "opencode_tokens": 0,
+      "opencode_cost": 0.0,
+      "opencode_input": 0,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 0,
+      "opencode_output": 0,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -2228,7 +2460,11 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [],
+      "opencode_snapshot_complete": false,
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-08-11",
@@ -2244,6 +2480,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 343521,
+      "opencode_tokens": 589471183,
+      "opencode_cost": 0.0,
+      "opencode_input": 143809998,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 444658816,
+      "opencode_output": 1002369,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
@@ -2350,65 +2592,197 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [
+        {
+          "model": "DeepSeek-V4-Flash",
+          "tokens": 423483632,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 7771000,
+          "output": 750584,
+          "cache_read": 414962048,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Claude Sonnet 5",
+          "tokens": 116418571,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 116319111,
+          "output": 99460,
+          "cache_read": 0,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "grok-4.5",
+          "tokens": 24804420,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 18601546,
+          "output": 90490,
+          "cache_read": 6112384,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "GLM-5.2",
+          "tokens": 24528190,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 882613,
+          "output": 61193,
+          "cache_read": 23584384,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Claude Opus 4.6",
+          "tokens": 58735,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 58722,
+          "output": 13,
+          "cache_read": 0,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Opus 5",
+          "tokens": 39481,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 39480,
+          "output": 1,
+          "cache_read": 0,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Opus 4.8",
+          "tokens": 39187,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 39186,
+          "output": 1,
+          "cache_read": 0,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Claude Opus 4.7",
+          "tokens": 39118,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 39117,
+          "output": 1,
+          "cache_read": 0,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Claude Haiku 4.5",
+          "tokens": 30349,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 29749,
+          "output": 600,
+          "cache_read": 0,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Claude Sonnet 4.6",
+          "tokens": 29500,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 29474,
+          "output": 26,
+          "cache_read": 0,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        }
+      ],
+      "opencode_snapshot_complete": true,
+      "opencode_pricing_version": "2026-07-31.v1",
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "unpriced"
     },
     {
       "date": "2026-08-12",
-      "codex_tokens": 27519499,
-      "codex_cost": 15.3075984,
-      "codex_input": 925542,
-      "codex_cache_read": 26487808,
-      "codex_output": 106149,
-      "codex_reasoning": 40755,
-      "claude_tokens": 767069,
-      "claude_cost": 3.9267250000000002,
-      "claude_input": 762500,
+      "codex_tokens": 737142836,
+      "codex_cost": 350.81673059999997,
+      "codex_input": 15911471,
+      "codex_cache_read": 719930368,
+      "codex_output": 1300997,
+      "codex_reasoning": 541269,
+      "claude_tokens": 9772098,
+      "claude_cost": 49.924170000000004,
+      "claude_input": 9718914,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
-      "claude_output": 4569,
+      "claude_output": 53184,
+      "opencode_tokens": 138465918,
+      "opencode_cost": 0.0,
+      "opencode_input": 81986862,
+      "opencode_cache_create": 0,
+      "opencode_cache_read": 56269440,
+      "opencode_output": 209616,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 18949212,
-          "cost": 13.870477,
+          "tokens": 504458672,
+          "cost": 318.882801,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 493683,
-          "output": 73705,
-          "cache_read": 18381824,
+          "input": 9598215,
+          "output": 795305,
+          "cache_read": 494065152,
           "cache_create": 0,
-          "reasoning": 19155,
+          "reasoning": 301164,
           "canonical_model": "gpt-5.5",
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 8570287,
-          "cost": 1.4371213999999999,
+          "tokens": 232684164,
+          "cost": 31.9339296,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 431859,
-          "output": 32444,
-          "cache_read": 8105984,
+          "input": 6313256,
+          "output": 505692,
+          "cache_read": 225865216,
           "cache_create": 0,
-          "reasoning": 21600,
+          "reasoning": 240105,
           "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1"
         }
       ],
-      "codex_snapshot_complete": true,
+      "codex_snapshot_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_complete": true,
-      "codex_pricing_provenance": "pinned-ledger",
+      "codex_pricing_complete": false,
+      "codex_pricing_provenance": "legacy-preserved",
       "claude_models": [
         {
           "model": "claude-opus-5",
-          "tokens": 767069,
-          "cost": 3.9267250000000002,
+          "tokens": 9772098,
+          "cost": 49.924170000000004,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 762500,
-          "output": 4569,
+          "input": 9718914,
+          "output": 53184,
           "cache_read": 0,
           "cache_create": 0,
           "canonical_model": "claude-opus-5",
@@ -2418,10 +2792,52 @@
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-07-31.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger",
+      "opencode_models": [
+        {
+          "model": "Claude Sonnet 5",
+          "tokens": 79623661,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 79520657,
+          "output": 103004,
+          "cache_read": 0,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "DeepSeek-V4-Flash",
+          "tokens": 57683923,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 1312097,
+          "output": 103282,
+          "cache_read": 56268544,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "grok-4.5",
+          "tokens": 1158334,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 1154108,
+          "output": 3330,
+          "cache_read": 896,
+          "cache_create": 0,
+          "pricing_version": "legacy"
+        }
+      ],
+      "opencode_snapshot_complete": true,
+      "opencode_pricing_version": "2026-07-31.v1",
+      "opencode_pricing_complete": false,
+      "opencode_pricing_provenance": "unpriced"
     }
   ],
-  "model_breakdown_version": 3,
+  "model_breakdown_version": 4,
   "legacy_comate": {
     "available": true,
     "session_files": 17,
