@@ -1270,6 +1270,13 @@ class SourceStatusTests(unittest.TestCase):
                 "window_end": "2026-07-30",
                 "error": "",
             },
+            "opencode": {
+                "attempted": True,
+                "fresh": True,
+                "has_data": False,
+                "window_end": "2026-07-30",
+                "error": "",
+            },
             "cursor": {
                 "attempted": True,
                 "fresh": False,
@@ -1293,7 +1300,7 @@ class SourceStatusTests(unittest.TestCase):
             today="2026-07-30",
         )
 
-        self.assertEqual(set(result), {"codex", "claude", "cursor", "oneapi"})
+        self.assertEqual(set(result), {"codex", "claude", "opencode", "cursor", "oneapi"})
         self.assertEqual(
             result["codex"],
             {
@@ -1738,7 +1745,7 @@ class SourceStatusTests(unittest.TestCase):
                 "lag_days": 0,
                 "error": "",
             }
-            for source in ("codex", "claude", "cursor", "oneapi")
+            for source in ("codex", "claude", "opencode", "cursor", "oneapi")
         }
         collected = {
             "generated_at": "2026-07-30T12:00:00+08:00",

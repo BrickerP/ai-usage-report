@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-LOCAL_TOOL_PREFIXES = ("codex", "claude")
+LOCAL_TOOL_PREFIXES = ("codex", "claude", "opencode")
 ACCOUNT_TOOL_PREFIXES = ("cursor",)
 TOOL_METADATA_FIELDS = (
     "snapshot_complete",

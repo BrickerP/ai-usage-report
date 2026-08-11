@@ -28,8 +28,8 @@ from zoneinfo import ZoneInfo
 SCRIPTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPTS_DIR.parent
 DEFAULT_TZ = "Asia/Shanghai"
-PUBLIC_SCHEMA_VERSION = 3
-MODEL_BREAKDOWN_VERSION = 3
+PUBLIC_SCHEMA_VERSION = 4
+MODEL_BREAKDOWN_VERSION = 4
 DEFAULT_MACHINES_DIR = REPO_ROOT / "public" / "machines"
 PINNED_MODEL_PRICES_PATH = SCRIPTS_DIR / "model_prices.v1.json"
 CURSOR_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
@@ -442,6 +442,14 @@ def codex_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def claude_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return _claude_shaped_daily_points(daily)
+
+
+def opencode_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return _claude_shaped_daily_points(daily)
+
+
+def _claude_shaped_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in daily:
         raw = str(row.get("date") or "")
@@ -484,6 +492,7 @@ def claude_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
 TOOL_TOKEN_FIELDS: dict[str, list[str]] = {
     "codex": ["input", "cache_read", "output", "reasoning"],
     "claude": ["input", "cache_create", "cache_read", "output"],
+    "opencode": ["input", "cache_create", "cache_read", "output"],
     "cursor": ["input", "cache_write", "cache_read", "output"],
     "oneapi": ["input", "cache_read", "cache_write", "output"],
 }
@@ -897,12 +906,14 @@ def merge_daily_timeline(
     codex_pts: list[dict[str, Any]],
     claude_pts: list[dict[str, Any]],
     cursor_pts: list[dict[str, Any]],
+    opencode_pts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     by_date: dict[str, dict[str, Any]] = {}
     for prefix, points in (
         ("codex", codex_pts),
         ("claude", claude_pts),
         ("cursor", cursor_pts),
+        ("opencode", opencode_pts or []),
     ):
         for point in points:
             date_key = str(point.get("date") or "")
@@ -1307,9 +1318,13 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
         home, timezone, since=today_key, until=today_key
     )
     claude_usage = ccusage_daily("claude", timezone, since=today_key, until=today_key)
+    opencode_usage = ccusage_daily(
+        "opencode", timezone, since=today_key, until=today_key
+    )
     cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone, start_ms, end_ms)
     codex_pts = codex_daily_points(usage_daily_rows(codex_usage))
     claude_pts = claude_daily_points(usage_daily_rows(claude_usage))
+    opencode_pts = opencode_daily_points(usage_daily_rows(opencode_usage))
     cursor_pts: list[dict[str, Any]] = []
     if cursor_usage.get("available"):
         cursor_pts = cursor_usage.get("daily_timeline") or []
@@ -1320,7 +1335,7 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
             if tokens or cost:
                 cursor_pts = [*cursor_pts, {"date": today_key, "tokens": tokens, "cost": cost}]
 
-    rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts)
+    rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts, opencode_pts)
     row = daily_row_for_date(today_key, rows)
     generated_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     report_snapshot_id = stable_snapshot_id(
@@ -1368,6 +1383,13 @@ def render_today_text(data: dict[str, Any]) -> str:
             f"{fmt_usd(row.get('claude_cost')):>12}"
         ),
         (
+            f"{'OpenCode':<12} {fmt_int(row.get('opencode_tokens')):>12} "
+            f"{fmt_int(row.get('opencode_input')):>12} "
+            f"{fmt_int(safe_int(row.get('opencode_cache_create')) + safe_int(row.get('opencode_cache_read'))):>12} "
+            f"{fmt_int(row.get('opencode_output')):>12} "
+            f"{fmt_usd(row.get('opencode_cost')):>12}"
+        ),
+        (
             f"{'Cursor':<12} {fmt_int(row.get('cursor_tokens')):>12} "
             f"{fmt_int(row.get('cursor_input')):>12} "
             f"{fmt_int(safe_int(row.get('cursor_cache_write')) + safe_int(row.get('cursor_cache_read'))):>12} "
@@ -1377,7 +1399,7 @@ def render_today_text(data: dict[str, Any]) -> str:
         f"{'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12}",
         f"{'Total':<12} {fmt_int(row.get('total_tokens')):>12} {'':>12} {'':>12} {'':>12} {fmt_usd(row.get('total_cost')):>12}",
         "",
-        "Cache column = cache read for Codex; cache create + read for Claude; cache write + read for Cursor.",
+        "Cache column = cache read for Codex; cache create + read for Claude and OpenCode; cache write + read for Cursor.",
         "Historical local Comate context deltas are retained under One API.",
         "Codex reasoning tokens are included in total but omitted from this table.",
         "Ducc (Claude wrapper) is counted under Claude Code.",
@@ -1486,9 +1508,10 @@ def resolve_cursor_points(
 def build_local_machine_daily(
     codex_pts: list[dict[str, Any]],
     claude_pts: list[dict[str, Any]],
+    opencode_pts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Local-only daily rows for this machine fragment (no Cursor)."""
-    return merge_daily_timeline(codex_pts, claude_pts, [])
+    return merge_daily_timeline(codex_pts, claude_pts, [], opencode_pts)
 
 
 def local_today(timezone: str) -> str:
@@ -2278,7 +2301,7 @@ def load_usage_payload(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-SOURCE_STATUS_NAMES = ("codex", "claude", "cursor", "oneapi")
+SOURCE_STATUS_NAMES = ("codex", "claude", "opencode", "cursor", "oneapi")
 SOURCE_STATUS_ERRORS = {
     "codex": {
         "codex_unavailable",
@@ -2288,6 +2311,12 @@ SOURCE_STATUS_ERRORS = {
     },
     "claude": {
         "claude_unavailable",
+        "local_fragments_stale",
+        "local_fragments_unavailable",
+        "local_fragment_timestamp_invalid",
+    },
+    "opencode": {
+        "opencode_unavailable",
         "local_fragments_stale",
         "local_fragments_unavailable",
         "local_fragment_timestamp_invalid",
@@ -2306,6 +2335,7 @@ SOURCE_STATUS_ERRORS = {
 SOURCE_STATUS_DEFAULT_ERROR = {
     "codex": "codex_unavailable",
     "claude": "claude_unavailable",
+    "opencode": "opencode_unavailable",
     "cursor": "cursor_unavailable",
     "oneapi": "oneapi_unavailable",
 }
@@ -2607,6 +2637,7 @@ def persist_local_model_metadata(
     fragment_file: Path,
     codex_points: list[dict[str, Any]],
     claude_points: list[dict[str, Any]],
+    opencode_points: list[dict[str, Any]],
     legacy_comate: dict[str, Any],
     *,
     model_seed_complete: bool,
@@ -2629,13 +2660,18 @@ def persist_local_model_metadata(
             for point in claude_points
             if isinstance(point, dict) and point.get("date")
         },
+        "opencode": {
+            str(point.get("date")): point
+            for point in opencode_points
+            if isinstance(point, dict) and point.get("date")
+        },
     }
     pricing_regressions: set[str] = set()
     for row in fragment.get("daily") or []:
         if not isinstance(row, dict):
             continue
         date_key = str(row.get("date") or "")
-        for prefix in ("codex", "claude"):
+        for prefix in ("codex", "claude", "opencode"):
             point = points_by_tool[prefix].get(date_key)
             if not isinstance(point, dict):
                 row[f"{prefix}_models"] = models_with_remainder(
@@ -2713,7 +2749,7 @@ def persist_local_model_metadata(
         stats["pricing_regression_dates"] = sorted(pricing_regressions)
         fragment["last_append_stats"] = stats
     fragment["legacy_comate"] = legacy_comate
-    fragment["tools"] = ["codex", "claude"]
+    fragment["tools"] = ["codex", "claude", "opencode"]
     machine_fragments.write_json_atomic(fragment_file, fragment)
 
 
@@ -2748,6 +2784,7 @@ def collect_local_machine(
     if first_seed:
         codex_usage = codex_daily_from_jsonl(home, timezone)
         claude_usage = ccusage_daily("claude", timezone)
+        opencode_usage = ccusage_daily("opencode", timezone)
     else:
         codex_usage = codex_daily_from_jsonl(
             home, timezone, since=since or today, until=until
@@ -2755,15 +2792,20 @@ def collect_local_machine(
         claude_usage = ccusage_daily(
             "claude", timezone, since=since or today, until=until
         )
+        opencode_usage = ccusage_daily(
+            "opencode", timezone, since=since or today, until=until
+        )
 
     model_codex_usage = codex_usage
     model_claude_usage = claude_usage
+    model_opencode_usage = opencode_usage
     model_seed_complete = first_seed or not needs_model_seed
     if needs_model_seed and not first_seed:
         model_seed_complete = False
         try:
             model_codex_usage = codex_daily_from_jsonl(home, timezone)
             model_claude_usage = ccusage_daily("claude", timezone)
+            model_opencode_usage = ccusage_daily("opencode", timezone)
             model_seed_complete = True
         except Exception as exc:
             print(
@@ -2775,10 +2817,13 @@ def collect_local_machine(
     comate = comate_usage.parse_comate(home, timezone)
     codex_rows = usage_daily_rows(codex_usage)
     claude_rows = usage_daily_rows(claude_usage)
+    opencode_rows = usage_daily_rows(opencode_usage)
     codex_first, codex_last = daily_range(codex_rows, codex=True)
     claude_first, claude_last = daily_range(claude_rows)
+    opencode_first, opencode_last = daily_range(opencode_rows)
     codex_totals = usage_totals(codex_usage)
     claude_totals = usage_totals(claude_usage)
+    opencode_totals = usage_totals(opencode_usage)
 
     codex_summary = {
         "tool": "Codex",
@@ -2792,15 +2837,24 @@ def collect_local_machine(
         "cost": safe_float(claude_totals.get("totalCost")),
         "total_tokens": safe_int(claude_totals.get("totalTokens")),
     }
+    opencode_summary = {
+        "tool": "OpenCode",
+        "history": fmt_range(opencode_first, opencode_last),
+        "cost": safe_float(opencode_totals.get("totalCost")),
+        "total_tokens": safe_int(opencode_totals.get("totalTokens")),
+    }
     codex_pts_all = codex_daily_points(usage_daily_rows(model_codex_usage))
     claude_pts_all = claude_daily_points(usage_daily_rows(model_claude_usage))
+    opencode_pts_all = opencode_daily_points(usage_daily_rows(model_opencode_usage))
     codex_pts = codex_daily_points(codex_rows)
     claude_pts = claude_daily_points(claude_rows)
+    opencode_pts = opencode_daily_points(opencode_rows)
     if since:
         codex_pts = filter_points_since(codex_pts, since)
         claude_pts = filter_points_since(claude_pts, since)
+        opencode_pts = filter_points_since(opencode_pts, since)
 
-    local_daily = build_local_machine_daily(codex_pts, claude_pts)
+    local_daily = build_local_machine_daily(codex_pts, claude_pts, opencode_pts)
     fragment_file, fragment_meta = machine_fragments.write_machine_fragment_append(
         machines_path,
         machine_id,
@@ -2817,6 +2871,7 @@ def collect_local_machine(
         fragment_file,
         codex_pts_all,
         claude_pts_all,
+        opencode_pts_all,
         comate,
         model_seed_complete=model_seed_complete,
     )
@@ -2833,6 +2888,7 @@ def collect_local_machine(
         "fragment_meta": fragment_meta,
         "codex_summary": codex_summary,
         "claude_summary": claude_summary,
+        "opencode_summary": opencode_summary,
     }
 
 
@@ -3076,6 +3132,7 @@ def collect_usage(
         local_summary = {"merge_only": True}
         codex_summary = {"tool": "Codex", "history": "from fragments", "cost": 0, "total_tokens": 0}
         claude_summary = {"tool": "Claude Code", "history": "from fragments", "cost": 0, "total_tokens": 0}
+        opencode_summary = {"tool": "OpenCode", "history": "from fragments", "cost": 0, "total_tokens": 0}
     else:
         local = collect_local_machine(
             home,
@@ -3090,6 +3147,7 @@ def collect_usage(
         fragment_meta = local["fragment_meta"]
         codex_summary = local["codex_summary"]
         claude_summary = local["claude_summary"]
+        opencode_summary = local["opencode_summary"]
         comate = local["comate"]
         cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
         cursor_api_complete = bool(
@@ -3382,6 +3440,7 @@ def collect_usage(
         {
             "codex": dict(local_source_attempt),
             "claude": dict(local_source_attempt),
+            "opencode": dict(local_source_attempt),
             "cursor": {
                 "attempted": True,
                 "fresh": cursor_api_complete,
@@ -3419,7 +3478,7 @@ def collect_usage(
         oneapi_data,
     )
     for row in daily_rows:
-        for prefix in ("codex", "claude", "cursor", "oneapi"):
+        for prefix in ("codex", "claude", "opencode", "cursor", "oneapi"):
             row[f"{prefix}_models"] = models_with_remainder(
                 row.get(f"{prefix}_models"),
                 total_tokens=row.get(f"{prefix}_tokens"),
@@ -3438,6 +3497,7 @@ def collect_usage(
     for summary, prefix in (
         (codex_summary, "codex"),
         (claude_summary, "claude"),
+        (opencode_summary, "opencode"),
     ):
         tokens, cost, hist = sum_prefix(prefix)
         summary["total_tokens"] = tokens
@@ -3475,6 +3535,7 @@ def collect_usage(
     for summary, prefix in (
         (codex_summary, "codex"),
         (claude_summary, "claude"),
+        (opencode_summary, "opencode"),
         (cursor_summary, "cursor"),
         (oneapi_summary, "oneapi"),
     ):
@@ -3508,7 +3569,7 @@ def collect_usage(
         "machine_id": mid,
         "machines": machine_ids,
         "machines_dir": str(machines_path),
-        "tools": [codex_summary, claude_summary, cursor_summary, oneapi_summary],
+        "tools": [codex_summary, claude_summary, opencode_summary, cursor_summary, oneapi_summary],
         "local_summary": local_summary,
         "fragment_meta": fragment_meta,
         "cursor": cursor_usage,
@@ -3539,7 +3600,7 @@ render_png = legacy_renderer.render_png
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Collect Codex / Claude Code usage, write per-machine "
+            "Collect Codex / Claude Code / OpenCode usage, write per-machine "
             "fragments under public/machines/, and merge into public/usage.json."
         )
     )

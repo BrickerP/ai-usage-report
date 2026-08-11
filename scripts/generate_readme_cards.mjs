@@ -14,6 +14,12 @@ const TOOLS = [
     key: 'claude_tokens',
     color: '#c2410c',
   },
+  {
+    id: 'opencode',
+    label: 'OpenCode',
+    key: 'opencode_tokens',
+    color: '#16a34a',
+  },
   { id: 'cursor', label: 'Cursor', key: 'cursor_tokens', color: '#0d9488' },
   { id: 'oneapi', label: 'One API', key: 'oneapi_tokens', color: '#7c3aed' },
 ]
@@ -22,6 +28,8 @@ const CACHE_KEYS = [
   'codex_cache_read',
   'claude_cache_create',
   'claude_cache_read',
+  'opencode_cache_create',
+  'opencode_cache_read',
   'cursor_cache_write',
   'cursor_cache_read',
   'oneapi_cache_read',
@@ -184,11 +192,16 @@ function chartMarkup(weeks, theme) {
 }
 
 function legendMarkup() {
-  const positions = [20, 89, 191, 262]
-  return TOOLS.map(
-    (tool, index) =>
-      `<circle cx="${positions[index]}" cy="137" r="4" fill="${tool.color}"/><text x="${positions[index] + 8}" y="141" class="legend">${escapeXml(tool.label)}</text>`,
-  ).join('')
+  let x = 20
+  const gap = 8
+  const markup = []
+  for (const tool of TOOLS) {
+    markup.push(
+      `<circle cx="${x}" cy="137" r="4" fill="${tool.color}"/><text x="${x + 8}" y="141" class="legend">${escapeXml(tool.label)}</text>`,
+    )
+    x += 8 + tool.label.length * 5.4 + gap + 20
+  }
+  return markup.join('')
 }
 
 function renderCard(rows, mode) {
