@@ -446,10 +446,14 @@ def claude_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def opencode_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return _claude_shaped_daily_points(daily)
+    return _claude_shaped_daily_points(daily, reconcile_total_to_components=True)
 
 
-def _claude_shaped_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _claude_shaped_daily_points(
+    daily: list[dict[str, Any]],
+    *,
+    reconcile_total_to_components: bool = False,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in daily:
         raw = str(row.get("date") or "")
@@ -477,6 +481,12 @@ def _claude_shaped_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, A
             + point["cache_read"]
             + point["output"]
         )
+        if reconcile_total_to_components and component_total != point["tokens"]:
+            # ccusage's OpenCode source derives totalTokens independently of the
+            # per-component fields, and can disagree with their sum by a small
+            # residual. The components are the authoritative per-request counts,
+            # so trust their sum and drop the inconsistent reported total.
+            point["tokens"] = component_total
         model_tokens = sum(safe_int(model.get("tokens")) for model in models)
         model_cost = sum(safe_float(model.get("cost")) for model in models)
         point["snapshot_complete"] = (
