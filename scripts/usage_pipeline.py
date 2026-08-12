@@ -15,12 +15,9 @@ from pathlib import Path
 import re
 import shutil
 import socket
-import subprocess
 import sys
 import tempfile
 from typing import Any
-import urllib.error
-import urllib.request
 from zoneinfo import ZoneInfo
 
 
@@ -35,13 +32,6 @@ PINNED_MODEL_PRICES_PATH = SCRIPTS_DIR / "model_prices.v1.json"
 CURSOR_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
 CURSOR_PRICING_VERSION = "cursor-charged-cents-v1"
 CURSOR_PRICING_PROVENANCE = "filtered-events-charged-cents"
-LITELLM_PRICES_URL = (
-    "https://raw.githubusercontent.com/BerriAI/litellm/main/"
-    "model_prices_and_context_window.json"
-)
-LITELLM_PRICES_CACHE = (
-    Path.home() / ".cache" / "ai-usage-report" / "litellm_model_prices.json"
-)
 DEFAULT_ONEAPI_STATE_PATH = (
     Path.home()
     / "Library"
@@ -95,16 +85,6 @@ oneapi_usage = load_module("oneapi_usage", SCRIPTS_DIR / "oneapi_usage.py")
 legacy_renderer = load_module(
     "legacy_report_renderer", SCRIPTS_DIR / "legacy_report_renderer.py"
 )
-
-
-def run_json(command: list[str], timeout: int = 240) -> Any:
-    proc = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
-    if proc.returncode != 0:
-        raise RuntimeError(f"{' '.join(command)} failed: {proc.stderr.strip()[:500]}")
-    try:
-        return json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{' '.join(command)} returned invalid JSON") from exc
 
 
 def safe_int(value: Any) -> int:
@@ -441,68 +421,9 @@ def codex_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
-def claude_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return _claude_shaped_daily_points(daily)
-
-
-def opencode_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return _claude_shaped_daily_points(daily, reconcile_total_to_components=True)
-
-
-def _claude_shaped_daily_points(
-    daily: list[dict[str, Any]],
-    *,
-    reconcile_total_to_components: bool = False,
-) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for row in daily:
-        raw = str(row.get("date") or "")
-        parsed = parse_iso_date(raw)
-        if not parsed:
-            continue
-        aware = parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)
-        models = ccusage_day_models(row)
-        point = {
-                "date": aware.strftime("%Y-%m-%d"),
-                "tokens": safe_int(row.get("totalTokens")),
-                "cost": safe_float(row.get("totalCost")),
-                "input": safe_int(row.get("inputTokens")),
-                "cache_create": safe_int(row.get("cacheCreationTokens")),
-                "cache_read": safe_int(row.get("cacheReadTokens")),
-                "output": safe_int(row.get("outputTokens")),
-                "models": models,
-                "pricing_version": str(row.get("pricingVersion") or "legacy"),
-                "pricing_complete": bool(row.get("pricingComplete")),
-                "pricing_provenance": str(row.get("pricingProvenance") or "legacy"),
-            }
-        component_total = (
-            point["input"]
-            + point["cache_create"]
-            + point["cache_read"]
-            + point["output"]
-        )
-        if reconcile_total_to_components and component_total != point["tokens"]:
-            # ccusage's OpenCode source derives totalTokens independently of the
-            # per-component fields, and can disagree with their sum by a small
-            # residual. The components are the authoritative per-request counts,
-            # so trust their sum and drop the inconsistent reported total.
-            point["tokens"] = component_total
-        model_tokens = sum(safe_int(model.get("tokens")) for model in models)
-        model_cost = sum(safe_float(model.get("cost")) for model in models)
-        point["snapshot_complete"] = (
-            component_total == point["tokens"]
-            and model_tokens == point["tokens"]
-            and abs(model_cost - point["cost"]) <= max(1e-9, abs(point["cost"]) * 1e-9)
-        )
-        rows.append(point)
-    rows.sort(key=lambda r: r["date"])
-    return rows
-
-
 TOOL_TOKEN_FIELDS: dict[str, list[str]] = {
     "codex": ["input", "cache_read", "output", "reasoning"],
     "claude": ["input", "cache_create", "cache_read", "output"],
-    "opencode": ["input", "cache_create", "cache_read", "output"],
     "cursor": ["input", "cache_write", "cache_read", "output"],
     "oneapi": ["input", "cache_read", "cache_write", "output"],
 }
@@ -577,6 +498,105 @@ def apply_oneapi_point(row: dict[str, Any], point: dict[str, Any]) -> None:
     row["oneapi_cache_write"] = safe_int(point.get("cache_write"))
     row["oneapi_requests"] = safe_int(point.get("requests"))
     row["oneapi_models"] = normalize_models(point.get("model_breakdowns"))
+
+
+CLAUDE_ROW_FIELDS = (
+    "claude_tokens",
+    "claude_cost",
+    "claude_input",
+    "claude_cache_create",
+    "claude_cache_read",
+    "claude_output",
+)
+
+
+def copy_claude_fields(target: dict[str, Any], source: dict[str, Any]) -> None:
+    for key in CLAUDE_ROW_FIELDS:
+        target[key] = (
+            safe_float(source.get(key))
+            if key == "claude_cost"
+            else safe_int(source.get(key))
+        )
+
+
+def clear_claude_fields(row: dict[str, Any]) -> None:
+    for key in CLAUDE_ROW_FIELDS:
+        row[key] = 0.0 if key == "claude_cost" else 0
+
+
+def apply_claude_point(row: dict[str, Any], point: dict[str, Any]) -> None:
+    row["claude_tokens"] = safe_int(point.get("tokens"))
+    row["claude_cost"] = safe_float(point.get("cost_usd"))
+    row["claude_input"] = safe_int(point.get("input"))
+    row["claude_output"] = safe_int(point.get("output"))
+    row["claude_cache_read"] = safe_int(point.get("cache_read"))
+    row["claude_cache_create"] = safe_int(point.get("cache_create"))
+    row["claude_models"] = normalize_models(point.get("model_breakdowns"))
+    row["claude_snapshot_complete"] = True
+    row["claude_pricing_version"] = "oneapi"
+    row["claude_pricing_complete"] = True
+    row["claude_pricing_provenance"] = "oneapi"
+
+
+def claude_data_from_oneapi(oneapi_data: dict[str, Any]) -> dict[str, Any]:
+    claude = oneapi_data.get("claude")
+    if isinstance(claude, dict):
+        return claude
+    return {}
+
+
+def reconcile_claude_rows(
+    current_rows: list[dict[str, Any]],
+    prior_rows: list[dict[str, Any]],
+    claude_data: dict[str, Any],
+    *,
+    rebuild_from: str = "",
+) -> list[dict[str, Any]]:
+    """Preserve frozen local Claude history; replace only dates at/after ``rebuild_from``.
+
+    ``rebuild_from`` is the first calendar day whose Claude series is rebuilt from
+    the One API Claude model family. Dates before it keep their prior local
+    collector values unchanged.
+    """
+    by_date = {
+        str(row.get("date")): dict(row)
+        for row in current_rows
+        if isinstance(row, dict) and row.get("date")
+    }
+
+    for prior in prior_rows:
+        if not isinstance(prior, dict) or not prior.get("date"):
+            continue
+        date_key = str(prior["date"])
+        if not (
+            safe_int(prior.get("claude_tokens"))
+            or safe_float(prior.get("claude_cost"))
+        ):
+            continue
+        row = by_date.setdefault(date_key, empty_daily_row(date_key))
+        copy_claude_fields(row, prior)
+
+    if rebuild_from:
+        for date_key, row in by_date.items():
+            if date_key >= rebuild_from:
+                clear_claude_fields(row)
+
+    for point in claude_data.get("daily_timeline") or []:
+        if not isinstance(point, dict) or not point.get("date"):
+            continue
+        date_key = str(point["date"])
+        if rebuild_from and date_key < rebuild_from:
+            continue
+        row = by_date.setdefault(date_key, empty_daily_row(date_key))
+        apply_claude_point(row, point)
+
+    result: list[dict[str, Any]] = []
+    for date_key in sorted(by_date):
+        row = by_date[date_key]
+        recompute_daily_total(row)
+        if has_daily_activity(row):
+            result.append(row)
+    return result
 
 
 def oneapi_point_from_comate(point: dict[str, Any]) -> dict[str, Any]:
@@ -916,14 +936,12 @@ def merge_daily_timeline(
     codex_pts: list[dict[str, Any]],
     claude_pts: list[dict[str, Any]],
     cursor_pts: list[dict[str, Any]],
-    opencode_pts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     by_date: dict[str, dict[str, Any]] = {}
     for prefix, points in (
         ("codex", codex_pts),
         ("claude", claude_pts),
         ("cursor", cursor_pts),
-        ("opencode", opencode_pts or []),
     ):
         for point in points:
             date_key = str(point.get("date") or "")
@@ -943,13 +961,11 @@ def merge_daily_timeline(
 
 def local_record_summary(home: Path, tmp_dir: Path) -> dict[str, Any]:
     codex_rows, codex = local_records.parse_codex(home, False)
-    claude_rows, claude = local_records.parse_claude(home, False)
     cursor_rows, cursor = local_records.parse_cursor(home, False)
     cursor_ai_tracking = local_records.inspect_cursor_ai_tracking(home, tmp_dir)
     cursor_vscdb = local_records.inspect_cursor_vscdb(home, tmp_dir)
     return {
         "codex": codex,
-        "claude_code": claude,
         "cursor": {
             **cursor,
             "vscdb_matching_keys": cursor_vscdb.get("matching_keys", 0),
@@ -958,7 +974,6 @@ def local_record_summary(home: Path, tmp_dir: Path) -> dict[str, Any]:
         },
         "row_counts": {
             "codex": len(codex_rows),
-            "claude_code": len(claude_rows),
             "cursor": len(cursor_rows),
         },
     }
@@ -1327,14 +1342,9 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
     codex_usage = codex_daily_from_jsonl(
         home, timezone, since=today_key, until=today_key
     )
-    claude_usage = ccusage_daily("claude", timezone, since=today_key, until=today_key)
-    opencode_usage = ccusage_daily(
-        "opencode", timezone, since=today_key, until=today_key
-    )
     cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone, start_ms, end_ms)
     codex_pts = codex_daily_points(usage_daily_rows(codex_usage))
-    claude_pts = claude_daily_points(usage_daily_rows(claude_usage))
-    opencode_pts = opencode_daily_points(usage_daily_rows(opencode_usage))
+    claude_pts: list[dict[str, Any]] = []
     cursor_pts: list[dict[str, Any]] = []
     if cursor_usage.get("available"):
         cursor_pts = cursor_usage.get("daily_timeline") or []
@@ -1345,7 +1355,7 @@ def collect_today_usage(home: Path, timezone: str, cursor_page_size: int) -> dic
             if tokens or cost:
                 cursor_pts = [*cursor_pts, {"date": today_key, "tokens": tokens, "cost": cost}]
 
-    rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts, opencode_pts)
+    rows = merge_daily_timeline(codex_pts, claude_pts, cursor_pts)
     row = daily_row_for_date(today_key, rows)
     generated_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     report_snapshot_id = stable_snapshot_id(
@@ -1393,26 +1403,26 @@ def render_today_text(data: dict[str, Any]) -> str:
             f"{fmt_usd(row.get('claude_cost')):>12}"
         ),
         (
-            f"{'OpenCode':<12} {fmt_int(row.get('opencode_tokens')):>12} "
-            f"{fmt_int(row.get('opencode_input')):>12} "
-            f"{fmt_int(safe_int(row.get('opencode_cache_create')) + safe_int(row.get('opencode_cache_read'))):>12} "
-            f"{fmt_int(row.get('opencode_output')):>12} "
-            f"{fmt_usd(row.get('opencode_cost')):>12}"
-        ),
-        (
             f"{'Cursor':<12} {fmt_int(row.get('cursor_tokens')):>12} "
             f"{fmt_int(row.get('cursor_input')):>12} "
             f"{fmt_int(safe_int(row.get('cursor_cache_write')) + safe_int(row.get('cursor_cache_read'))):>12} "
             f"{fmt_int(row.get('cursor_output')):>12} "
             f"{fmt_usd(row.get('cursor_cost')):>12}"
         ),
+        (
+            f"{'One API':<12} {fmt_int(row.get('oneapi_tokens')):>12} "
+            f"{fmt_int(row.get('oneapi_input')):>12} "
+            f"{fmt_int(safe_int(row.get('oneapi_cache_read')) + safe_int(row.get('oneapi_cache_write'))):>12} "
+            f"{fmt_int(row.get('oneapi_output')):>12} "
+            f"{fmt_usd(row.get('oneapi_cost')):>12}"
+        ),
         f"{'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12}",
         f"{'Total':<12} {fmt_int(row.get('total_tokens')):>12} {'':>12} {'':>12} {'':>12} {fmt_usd(row.get('total_cost')):>12}",
         "",
-        "Cache column = cache read for Codex; cache create + read for Claude and OpenCode; cache write + read for Cursor.",
+        "Cache column = cache read for Codex; cache create + read for Claude; cache write + read for Cursor; cache read + write for One API.",
         "Historical local Comate context deltas are retained under One API.",
         "Codex reasoning tokens are included in total but omitted from this table.",
-        "Ducc (Claude wrapper) is counted under Claude Code.",
+        "Claude Code is collected from One API's Claude model family.",
     ]
     cursor = data.get("cursor") if isinstance(data.get("cursor"), dict) else {}
     if cursor.get("error"):
@@ -1517,46 +1527,13 @@ def resolve_cursor_points(
 
 def build_local_machine_daily(
     codex_pts: list[dict[str, Any]],
-    claude_pts: list[dict[str, Any]],
-    opencode_pts: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Local-only daily rows for this machine fragment (no Cursor)."""
-    return merge_daily_timeline(codex_pts, claude_pts, [], opencode_pts)
+    """Local-only daily rows for this machine fragment (no Cursor or Claude)."""
+    return merge_daily_timeline(codex_pts, [], [])
 
 
 def local_today(timezone: str) -> str:
     return dt.datetime.now(tz=resolve_tz(timezone)).strftime("%Y-%m-%d")
-
-
-def ccusage_command() -> list[str]:
-    """Prefer an already installed/cached ccusage executable.
-
-    ``npx ccusage@latest`` performs registry resolution even though ccusage's own
-    ``--offline`` flag is present.  Reusing the cache keeps scheduled local
-    capture working during registry or DNS outages after the first successful
-    install.
-    """
-    explicit = os.environ.get("AI_USAGE_CCUSAGE_BIN", "").strip()
-    if explicit:
-        path = Path(explicit).expanduser()
-        if not path.is_file() or not os.access(path, os.X_OK):
-            raise RuntimeError(f"AI_USAGE_CCUSAGE_BIN is not executable: {path}")
-        return [str(path)]
-
-    installed = shutil.which("ccusage")
-    if installed:
-        return [installed]
-
-    npx_root = Path.home() / ".npm" / "_npx"
-    candidates = [
-        path
-        for path in npx_root.glob("*/node_modules/.bin/ccusage")
-        if path.is_file() and os.access(path, os.X_OK)
-    ]
-    if candidates:
-        latest = max(candidates, key=lambda path: path.stat().st_mtime)
-        return [str(latest)]
-    return ["npx", "ccusage@latest"]
 
 
 def model_breakdown_tokens(breakdown: dict[str, Any]) -> int:
@@ -1567,126 +1544,6 @@ def model_breakdown_tokens(breakdown: dict[str, Any]) -> int:
         + safe_int(breakdown.get("cacheReadTokens"))
     )
     return components or safe_int(breakdown.get("totalTokens"))
-
-
-def unpriced_models(usage: Any) -> list[str]:
-    """Model names with positive tokens but $0 cost (usually missing LiteLLM offline prices)."""
-    if not isinstance(usage, dict):
-        return []
-    found: list[str] = []
-    seen: set[str] = set()
-    for day in usage.get("daily") or []:
-        if not isinstance(day, dict):
-            continue
-        for breakdown in day.get("modelBreakdowns") or []:
-            if not isinstance(breakdown, dict):
-                continue
-            name = str(breakdown.get("modelName") or "unknown").strip() or "unknown"
-            if name in seen:
-                continue
-            if model_breakdown_tokens(breakdown) > 0 and safe_float(breakdown.get("cost")) == 0.0:
-                seen.add(name)
-                found.append(name)
-    return found
-
-
-def online_recovers_unpriced_models(unpriced: list[str], online_usage: Any) -> bool:
-    """True when online pricing assigns a positive cost to at least one previously unpriced model."""
-    if not unpriced or not isinstance(online_usage, dict):
-        return False
-    costs: dict[str, float] = defaultdict(float)
-    for day in online_usage.get("daily") or []:
-        if not isinstance(day, dict):
-            continue
-        for breakdown in day.get("modelBreakdowns") or []:
-            if not isinstance(breakdown, dict):
-                continue
-            name = str(breakdown.get("modelName") or "unknown").strip() or "unknown"
-            costs[name] += safe_float(breakdown.get("cost"))
-    return any(costs.get(name, 0.0) > 0.0 for name in unpriced)
-
-
-def litellm_price_cache_path() -> Path:
-    override = os.environ.get("AI_USAGE_LITELLM_PRICES_CACHE", "").strip()
-    return Path(override).expanduser() if override else LITELLM_PRICES_CACHE
-
-
-def load_cached_litellm_prices(cache_path: Path | None = None) -> dict[str, Any]:
-    path = cache_path or litellm_price_cache_path()
-    if not path.is_file():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def save_litellm_prices_cache(prices: dict[str, Any], cache_path: Path | None = None) -> None:
-    path = cache_path or litellm_price_cache_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    machine_fragments.write_bytes_atomic(
-        path, json.dumps(prices, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    )
-
-
-def fetch_litellm_prices(
-    *,
-    timeout: float = 45.0,
-    cache_path: Path | None = None,
-) -> dict[str, Any]:
-    """Load LiteLLM official model prices; fall back to local cache on network failure."""
-    path = cache_path or litellm_price_cache_path()
-    try:
-        with urllib.request.urlopen(LITELLM_PRICES_URL, timeout=timeout) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        if not isinstance(payload, dict) or not payload:
-            raise RuntimeError("LiteLLM price table was empty")
-        try:
-            save_litellm_prices_cache(payload, path)
-        except OSError as exc:
-            print(
-                f"warning: could not cache LiteLLM prices at {path}: {exc}",
-                file=sys.stderr,
-            )
-        return payload
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, RuntimeError) as exc:
-        cached = load_cached_litellm_prices(path)
-        if cached:
-            print(
-                f"warning: LiteLLM price fetch failed ({exc}); using cache {path}",
-                file=sys.stderr,
-            )
-            return cached
-        raise RuntimeError(f"LiteLLM price fetch failed: {exc}") from exc
-
-
-def resolve_litellm_model_price(
-    prices: dict[str, Any], model_name: str
-) -> dict[str, Any] | None:
-    name = model_name.strip()
-    if not name:
-        return None
-    candidates = [name, f"anthropic/{name}", f"anthropic.{name}"]
-    for key in candidates:
-        entry = prices.get(key)
-        if isinstance(entry, dict) and entry.get("input_cost_per_token") is not None:
-            return entry
-    return None
-
-
-def breakdown_cost_from_litellm(
-    breakdown: dict[str, Any], price: dict[str, Any]
-) -> float:
-    return (
-        safe_int(breakdown.get("inputTokens")) * safe_float(price.get("input_cost_per_token"))
-        + safe_int(breakdown.get("outputTokens"))
-        * safe_float(price.get("output_cost_per_token"))
-        + safe_int(breakdown.get("cacheReadTokens"))
-        * safe_float(price.get("cache_read_input_token_cost"))
-        + safe_int(breakdown.get("cacheCreationTokens"))
-        * safe_float(price.get("cache_creation_input_token_cost"))
-    )
 
 
 def pinned_price_index() -> dict[str, dict[str, Any]]:
@@ -1920,180 +1777,6 @@ def unresolved_models_for_day(day: dict[str, Any]) -> list[str]:
     ]
 
 
-def reprice_unpriced_models_with_litellm(
-    usage: Any,
-    *,
-    prices: dict[str, Any] | None = None,
-) -> tuple[Any, list[str]]:
-    """Fill $0 model breakdown costs from LiteLLM rates. Returns (payload, recovered models)."""
-    if not isinstance(usage, dict):
-        return usage, []
-    missing = unpriced_models(usage)
-    if not missing:
-        return usage, []
-    table = prices if prices is not None else fetch_litellm_prices()
-    patched = copy.deepcopy(usage)
-    recovered: list[str] = []
-    seen_recovered: set[str] = set()
-    for day in patched.get("daily") or []:
-        if not isinstance(day, dict):
-            continue
-        day_cost = 0.0
-        for breakdown in day.get("modelBreakdowns") or []:
-            if not isinstance(breakdown, dict):
-                continue
-            name = str(breakdown.get("modelName") or "unknown").strip() or "unknown"
-            if (
-                name in missing
-                and model_breakdown_tokens(breakdown) > 0
-                and safe_float(breakdown.get("cost")) == 0.0
-            ):
-                price = resolve_litellm_model_price(table, name)
-                if price is not None:
-                    cost = breakdown_cost_from_litellm(breakdown, price)
-                    if cost > 0.0:
-                        breakdown["cost"] = cost
-                        if name not in seen_recovered:
-                            seen_recovered.add(name)
-                            recovered.append(name)
-            day_cost += safe_float(breakdown.get("cost"))
-        if day.get("modelBreakdowns"):
-            day["totalCost"] = day_cost
-            day["costUSD"] = day_cost
-    sync_usage_cost_fields(patched)
-    return patched, recovered
-
-
-def ccusage_daily_command(
-    tool: str,
-    timezone: str,
-    since: str = "",
-    until: str = "",
-    *,
-    offline: bool,
-) -> list[str]:
-    command = [
-        *ccusage_command(),
-        tool,
-        "daily",
-        "-z",
-        timezone,
-        "--json",
-    ]
-    if offline:
-        command.append("--offline")
-    if since:
-        command.extend(["--since", since.replace("-", "")])
-    if until:
-        command.extend(["--until", until.replace("-", "")])
-    return command
-
-
-def run_ccusage_daily(
-    tool: str,
-    timezone: str,
-    since: str = "",
-    until: str = "",
-    *,
-    offline: bool,
-) -> Any:
-    return run_json(
-        ccusage_daily_command(tool, timezone, since=since, until=until, offline=offline)
-    )
-
-
-def ccusage_daily(tool: str, timezone: str, since: str = "", until: str = "") -> Any:
-    """Collect daily usage with resilient LiteLLM pricing.
-
-    1. ``--offline`` first (launchd-safe cached prices)
-    2. If any model has tokens but $0 cost, retry once without ``--offline``
-    3. If still unpriced (stale ccusage cache / flaky price API), reprice those
-       models from the LiteLLM JSON table (cached under ``~/.cache``)
-    """
-    offline_usage = reprice_models_with_pinned_ledger(
-        run_ccusage_daily(tool, timezone, since=since, until=until, offline=True)
-    )
-    missing = unpriced_models(offline_usage)
-    if not missing:
-        return offline_usage
-
-    missing_label = ", ".join(missing)
-    range_label = f"{since or '...'}..{until or '...'}"
-    candidate: Any = offline_usage
-    try:
-        online_usage = reprice_models_with_pinned_ledger(
-            run_ccusage_daily(tool, timezone, since=since, until=until, offline=False)
-        )
-    except Exception as exc:
-        print(
-            f"warning: ccusage online pricing retry failed for {tool} "
-            f"({missing_label}; {range_label}): {exc}",
-            file=sys.stderr,
-        )
-        online_usage = None
-
-    if online_usage is not None and online_recovers_unpriced_models(missing, online_usage):
-        still = unpriced_models(online_usage)
-        if not still:
-            return online_usage
-        print(
-            f"warning: ccusage online pricing still missing costs for {tool} "
-            f"({', '.join(still)}; {range_label}); trying LiteLLM reprice",
-            file=sys.stderr,
-        )
-        candidate = online_usage
-        missing = still
-    elif online_usage is not None:
-        # Prefer fresher online token totals even when costs are still zero.
-        candidate = online_usage
-        missing = unpriced_models(online_usage) or missing
-        missing_label = ", ".join(missing)
-        print(
-            f"warning: ccusage offline pricing missing costs for {tool} "
-            f"({missing_label}; {range_label}); online retry did not recover prices",
-            file=sys.stderr,
-        )
-    else:
-        print(
-            f"warning: ccusage offline pricing missing costs for {tool} "
-            f"({missing_label}; {range_label}); trying LiteLLM reprice",
-            file=sys.stderr,
-        )
-
-    try:
-        patched, recovered = reprice_unpriced_models_with_litellm(candidate)
-    except Exception as exc:
-        print(
-            f"warning: LiteLLM reprice failed for {tool} "
-            f"({missing_label}; {range_label}): {exc}",
-            file=sys.stderr,
-        )
-        return candidate
-
-    if recovered:
-        still = unpriced_models(patched)
-        if still:
-            print(
-                f"warning: LiteLLM reprice recovered {', '.join(recovered)} for {tool} "
-                f"but still missing {', '.join(still)}; {range_label}",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"info: LiteLLM reprice recovered costs for {tool} "
-                f"({', '.join(recovered)}; {range_label})",
-                file=sys.stderr,
-            )
-        return reprice_models_with_pinned_ledger(patched)
-
-    print(
-        f"warning: no pricing source recovered costs for {tool} "
-        f"({missing_label}; {range_label})",
-        file=sys.stderr,
-    )
-    return reprice_models_with_pinned_ledger(candidate)
-
-
 def iter_codex_jsonl(home: Path):
     """Yield every Codex rollout JSONL under ~/.codex (sessions + archived)."""
     roots = [
@@ -2311,7 +1994,7 @@ def load_usage_payload(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-SOURCE_STATUS_NAMES = ("codex", "claude", "opencode", "cursor", "oneapi")
+SOURCE_STATUS_NAMES = ("codex", "claude", "cursor", "oneapi")
 SOURCE_STATUS_ERRORS = {
     "codex": {
         "codex_unavailable",
@@ -2321,15 +2004,13 @@ SOURCE_STATUS_ERRORS = {
     },
     "claude": {
         "claude_unavailable",
-        "local_fragments_stale",
-        "local_fragments_unavailable",
-        "local_fragment_timestamp_invalid",
-    },
-    "opencode": {
-        "opencode_unavailable",
-        "local_fragments_stale",
-        "local_fragments_unavailable",
-        "local_fragment_timestamp_invalid",
+        "oneapi_incomplete",
+        "oneapi_browser_unavailable",
+        "oneapi_network_unavailable",
+        "oneapi_reauth_required",
+        "oneapi_refresh_failed",
+        "oneapi_state_unavailable",
+        "oneapi_unavailable",
     },
     "cursor": {"cursor_incomplete", "cursor_unavailable"},
     "oneapi": {
@@ -2345,7 +2026,6 @@ SOURCE_STATUS_ERRORS = {
 SOURCE_STATUS_DEFAULT_ERROR = {
     "codex": "codex_unavailable",
     "claude": "claude_unavailable",
-    "opencode": "opencode_unavailable",
     "cursor": "cursor_unavailable",
     "oneapi": "oneapi_unavailable",
 }
@@ -2353,6 +2033,7 @@ PUBLIC_ONEAPI_FIELDS = {
     "accounting_version",
     "available",
     "captured_at",
+    "claude",
     "complete",
     "daily_timeline",
     "excluded",
@@ -2646,8 +2327,6 @@ def validate_fragment_timezones(
 def persist_local_model_metadata(
     fragment_file: Path,
     codex_points: list[dict[str, Any]],
-    claude_points: list[dict[str, Any]],
-    opencode_points: list[dict[str, Any]],
     legacy_comate: dict[str, Any],
     *,
     model_seed_complete: bool,
@@ -2665,23 +2344,13 @@ def persist_local_model_metadata(
             for point in codex_points
             if isinstance(point, dict) and point.get("date")
         },
-        "claude": {
-            str(point.get("date")): point
-            for point in claude_points
-            if isinstance(point, dict) and point.get("date")
-        },
-        "opencode": {
-            str(point.get("date")): point
-            for point in opencode_points
-            if isinstance(point, dict) and point.get("date")
-        },
     }
     pricing_regressions: set[str] = set()
     for row in fragment.get("daily") or []:
         if not isinstance(row, dict):
             continue
         date_key = str(row.get("date") or "")
-        for prefix in ("codex", "claude", "opencode"):
+        for prefix in ("codex",):
             point = points_by_tool[prefix].get(date_key)
             if not isinstance(point, dict):
                 row[f"{prefix}_models"] = models_with_remainder(
@@ -2759,7 +2428,7 @@ def persist_local_model_metadata(
         stats["pricing_regression_dates"] = sorted(pricing_regressions)
         fragment["last_append_stats"] = stats
     fragment["legacy_comate"] = legacy_comate
-    fragment["tools"] = ["codex", "claude", "opencode"]
+    fragment["tools"] = ["codex"]
     machine_fragments.write_json_atomic(fragment_file, fragment)
 
 
@@ -2793,29 +2462,17 @@ def collect_local_machine(
 
     if first_seed:
         codex_usage = codex_daily_from_jsonl(home, timezone)
-        claude_usage = ccusage_daily("claude", timezone)
-        opencode_usage = ccusage_daily("opencode", timezone)
     else:
         codex_usage = codex_daily_from_jsonl(
             home, timezone, since=since or today, until=until
         )
-        claude_usage = ccusage_daily(
-            "claude", timezone, since=since or today, until=until
-        )
-        opencode_usage = ccusage_daily(
-            "opencode", timezone, since=since or today, until=until
-        )
 
     model_codex_usage = codex_usage
-    model_claude_usage = claude_usage
-    model_opencode_usage = opencode_usage
     model_seed_complete = first_seed or not needs_model_seed
     if needs_model_seed and not first_seed:
         model_seed_complete = False
         try:
             model_codex_usage = codex_daily_from_jsonl(home, timezone)
-            model_claude_usage = ccusage_daily("claude", timezone)
-            model_opencode_usage = ccusage_daily("opencode", timezone)
             model_seed_complete = True
         except Exception as exc:
             print(
@@ -2826,14 +2483,8 @@ def collect_local_machine(
     local_summary = local_record_summary(home, tmp_dir)
     comate = comate_usage.parse_comate(home, timezone)
     codex_rows = usage_daily_rows(codex_usage)
-    claude_rows = usage_daily_rows(claude_usage)
-    opencode_rows = usage_daily_rows(opencode_usage)
     codex_first, codex_last = daily_range(codex_rows, codex=True)
-    claude_first, claude_last = daily_range(claude_rows)
-    opencode_first, opencode_last = daily_range(opencode_rows)
     codex_totals = usage_totals(codex_usage)
-    claude_totals = usage_totals(claude_usage)
-    opencode_totals = usage_totals(opencode_usage)
 
     codex_summary = {
         "tool": "Codex",
@@ -2841,30 +2492,12 @@ def collect_local_machine(
         "cost": safe_float(codex_totals.get("costUSD")),
         "total_tokens": safe_int(codex_totals.get("totalTokens")),
     }
-    claude_summary = {
-        "tool": "Claude Code",
-        "history": fmt_range(claude_first, claude_last),
-        "cost": safe_float(claude_totals.get("totalCost")),
-        "total_tokens": safe_int(claude_totals.get("totalTokens")),
-    }
-    opencode_summary = {
-        "tool": "OpenCode",
-        "history": fmt_range(opencode_first, opencode_last),
-        "cost": safe_float(opencode_totals.get("totalCost")),
-        "total_tokens": safe_int(opencode_totals.get("totalTokens")),
-    }
     codex_pts_all = codex_daily_points(usage_daily_rows(model_codex_usage))
-    claude_pts_all = claude_daily_points(usage_daily_rows(model_claude_usage))
-    opencode_pts_all = opencode_daily_points(usage_daily_rows(model_opencode_usage))
     codex_pts = codex_daily_points(codex_rows)
-    claude_pts = claude_daily_points(claude_rows)
-    opencode_pts = opencode_daily_points(opencode_rows)
     if since:
         codex_pts = filter_points_since(codex_pts, since)
-        claude_pts = filter_points_since(claude_pts, since)
-        opencode_pts = filter_points_since(opencode_pts, since)
 
-    local_daily = build_local_machine_daily(codex_pts, claude_pts, opencode_pts)
+    local_daily = build_local_machine_daily(codex_pts)
     fragment_file, fragment_meta = machine_fragments.write_machine_fragment_append(
         machines_path,
         machine_id,
@@ -2880,8 +2513,6 @@ def collect_local_machine(
     persist_local_model_metadata(
         fragment_file,
         codex_pts_all,
-        claude_pts_all,
-        opencode_pts_all,
         comate,
         model_seed_complete=model_seed_complete,
     )
@@ -2897,8 +2528,6 @@ def collect_local_machine(
         "local_summary": local_summary,
         "fragment_meta": fragment_meta,
         "codex_summary": codex_summary,
-        "claude_summary": claude_summary,
-        "opencode_summary": opencode_summary,
     }
 
 
@@ -3142,7 +2771,6 @@ def collect_usage(
         local_summary = {"merge_only": True}
         codex_summary = {"tool": "Codex", "history": "from fragments", "cost": 0, "total_tokens": 0}
         claude_summary = {"tool": "Claude Code", "history": "from fragments", "cost": 0, "total_tokens": 0}
-        opencode_summary = {"tool": "OpenCode", "history": "from fragments", "cost": 0, "total_tokens": 0}
     else:
         local = collect_local_machine(
             home,
@@ -3156,8 +2784,7 @@ def collect_usage(
         local_summary = local["local_summary"]
         fragment_meta = local["fragment_meta"]
         codex_summary = local["codex_summary"]
-        claude_summary = local["claude_summary"]
-        opencode_summary = local["opencode_summary"]
+        claude_summary = {"tool": "Claude Code", "history": "from oneapi", "cost": 0, "total_tokens": 0}
         comate = local["comate"]
         cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
         cursor_api_complete = bool(
@@ -3449,8 +3076,23 @@ def collect_usage(
         prior_payload,
         {
             "codex": dict(local_source_attempt),
-            "claude": dict(local_source_attempt),
-            "opencode": dict(local_source_attempt),
+            "claude": {
+                "attempted": True,
+                "fresh": oneapi_refresh_complete,
+                "has_data": prior_oneapi_has_durable_data
+                or bool(prior_oneapi_last_success),
+                "window_end": str(
+                    (
+                        oneapi_data.get("window")
+                        if isinstance(oneapi_data.get("window"), dict)
+                        else {}
+                    ).get("end")
+                    or ""
+                )
+                if oneapi_refresh_complete
+                else "",
+                "error": oneapi_status_error,
+            },
             "cursor": {
                 "attempted": True,
                 "fresh": cursor_api_complete,
@@ -3482,13 +3124,22 @@ def collect_usage(
     if cursor_api_complete:
         next_cursor_pricing_version = CURSOR_PRICING_VERSION
 
+    # Claude Code switches to One API's Claude model family for the last two
+    # calendar days (today and yesterday). Older local collector values stay frozen.
+    claude_rebuild_from = machine_fragments.previous_day(today)
+    daily_rows = reconcile_claude_rows(
+        daily_rows,
+        prior_rows,
+        claude_data_from_oneapi(oneapi_data),
+        rebuild_from=claude_rebuild_from,
+    )
     daily_rows = reconcile_oneapi_rows(
         daily_rows,
         durable_oneapi_rows,
         oneapi_data,
     )
     for row in daily_rows:
-        for prefix in ("codex", "claude", "opencode", "cursor", "oneapi"):
+        for prefix in ("codex", "claude", "cursor", "oneapi"):
             row[f"{prefix}_models"] = models_with_remainder(
                 row.get(f"{prefix}_models"),
                 total_tokens=row.get(f"{prefix}_tokens"),
@@ -3507,12 +3158,11 @@ def collect_usage(
     for summary, prefix in (
         (codex_summary, "codex"),
         (claude_summary, "claude"),
-        (opencode_summary, "opencode"),
     ):
         tokens, cost, hist = sum_prefix(prefix)
         summary["total_tokens"] = tokens
         summary["cost"] = cost
-        if summary.get("history") in ("from fragments", "unknown", "") or merge:
+        if summary.get("history") in ("from fragments", "from oneapi", "unknown", "") or merge:
             summary["history"] = hist
 
     tokens_c, cost_c, hist_c = sum_prefix("cursor")
@@ -3545,7 +3195,6 @@ def collect_usage(
     for summary, prefix in (
         (codex_summary, "codex"),
         (claude_summary, "claude"),
-        (opencode_summary, "opencode"),
         (cursor_summary, "cursor"),
         (oneapi_summary, "oneapi"),
     ):
@@ -3579,7 +3228,7 @@ def collect_usage(
         "machine_id": mid,
         "machines": machine_ids,
         "machines_dir": str(machines_path),
-        "tools": [codex_summary, claude_summary, opencode_summary, cursor_summary, oneapi_summary],
+        "tools": [codex_summary, claude_summary, cursor_summary, oneapi_summary],
         "local_summary": local_summary,
         "fragment_meta": fragment_meta,
         "cursor": cursor_usage,
@@ -3610,8 +3259,8 @@ render_png = legacy_renderer.render_png
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Collect Codex / Claude Code / OpenCode usage, write per-machine "
-            "fragments under public/machines/, and merge into public/usage.json."
+            "Collect Codex usage, write per-machine fragments under "
+            "public/machines/, and merge into public/usage.json."
         )
     )
     parser.add_argument(
@@ -3846,25 +3495,30 @@ def main() -> int:
                     "token_breakdown": (
                         "Cards and tooltips show input, cache, and output tokens per tool. "
                         "Codex cache = cache read; Claude cache = create + read; "
-                        "Cursor cache = write + read. Ducc is counted under Claude Code. "
+                        "Cursor cache = write + read. Claude Code is collected from the "
+                        "One API gateway's Claude model family. "
                         "One API includes only non-GPT/Codex and non-Claude model families "
                         "from the gateway, such as Grok and DeepSeek. Historical local "
                         "Comate context deltas are retained under One API only on dates "
                         "without gateway coverage."
                     ),
                     "cost": (
-                        f"Codex/Claude estimates use the checked-in versioned price ledger "
+                        f"Codex estimates use the checked-in versioned price ledger "
                         f"{PRICING_VERSION}; known models are deterministically repriced from "
                         "persisted per-model token components. Models without a pinned rate retain "
                         "their collector value with explicit legacy provenance and cannot silently "
                         "replace a higher durable estimate; "
+                        "Claude Code costs come from the One API gateway quota "
+                        "(250,000 units/CNY, ~0.14 USD/CNY); "
                         "Cursor costs come from the authenticated Dashboard API; "
                         "One API quota uses 250,000 units/CNY and is estimated at "
                         "~0.14 USD/CNY. "
-                        "Codex/Claude daily totals are SUMMED across public/machines/*.json; "
+                        "Codex daily totals are SUMMED across public/machines/*.json; "
+                        "Claude Code and One API are account-level and rebuilt from the "
+                        "One API gateway on each publish; "
                         "Cursor is account-level and replaced from the API on each publish "
                         "(if API unavailable, prior usage.json Cursor series is kept); "
-                        "One API is account-level, excludes GPT/Codex and Claude traffic, "
+                        "One API is account-level, excludes GPT/Codex traffic, "
                         "and keeps its prior series when authentication or pagination fails."
                     ),
                     "merge": (

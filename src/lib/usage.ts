@@ -25,12 +25,10 @@ export type DailyRow = {
   date: string
   codex_tokens: number
   claude_tokens: number
-  opencode_tokens: number
   cursor_tokens: number
   oneapi_tokens: number
   codex_cost: number
   claude_cost: number
-  opencode_cost: number
   cursor_cost: number
   oneapi_cost: number
   total_tokens: number
@@ -43,10 +41,6 @@ export type DailyRow = {
   claude_cache_create: number
   claude_cache_read: number
   claude_output: number
-  opencode_input: number
-  opencode_cache_create: number
-  opencode_cache_read: number
-  opencode_output: number
   cursor_input: number
   cursor_cache_write: number
   cursor_cache_read: number
@@ -58,7 +52,6 @@ export type DailyRow = {
   oneapi_requests?: number
   codex_models?: ModelUsage[]
   claude_models?: ModelUsage[]
-  opencode_models?: ModelUsage[]
   cursor_models?: ModelUsage[]
   oneapi_models?: ModelUsage[]
 }
@@ -87,7 +80,7 @@ export type UsagePayload = {
   }
 }
 
-export type ToolId = 'codex' | 'claude' | 'opencode' | 'cursor' | 'oneapi'
+export type ToolId = 'codex' | 'claude' | 'cursor' | 'oneapi'
 
 export type ModelSeriesSpec = {
   id: string
@@ -171,22 +164,6 @@ export const TOOLS: Array<{
     cacheKeys: ['claude_cache_create', 'claude_cache_read'],
   },
   {
-    id: 'opencode',
-    label: 'OpenCode',
-    color: 'green',
-    hex: '#16a34a',
-    tokenKey: 'opencode_tokens',
-    costKey: 'opencode_cost',
-    modelKey: 'opencode_models',
-    breakdown: [
-      { key: 'opencode_input', label: 'Input' },
-      { key: 'opencode_cache_create', label: 'Cache create' },
-      { key: 'opencode_cache_read', label: 'Cache read' },
-      { key: 'opencode_output', label: 'Output' },
-    ],
-    cacheKeys: ['opencode_cache_create', 'opencode_cache_read'],
-  },
-  {
     id: 'cursor',
     label: 'Cursor',
     color: 'teal',
@@ -223,7 +200,6 @@ export const TOOLS: Array<{
 const SOURCE_LABELS: Record<string, string> = {
   claude: 'Claude Code',
   claudecode: 'Claude Code',
-  opencode: 'OpenCode',
   cursor: 'Cursor',
   oneapi: 'One API',
   codex: 'Codex',
@@ -323,8 +299,6 @@ export function rowCache(row: DailyRow): number {
     num(row, 'codex_cache_read') +
     num(row, 'claude_cache_create') +
     num(row, 'claude_cache_read') +
-    num(row, 'opencode_cache_create') +
-    num(row, 'opencode_cache_read') +
     num(row, 'cursor_cache_write') +
     num(row, 'cursor_cache_read') +
     num(row, 'oneapi_cache_read') +

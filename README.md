@@ -23,7 +23,7 @@ npm install
 # Dev UI against public/usage.json
 npm run dev
 
-# Refresh data from this machine (needs ccusage + Cursor session)
+# Refresh data from this machine (needs Codex rollout logs + Cursor session + One API state)
 export AI_USAGE_MACHINE_ID=mac-home          # unique per Mac
 export AI_USAGE_TIMEZONE=Asia/Shanghai
 npm run collect
@@ -93,10 +93,10 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 
 | Tool | Rule |
 |------|------|
-| Codex / Claude Code | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected; report = SUM across `machines/*.json` |
+| Codex | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected from `~/.codex` rollout JSONL; report = SUM across `machines/*.json` |
+| Claude Code | Account-level; rebuilt from the One API gateway's Claude model family for the last two calendar days, older local collector values stay frozen; do not SUM across Macs |
 | Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
-| One API | Account-level residual gateway series; collect after pull, exclude GPT/Codex and Claude model families, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |
-| Ducc | Claude wrapper → counted under Claude Code |
+| One API | Account-level residual gateway series; collect after pull, exclude the GPT/Codex model family, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |
 
 The non-overlap rule assumes Cursor reports its own cloud usage and
 `use_openai_key=false`. This is the currently verified account configuration.
@@ -166,11 +166,11 @@ Do not use `--force-reseed` for this migration.
 | `src/` | Astryx + React report UI |
 | `public/usage.json` | Merged daily series for the UI |
 | `public/ai-usage-card-{light,dark}.svg` | Generated static GitHub README cards |
-| `public/machines/<id>.json` | Per-Mac Codex/Claude fragment plus one-time local Comate history |
+| `public/machines/<id>.json` | Per-Mac Codex fragment plus one-time local Comate history |
 | `scripts/generate_readme_cards.mjs` | Dynamic summary + weekly Skyline SVG generator |
 | `scripts/usage_pipeline.py` | Collect + merge |
 | `scripts/ai_usage_comparison_image.py` | Compatibility CLI for the former collector name |
-| `scripts/model_prices.v1.json` | Versioned Codex/Claude estimate ledger |
+| `scripts/model_prices.v1.json` | Versioned Codex estimate ledger |
 | `scripts/cursor_usage_api.py` | Cursor session, API, redaction, and event normalization library |
 | `scripts/cursor_usage_api_probe.py` | Manual Cursor diagnostic export CLI |
 | `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, and aggregation |
@@ -182,26 +182,28 @@ Do not use `--force-reseed` for this migration.
 
 ## Data sources
 
-- Codex / Claude Code: `npx ccusage@latest … --json --offline`
+- Codex: `~/.codex` rollout JSONL (sum of each request's real token increment)
+- Claude Code: One API gateway's Claude model family (last two calendar days; older dates keep prior local collector values)
 - Cursor: authenticated Dashboard API via local Cursor session
 - Historical Comate: `~/.comate-engine/store/chat_session_*` (positive
   `contextUsed` deltas; cost always 0), migrated under One API only on dates
   without gateway coverage
 - One API: management log API through a saved `chrome-use` UUAP session. GPT/Codex
-  and Claude model families are excluded; other named models such as Grok,
+  model families are excluded; the Claude model family is split out into the
+  Claude Code tool; other named models such as Grok,
   DeepSeek, GLM, Kimi, and MiniMax form the residual series. Empty model names are
   excluded as unclassified. Ownership matching recognizes provider prefixes
   separated by `/`, `.`, `:`, `,`, or `\\`, so names such as
-  `anthropic.claude-*`, `openai.gpt-*`, and `provider.o3` cannot leak into the
-  residual series. Each snapshot records its account scope, timezone-aware
+  `anthropic.claude-*`, `openai.gpt-*`, and `provider.o3` are classified
+  deterministically. Each snapshot records its account scope, timezone-aware
   capture time, ownership-rule version, complete calendar window, and a stable
   SHA-256 content id; model rows retain canonical and raw labels.
 - Costs: the checked-in, versioned model-price ledger for reproducible
-  Codex/Claude estimates; unresolved historical models retain any collector
+  Codex estimates; unresolved historical models retain any collector
   estimate, or remain unpriced, with explicit `legacy`/`unpriced` provenance
   rather than being presented as part of the pinned ledger.
-  Cursor uses its account API; One API quota is converted at 250,000 units/CNY
-  and estimated at the pinned 0.14 USD/CNY rate.
+  Cursor uses its account API; One API quota (including the Claude Code series)
+  is converted at 250,000 units/CNY and estimated at the pinned 0.14 USD/CNY rate.
 
 Save or refresh the One API browser state after logging in manually:
 

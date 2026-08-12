@@ -182,7 +182,7 @@ def render_html(data: dict[str, Any], *, pricing_version: str) -> str:
     return;
   }
   if (!RAW.length) {
-    el.innerHTML = '<div id="empty-msg">No daily rows (check ccusage + Cursor API)</div>';
+    el.innerHTML = '<div id="empty-msg">No daily rows (check Codex + Cursor API + One API)</div>';
     return;
   }
   const dates = RAW.map(r => r.date);
@@ -1034,8 +1034,9 @@ input[type="date"] {{
 <p class="methodology">
   <strong>Token breakdown:</strong> cards and tooltips show input, cache, and output tokens per tool.
   Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read.
-  <strong>Cost estimate:</strong> Codex/Claude use the checked-in <code>{esc(pricing_version)}</code> price ledger;
-  unresolved models retain an explicit legacy collector value. Cursor costs come from the authenticated Dashboard API.
+  <strong>Cost estimate:</strong> Codex uses the checked-in <code>{esc(pricing_version)}</code> price ledger;
+  unresolved models retain an explicit legacy collector value. Claude Code and One API come from the One API gateway quota.
+  Cursor costs come from the authenticated Dashboard API.
 </p>
 <section class="cards">{cards_html}</section>
 <section class="controls" aria-label="Time range controls">

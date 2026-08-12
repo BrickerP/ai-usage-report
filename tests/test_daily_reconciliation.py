@@ -31,14 +31,11 @@ machine_fragments = usage_report.machine_fragments
 
 
 def local_row(date: str, *, codex_tokens: int, claude_tokens: int = 0):
+    del claude_tokens
     row = usage_report.empty_daily_row(date)
     codex_input = codex_tokens // 5
     codex_output = codex_tokens // 10
     codex_cache = codex_tokens - codex_input - codex_output
-    claude_input = claude_tokens // 5
-    claude_create = claude_tokens // 10
-    claude_output = claude_tokens // 10
-    claude_read = claude_tokens - claude_input - claude_create - claude_output
     row.update(
         {
             "codex_tokens": codex_tokens,
@@ -52,17 +49,6 @@ def local_row(date: str, *, codex_tokens: int, claude_tokens: int = 0):
             "codex_pricing_version": usage_report.PRICING_VERSION,
             "codex_pricing_complete": True,
             "codex_pricing_provenance": "pinned-ledger",
-            "claude_tokens": claude_tokens,
-            "claude_cost": claude_tokens / 100,
-            "claude_input": claude_input,
-            "claude_cache_create": claude_create,
-            "claude_cache_read": claude_read,
-            "claude_output": claude_output,
-            "claude_models": ([{"model": "claude-test", "tokens": claude_tokens, "cost": claude_tokens / 100}] if claude_tokens else []),
-            "claude_snapshot_complete": True,
-            "claude_pricing_version": usage_report.PRICING_VERSION,
-            "claude_pricing_complete": True,
-            "claude_pricing_provenance": "pinned-ledger",
         }
     )
     return row
@@ -151,9 +137,9 @@ class LocalReconciliationTests(unittest.TestCase):
             "2026-07-20",
         )
 
-    def test_open_window_keeps_only_regressing_tool_group(self):
-        existing = local_row("2026-07-19", codex_tokens=100, claude_tokens=200)
-        incoming = local_row("2026-07-19", codex_tokens=80, claude_tokens=250)
+    def test_open_window_keeps_regressing_tool_group(self):
+        existing = local_row("2026-07-19", codex_tokens=100)
+        incoming = local_row("2026-07-19", codex_tokens=80)
         original_codex = {
             key: value for key, value in existing.items() if key.startswith("codex_")
         }
@@ -170,14 +156,13 @@ class LocalReconciliationTests(unittest.TestCase):
             {key: value for key, value in reconciled.items() if key.startswith("codex_")},
             original_codex,
         )
-        self.assertEqual(reconciled["claude_tokens"], 250)
         self.assertEqual(stats["regression_dates"], ["2026-07-19"])
         self.assertEqual(stats["regression_kept"], 1)
 
     def test_finalized_history_is_not_rewritten(self):
-        existing = local_row("2026-07-18", codex_tokens=100, claude_tokens=200)
+        existing = local_row("2026-07-18", codex_tokens=100)
         before = copy.deepcopy(existing)
-        incoming = local_row("2026-07-18", codex_tokens=180, claude_tokens=280)
+        incoming = local_row("2026-07-18", codex_tokens=180)
 
         rows, _stats = merge_local(
             [existing],
@@ -187,7 +172,6 @@ class LocalReconciliationTests(unittest.TestCase):
         )
 
         self.assertEqual(rows[0]["codex_tokens"], before["codex_tokens"])
-        self.assertEqual(rows[0]["claude_tokens"], before["claude_tokens"])
 
     def test_unpriced_cost_decrease_is_kept_open(self):
         existing = local_row("2026-07-19", codex_tokens=100)
@@ -234,11 +218,6 @@ class LocalReconciliationTests(unittest.TestCase):
             machine_fragments.write_json_atomic(
                 machines / "mac-test.json", fragment
             )
-
-            def fake_ccusage(tool, _timezone, since="", until=""):
-                self.assertEqual(since, "2026-07-19")
-                self.assertEqual(until, "2026-07-20")
-                return {"daily": []}
 
             def fake_codex_from_jsonl(_home, _timezone, since="", until=""):
                 if since:
@@ -292,7 +271,6 @@ class LocalReconciliationTests(unittest.TestCase):
 
             patches = (
                 mock.patch.object(usage_report, "local_today", return_value="2026-07-20"),
-                mock.patch.object(usage_report, "ccusage_daily", side_effect=fake_ccusage),
                 mock.patch.object(
                     usage_report, "codex_daily_from_jsonl", side_effect=fake_codex_from_jsonl
                 ),

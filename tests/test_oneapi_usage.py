@@ -150,7 +150,7 @@ def saved_browser_state(*, expiry: float = 2_000_000_000) -> dict:
 
 
 class OneApiExclusiveAggregationTests(unittest.TestCase):
-    def test_excludes_codex_and_claude_families_but_keeps_other_models(self):
+    def test_excludes_codex_but_keeps_claude_in_own_series_and_other_models(self):
         result = oneapi_usage.aggregate_records(
             [
                 record("gpt-5.6-sol", prompt=100, quota=1000),
@@ -175,7 +175,14 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
             ["deepseek-v4-flash", "grok-4.5", "provider.deepseek-v4"],
         )
         self.assertEqual(result["excluded"]["codex"]["requests"], 4)
-        self.assertEqual(result["excluded"]["claude"]["requests"], 2)
+        self.assertEqual(
+            result["claude"]["totals"]["requests"],
+            2,
+        )
+        self.assertEqual(
+            result["claude"]["totals"]["total_tokens"],
+            900,
+        )
 
     def test_provider_prefixed_owned_models_have_stable_canonical_names(self):
         cases = {
@@ -1270,13 +1277,6 @@ class SourceStatusTests(unittest.TestCase):
                 "window_end": "2026-07-30",
                 "error": "",
             },
-            "opencode": {
-                "attempted": True,
-                "fresh": True,
-                "has_data": False,
-                "window_end": "2026-07-30",
-                "error": "",
-            },
             "cursor": {
                 "attempted": True,
                 "fresh": False,
@@ -1300,7 +1300,7 @@ class SourceStatusTests(unittest.TestCase):
             today="2026-07-30",
         )
 
-        self.assertEqual(set(result), {"codex", "claude", "opencode", "cursor", "oneapi"})
+        self.assertEqual(set(result), {"codex", "claude", "cursor", "oneapi"})
         self.assertEqual(
             result["codex"],
             {
@@ -1692,7 +1692,7 @@ class SourceStatusTests(unittest.TestCase):
                     usage_json_path=usage_path,
                 )
 
-        for source in ("codex", "claude"):
+        for source in ("codex",):
             status = result["source_status"][source]
             self.assertEqual(status["status"], "fresh")
             self.assertEqual(status["attempted_at"], collected_at)
@@ -1745,7 +1745,7 @@ class SourceStatusTests(unittest.TestCase):
                 "lag_days": 0,
                 "error": "",
             }
-            for source in ("codex", "claude", "opencode", "cursor", "oneapi")
+            for source in ("codex", "claude", "cursor", "oneapi")
         }
         collected = {
             "generated_at": "2026-07-30T12:00:00+08:00",
