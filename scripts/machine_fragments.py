@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-LOCAL_TOOL_PREFIXES = ("codex", "claude", "opencode")
-ACCOUNT_TOOL_PREFIXES = ("cursor",)
+LOCAL_TOOL_PREFIXES = ("codex",)
+ACCOUNT_TOOL_PREFIXES = ("cursor", "claude")
 TOOL_METADATA_FIELDS = (
     "snapshot_complete",
     "pricing_version",
@@ -1319,14 +1319,12 @@ def apply_cursor_points(
     for date_key in sorted(by_date):
         row = by_date[date_key]
         ct = safe_int(row.get("codex_tokens"))
-        lt = safe_int(row.get("claude_tokens"))
         ut = safe_int(row.get("cursor_tokens"))
         cc = safe_float(row.get("codex_cost"))
-        lc = safe_float(row.get("claude_cost"))
         uc = safe_float(row.get("cursor_cost"))
-        if ct or lt or ut or cc or lc or uc:
-            row["total_tokens"] = ct + lt + ut
-            row["total_cost"] = cc + lc + uc
+        if ct or ut or cc or uc:
+            row["total_tokens"] = ct + ut
+            row["total_cost"] = cc + uc
             rows.append(row)
     return rows
 

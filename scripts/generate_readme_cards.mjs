@@ -14,12 +14,6 @@ const TOOLS = [
     key: 'claude_tokens',
     color: '#c2410c',
   },
-  {
-    id: 'opencode',
-    label: 'OpenCode',
-    key: 'opencode_tokens',
-    color: '#16a34a',
-  },
   { id: 'cursor', label: 'Cursor', key: 'cursor_tokens', color: '#0d9488' },
   { id: 'oneapi', label: 'One API', key: 'oneapi_tokens', color: '#7c3aed' },
 ]
@@ -28,8 +22,6 @@ const CACHE_KEYS = [
   'codex_cache_read',
   'claude_cache_create',
   'claude_cache_read',
-  'opencode_cache_create',
-  'opencode_cache_read',
   'cursor_cache_write',
   'cursor_cache_read',
   'oneapi_cache_read',

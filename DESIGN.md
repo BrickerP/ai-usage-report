@@ -46,7 +46,8 @@ Guide progress should be derived from the existing selection and focus state whe
 - Never hardcode current totals, cache values or ratios, dates, recorded-day count, record day, per-tool values, model values, costs, or chart geometry.
 - Recorded tokens remain the sum of the four existing mutually exclusive tool series: Codex, Claude Code, Cursor, and One API.
 - Collection ownership remains unchanged:
-  - Codex and Claude Code use durable per-machine fragments summed across machines.
+  - Codex uses durable per-machine fragments summed across machines (from `~/.codex` rollout JSONL).
+  - Claude Code is an account-level series rebuilt from the One API gateway's Claude model family for the last two calendar days; older dates keep prior local collector values.
   - Cursor remains an account-level series and is never summed across machines.
   - One API remains the residual gateway series, retaining prior history when a refresh window is incomplete.
   - Historical local Comate data remains under One API only where gateway coverage is absent.
