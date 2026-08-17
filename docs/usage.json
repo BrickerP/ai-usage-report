@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-08-17T12:45:31+08:00",
-  "snapshot_id": "sha256:63d88f7f389ed524f45cde5285545e0d4e552a62a90a91f69fb1c21296b7abb3",
-  "generated_at": "2026-08-17T12:45:31+08:00",
+  "captured_at": "2026-08-17T13:39:15+08:00",
+  "snapshot_id": "sha256:16de6811de8cb582ef20856fec5523b85ab62017638b8f8d3ef579f4ca231ec6",
+  "generated_at": "2026-08-17T13:39:15+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -264,28 +264,73 @@
     {
       "tool": "Claude Code",
       "history": "2026-04-08 to 2026-08-17",
-      "cost": 31337.05185165,
-      "total_tokens": 11893104188,
+      "cost": 31706.19965053,
+      "total_tokens": 12885005183,
       "models": [
         {
           "model": "Legacy unknown",
-          "tokens": 11723291860,
-          "cost": 31268.582809329993,
+          "tokens": 11691820369,
+          "cost": 31259.993024209994,
           "components_complete": false
         },
         {
           "model": "claude-opus-5",
-          "tokens": 169759846,
-          "cost": 68.37483744000001,
+          "tokens": 952209141,
+          "cost": 382.2055490400001,
           "components_complete": true,
           "raw_models": [
             "claude-opus-5"
           ],
-          "input": 169567908,
-          "output": 191938,
+          "input": 951109754,
+          "output": 1099387,
           "cache_read": 0,
           "cache_write": 0,
           "canonical_model": "claude-opus-5",
+          "ownership_rule_version": "2"
+        },
+        {
+          "model": "claude-sonnet-5-thinking",
+          "tokens": 122306074,
+          "cost": 32.456664800000006,
+          "components_complete": true,
+          "raw_models": [
+            "claude-sonnet-5-thinking"
+          ],
+          "input": 122220764,
+          "output": 85310,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-sonnet-5-thinking",
+          "ownership_rule_version": "2"
+        },
+        {
+          "model": "claude-sonnet-5",
+          "tokens": 118549239,
+          "cost": 31.443772080000002,
+          "components_complete": true,
+          "raw_models": [
+            "claude-sonnet-5"
+          ],
+          "input": 118481602,
+          "output": 67637,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-sonnet-5",
+          "ownership_rule_version": "2"
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "tokens": 67878,
+          "cost": 0.006435520000000001,
+          "components_complete": true,
+          "raw_models": [
+            "claude-haiku-4-5"
+          ],
+          "input": 66611,
+          "output": 1267,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-haiku-4-5",
           "ownership_rule_version": "2"
         },
         {
@@ -648,24 +693,24 @@
     },
     "claude": {
       "status": "fresh",
-      "attempted_at": "2026-08-17T12:45:17+08:00",
-      "last_success_at": "2026-08-17T12:45:17+08:00",
+      "attempted_at": "2026-08-17T13:39:01+08:00",
+      "last_success_at": "2026-08-17T13:39:01+08:00",
       "window_end": "2026-08-17",
       "lag_days": 0,
       "error": ""
     },
     "cursor": {
       "status": "fresh",
-      "attempted_at": "2026-08-17T12:45:17+08:00",
-      "last_success_at": "2026-08-17T12:45:17+08:00",
+      "attempted_at": "2026-08-17T13:39:01+08:00",
+      "last_success_at": "2026-08-17T13:39:01+08:00",
       "window_end": "2026-08-17",
       "lag_days": 0,
       "error": ""
     },
     "oneapi": {
       "status": "fresh",
-      "attempted_at": "2026-08-17T12:45:17+08:00",
-      "last_success_at": "2026-08-17T12:45:17+08:00",
+      "attempted_at": "2026-08-17T13:39:01+08:00",
+      "last_success_at": "2026-08-17T13:39:01+08:00",
       "window_end": "2026-08-17",
       "lag_days": 0,
       "error": ""
@@ -17672,12 +17717,12 @@
       "codex_cache_read": 6726944512,
       "codex_output": 13420300,
       "codex_reasoning": 6165186,
-      "claude_tokens": 31471491,
-      "claude_cost": 8.58978512,
-      "claude_input": 31430747,
+      "claude_tokens": 414940170,
+      "claude_cost": 143.00114696000003,
+      "claude_input": 414458203,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
-      "claude_output": 40744,
+      "claude_output": 481967,
       "cursor_tokens": 82163532,
       "cursor_cost": 48.947212,
       "cursor_input": 2876031,
@@ -17751,10 +17796,64 @@
       ],
       "claude_models": [
         {
-          "model": "Legacy unknown",
-          "tokens": 31471491,
-          "cost": 8.58978512,
-          "components_complete": false
+          "model": "claude-opus-5",
+          "tokens": 248348953,
+          "cost": 98.79859864000002,
+          "components_complete": true,
+          "raw_models": [
+            "claude-opus-5"
+          ],
+          "input": 247989503,
+          "output": 359450,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-opus-5",
+          "ownership_rule_version": "2"
+        },
+        {
+          "model": "claude-sonnet-5-thinking",
+          "tokens": 86525470,
+          "cost": 22.971468240000004,
+          "components_complete": true,
+          "raw_models": [
+            "claude-sonnet-5-thinking"
+          ],
+          "input": 86455682,
+          "output": 69788,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-sonnet-5-thinking",
+          "ownership_rule_version": "2"
+        },
+        {
+          "model": "claude-sonnet-5",
+          "tokens": 79997869,
+          "cost": 21.22464456,
+          "components_complete": true,
+          "raw_models": [
+            "claude-sonnet-5"
+          ],
+          "input": 79946407,
+          "output": 51462,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-sonnet-5",
+          "ownership_rule_version": "2"
+        },
+        {
+          "model": "claude-haiku-4-5",
+          "tokens": 67878,
+          "cost": 0.006435520000000001,
+          "components_complete": true,
+          "raw_models": [
+            "claude-haiku-4-5"
+          ],
+          "input": 66611,
+          "output": 1267,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-haiku-4-5",
+          "ownership_rule_version": "2"
         }
       ],
       "cursor_models": [
@@ -17827,8 +17926,8 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 7170110593,
-      "total_cost": 4306.999781040001,
+      "total_tokens": 7553579272,
+      "total_cost": 4441.411142880001,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": true,
       "codex_pricing_version": "2026-07-31.v1",
@@ -17836,7 +17935,11 @@
       "cursor_snapshot_complete": true,
       "cursor_pricing_complete": true,
       "cursor_pricing_version": "cursor-charged-cents-v1",
-      "cursor_pricing_provenance": "filtered-events-charged-cents"
+      "cursor_pricing_provenance": "filtered-events-charged-cents",
+      "claude_snapshot_complete": true,
+      "claude_pricing_version": "oneapi",
+      "claude_pricing_complete": true,
+      "claude_pricing_provenance": "oneapi"
     },
     {
       "date": "2026-08-14",
@@ -17846,12 +17949,12 @@
       "codex_cache_read": 8253888000,
       "codex_output": 11564812,
       "codex_reasoning": 5192910,
-      "claude_tokens": 0,
-      "claude_cost": 0.0,
-      "claude_input": 0,
+      "claude_tokens": 535418723,
+      "claude_cost": 205.27556,
+      "claude_input": 534954549,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
-      "claude_output": 0,
+      "claude_output": 464174,
       "cursor_tokens": 291683270,
       "cursor_cost": 172.9099641,
       "cursor_input": 13155441,
@@ -17895,7 +17998,53 @@
           "pricing_version": "2026-07-31.v1"
         }
       ],
-      "claude_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-5",
+          "tokens": 461086749,
+          "cost": 185.57123592000002,
+          "components_complete": true,
+          "raw_models": [
+            "claude-opus-5"
+          ],
+          "input": 460654272,
+          "output": 432477,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-opus-5",
+          "ownership_rule_version": "2"
+        },
+        {
+          "model": "claude-sonnet-5",
+          "tokens": 38551370,
+          "cost": 10.21912752,
+          "components_complete": true,
+          "raw_models": [
+            "claude-sonnet-5"
+          ],
+          "input": 38535195,
+          "output": 16175,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-sonnet-5",
+          "ownership_rule_version": "2"
+        },
+        {
+          "model": "claude-sonnet-5-thinking",
+          "tokens": 35780604,
+          "cost": 9.48519656,
+          "components_complete": true,
+          "raw_models": [
+            "claude-sonnet-5-thinking"
+          ],
+          "input": 35765082,
+          "output": 15522,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-sonnet-5-thinking",
+          "ownership_rule_version": "2"
+        }
+      ],
       "cursor_models": [
         {
           "model": "cursor-grok-4.6-xhigh-fast",
@@ -17963,16 +18112,20 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 9156284325,
-      "total_cost": 5064.639162099999,
+      "total_tokens": 9691703048,
+      "total_cost": 5269.914722099999,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": true,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "pinned-ledger",
       "cursor_snapshot_complete": true,
-      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_complete": true,
-      "cursor_pricing_provenance": "filtered-events-charged-cents"
+      "cursor_pricing_version": "cursor-charged-cents-v1",
+      "cursor_pricing_provenance": "filtered-events-charged-cents",
+      "claude_snapshot_complete": true,
+      "claude_pricing_version": "oneapi",
+      "claude_pricing_complete": true,
+      "claude_pricing_provenance": "oneapi"
     },
     {
       "date": "2026-08-15",
@@ -17982,12 +18135,12 @@
       "codex_cache_read": 3134835840,
       "codex_output": 9535568,
       "codex_reasoning": 4619520,
-      "claude_tokens": 0,
-      "claude_cost": 0.0,
-      "claude_input": 0,
+      "claude_tokens": 73013593,
+      "claude_cost": 29.46087704,
+      "claude_input": 72898071,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
-      "claude_output": 0,
+      "claude_output": 115522,
       "cursor_tokens": 97315544,
       "cursor_cost": 56.700072000000006,
       "cursor_input": 3233290,
@@ -18045,7 +18198,23 @@
           "pricing_version": "2026-07-31.v1"
         }
       ],
-      "claude_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-5",
+          "tokens": 73013593,
+          "cost": 29.46087704,
+          "components_complete": true,
+          "raw_models": [
+            "claude-opus-5"
+          ],
+          "input": 72898071,
+          "output": 115522,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-opus-5",
+          "ownership_rule_version": "2"
+        }
+      ],
       "cursor_models": [
         {
           "model": "cursor-grok-4.6-xhigh-fast",
@@ -18071,16 +18240,20 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 3337217043,
-      "total_cost": 1749.60415976,
+      "total_tokens": 3410230636,
+      "total_cost": 1779.0650368,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": true,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "pinned-ledger",
       "cursor_snapshot_complete": true,
-      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_complete": true,
-      "cursor_pricing_provenance": "filtered-events-charged-cents"
+      "cursor_pricing_version": "cursor-charged-cents-v1",
+      "cursor_pricing_provenance": "filtered-events-charged-cents",
+      "claude_snapshot_complete": true,
+      "claude_pricing_version": "oneapi",
+      "claude_pricing_complete": true,
+      "claude_pricing_provenance": "oneapi"
     },
     {
       "date": "2026-08-16",
@@ -18180,6 +18353,10 @@
       "codex_pricing_complete": true,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "pinned-ledger",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard",
       "claude_snapshot_complete": true,
       "claude_pricing_version": "oneapi",
       "claude_pricing_complete": true,
@@ -18358,6 +18535,10 @@
       "codex_pricing_complete": true,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "pinned-ledger",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard",
       "claude_snapshot_complete": true,
       "claude_pricing_version": "oneapi",
       "claude_pricing_complete": true,
