@@ -3124,13 +3124,18 @@ def collect_usage(
     if cursor_api_complete:
         next_cursor_pricing_version = CURSOR_PRICING_VERSION
 
-    # Claude Code switches to One API's Claude model family for the last two
-    # calendar days (today and yesterday). Older local collector values stay frozen.
-    claude_rebuild_from = machine_fragments.previous_day(today)
+    # Claude Code is rebuilt from One API's Claude model family. The local
+    # Claude collector has been removed, so any date the One API Claude series
+    # covers is authoritative; rebuild from its earliest covered date and keep
+    # older prior values frozen. Fall back to the previous day when the series
+    # is absent (e.g. a failed One API refresh).
+    claude_data = claude_data_from_oneapi(oneapi_data)
+    claude_first = str((claude_data.get("history") or {}).get("first") or "")
+    claude_rebuild_from = claude_first or machine_fragments.previous_day(today)
     daily_rows = reconcile_claude_rows(
         daily_rows,
         prior_rows,
-        claude_data_from_oneapi(oneapi_data),
+        claude_data,
         rebuild_from=claude_rebuild_from,
     )
     daily_rows = reconcile_oneapi_rows(
