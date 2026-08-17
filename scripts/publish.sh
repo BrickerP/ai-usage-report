@@ -160,7 +160,7 @@ resolve_generated_rebase_conflicts() {
       unexpected=0
       while IFS= read -r path; do
         case "$path" in
-          public/usage.json|public/ai-usage-card-light.svg|public/ai-usage-card-dark.svg|docs/*) ;;
+          public/usage.json|public/ai-usage-card-light.svg|public/ai-usage-card-dark.svg|docs/*|public/machines/*) ;;
           *)
             log "ERROR: refusing to auto-resolve unexpected conflict: $path"
             unexpected=1
@@ -172,11 +172,22 @@ resolve_generated_rebase_conflicts() {
       fi
 
       while IFS= read -r path; do
-        if git cat-file -e "${remote_tip}:${path}" 2>/dev/null; then
-          git checkout "$remote_tip" -- "$path" || return 1
-        else
-          git rm -f -- "$path" || return 1
-        fi
+        case "$path" in
+          public/machines/*)
+            # Machine fragments are authoritative per-machine source data
+            # (appended from ~/.codex, monotonic, never shrunk). During a rebase
+            # the replayed local commit is the fresher snapshot, so keep it.
+            git checkout --theirs -- "$path" || git rm -f -- "$path" || return 1
+            git add -- "$path" || return 1
+            ;;
+          *)
+            if git cat-file -e "${remote_tip}:${path}" 2>/dev/null; then
+              git checkout "$remote_tip" -- "$path" || return 1
+            else
+              git rm -f -- "$path" || return 1
+            fi
+            ;;
+        esac
       done <<< "$conflicts"
     fi
 
