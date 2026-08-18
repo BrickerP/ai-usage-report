@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-08-18T15:09:53+08:00",
-  "snapshot_id": "sha256:f07022227033858584f79d5525b73211c6e7a4cd90bbdcbf0564ec44824f8407",
-  "generated_at": "2026-08-18T15:09:53+08:00",
+  "captured_at": "2026-08-19T00:07:44+08:00",
+  "snapshot_id": "sha256:10ff681c05fc9838266a7cdeb209e3deb66ea5e98872335d46269ecc11fef4b6",
+  "generated_at": "2026-08-19T00:07:44+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -74,21 +74,21 @@
     {
       "tool": "Codex",
       "history": "2026-01-08 to 2026-08-18",
-      "cost": 104130.52184615,
-      "total_tokens": 157357865770,
+      "cost": 104212.49791515,
+      "total_tokens": 157484936257,
       "models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 92854123586,
-          "cost": 62737.674568,
+          "tokens": 92981194073,
+          "cost": 62819.650637,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 2287222228,
-          "output": 204003822,
-          "cache_read": 90362897536,
+          "input": 2289958089,
+          "output": 204211600,
+          "cache_read": 90487024384,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 83142353,
+          "reasoning": 83234796,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -673,37 +673,37 @@
       "attempted_at": "2026-08-02T16:25:25+08:00",
       "last_success_at": "2026-08-02T16:25:25+08:00",
       "window_end": "2026-08-02",
-      "lag_days": 16,
+      "lag_days": 17,
       "error": "local_fragments_stale"
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-08-18T15:09:25+08:00",
+      "status": "stale",
+      "attempted_at": "2026-08-19T00:07:00+08:00",
       "last_success_at": "2026-08-18T15:09:25+08:00",
       "window_end": "2026-08-18",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_browser_unavailable"
     },
     "cursor": {
       "status": "fresh",
-      "attempted_at": "2026-08-18T15:09:25+08:00",
-      "last_success_at": "2026-08-18T15:09:25+08:00",
-      "window_end": "2026-08-18",
+      "attempted_at": "2026-08-19T00:07:00+08:00",
+      "last_success_at": "2026-08-19T00:07:00+08:00",
+      "window_end": "2026-08-19",
       "lag_days": 0,
       "error": ""
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-08-18T15:09:25+08:00",
+      "status": "stale",
+      "attempted_at": "2026-08-19T00:07:00+08:00",
       "last_success_at": "2026-08-18T15:09:25+08:00",
       "window_end": "2026-08-18",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_browser_unavailable"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-08-18T15:09:25.347754+08:00",
     "snapshot_id": "sha256:38e01b88632cc9c28b371a79c1f3c6378776d5e9a925341f110b1f145dfd690e",
@@ -2764,7 +2764,7 @@
       "records_after_deduplication": 7022,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
@@ -18484,12 +18484,12 @@
     },
     {
       "date": "2026-08-18",
-      "codex_tokens": 6402420107,
-      "codex_cost": 4268.99711,
-      "codex_input": 148396724,
-      "codex_cache_read": 6240464000,
-      "codex_output": 13559383,
-      "codex_reasoning": 5946883,
+      "codex_tokens": 6529490594,
+      "codex_cost": 4350.9731790000005,
+      "codex_input": 151132585,
+      "codex_cache_read": 6364590848,
+      "codex_output": 13767161,
+      "codex_reasoning": 6039326,
       "claude_tokens": 159236958,
       "claude_cost": 64.20587656000001,
       "claude_input": 159013701,
@@ -18512,16 +18512,16 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 6402420107,
-          "cost": 4268.99711,
+          "tokens": 6529490594,
+          "cost": 4350.9731790000005,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 148396724,
-          "output": 13559383,
-          "cache_read": 6240464000,
+          "input": 151132585,
+          "output": 13767161,
+          "cache_read": 6364590848,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 5946883,
+          "reasoning": 6039326,
           "pricing_version": "2026-07-31.v1"
         }
       ],
@@ -18575,8 +18575,8 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 6662328153,
-      "total_cost": 4339.734524160001,
+      "total_tokens": 6789398640,
+      "total_cost": 4421.710593160001,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": true,
       "codex_pricing_version": "2026-07-31.v1",
