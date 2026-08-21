@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-08-21T00:25:40+08:00",
-  "snapshot_id": "sha256:31de142af37b9b3400949769369ee5fd8545d806f1b168f3db4a4c4275027bbd",
-  "generated_at": "2026-08-21T00:25:40+08:00",
+  "captured_at": "2026-08-21T15:06:39+08:00",
+  "snapshot_id": "sha256:2235cf15e564619f0182a85249e13e56271593e7f95771278c1a7232df8dd78d",
+  "generated_at": "2026-08-21T15:06:39+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -73,22 +73,22 @@
   "tools": [
     {
       "tool": "Codex",
-      "history": "2026-01-08 to 2026-08-20",
-      "cost": 113806.54397625,
-      "total_tokens": 175714957056,
+      "history": "2026-01-08 to 2026-08-21",
+      "cost": 118300.64598045,
+      "total_tokens": 185087002170,
       "models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 109193734623,
-          "cost": 72137.57264,
+          "tokens": 116706408462,
+          "cost": 76419.662243,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 2434155026,
-          "output": 223288397,
-          "cache_read": 106536291200,
+          "input": 2502593065,
+          "output": 230670821,
+          "cache_read": 113973144576,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 91471035,
+          "reasoning": 94514096,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -107,16 +107,16 @@
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 11766875321,
-          "cost": 1618.8520118000001,
+          "tokens": 13626246596,
+          "cost": 1830.8644130000002,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 307638155,
-          "output": 28015278,
-          "cache_read": 11431221888,
+          "input": 324745919,
+          "output": 29825157,
+          "cache_read": 13271675520,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 11867897,
+          "reasoning": 12608445,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -647,33 +647,33 @@
       "error": "local_fragments_stale"
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-08-21T00:25:05+08:00",
+      "status": "stale",
+      "attempted_at": "2026-08-21T15:04:48+08:00",
       "last_success_at": "2026-08-21T00:25:05+08:00",
       "window_end": "2026-08-21",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_network_unavailable"
     },
     "cursor": {
       "status": "fresh",
-      "attempted_at": "2026-08-21T00:25:05+08:00",
-      "last_success_at": "2026-08-21T00:25:05+08:00",
+      "attempted_at": "2026-08-21T15:04:48+08:00",
+      "last_success_at": "2026-08-21T15:04:48+08:00",
       "window_end": "2026-08-21",
       "lag_days": 0,
       "error": ""
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-08-21T00:25:05+08:00",
+      "status": "stale",
+      "attempted_at": "2026-08-21T15:04:48+08:00",
       "last_success_at": "2026-08-21T00:25:05+08:00",
       "window_end": "2026-08-21",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_network_unavailable"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-08-21T00:25:05.162913+08:00",
     "snapshot_id": "sha256:4f91c3fa66f07a6531ad518faac28179f07519f07aee57848e2fdea2f091c302",
@@ -2801,7 +2801,7 @@
       "records_after_deduplication": 9843,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
@@ -18818,12 +18818,12 @@
     },
     {
       "date": "2026-08-21",
-      "codex_tokens": 0,
-      "codex_cost": 0.0,
-      "codex_input": 0,
-      "codex_cache_read": 0,
-      "codex_output": 0,
-      "codex_reasoning": 0,
+      "codex_tokens": 9372045114,
+      "codex_cost": 4494.1020042,
+      "codex_input": 85545803,
+      "codex_cache_read": 9277307008,
+      "codex_output": 9192303,
+      "codex_reasoning": 3783609,
       "claude_tokens": 0,
       "claude_cost": 0.0,
       "claude_input": 0,
@@ -18843,7 +18843,36 @@
       "oneapi_cache_write": 0,
       "oneapi_output": 2913,
       "oneapi_requests": 13,
-      "codex_models": [],
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 7512673839,
+          "cost": 4282.089603,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 68438039,
+          "output": 7382424,
+          "cache_read": 7436853376,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 3043061,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 1859371275,
+          "cost": 212.0124012,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 17107764,
+          "output": 1809879,
+          "cache_read": 1840453632,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 740548,
+          "pricing_version": "2026-07-31.v1"
+        }
+      ],
       "claude_models": [],
       "cursor_models": [],
       "oneapi_models": [
@@ -18863,8 +18892,16 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 3155199,
-      "total_cost": 0.0732788
+      "total_tokens": 9375200313,
+      "total_cost": 4494.175283,
+      "codex_snapshot_complete": true,
+      "codex_pricing_complete": true,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_provenance": "pinned-ledger",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard"
     }
   ],
   "notes": {
