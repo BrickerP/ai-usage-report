@@ -36,8 +36,8 @@ ACCOUNTING_VERSION = 2
 DEFAULT_DAYS = 5
 AUTH_EXPIRY_WARNING_HOURS = 48
 STATUS_VERSION = 1
-OWNERSHIP_RULE = "claude_family_to_claude_code_remainder_to_oneapi"
-OWNERSHIP_RULE_VERSION = 2
+OWNERSHIP_RULE = "codex_family_to_codex_claude_family_to_claude_remainder_to_oneapi"
+OWNERSHIP_RULE_VERSION = 3
 ACCOUNT_SCOPE = {
     "kind": "account",
     "scope_id": "oneapi:self",
@@ -235,7 +235,24 @@ def _new_model_acc() -> dict[str, Any]:
     }
 
 
-def _model_breakdown(model_name: str, model_totals: dict[str, Any], ownership: str) -> dict[str, Any]:
+def _model_breakdown(
+    model_name: str,
+    model_totals: dict[str, Any],
+    ownership: str,
+    *,
+    merge_cache: bool = False,
+) -> dict[str, Any]:
+    """Build a per-model series breakdown.
+
+    ``merge_cache`` folds gateway cache-write tokens into the cache_read field
+    so the series-level cache component (which sums read + write) stays
+    identical to the model-level attribution.
+    """
+    cache_read = model_totals["cache_read_tokens"]
+    cache_write = model_totals["cache_write_tokens"]
+    if merge_cache:
+        cache_read = cache_read + cache_write
+        cache_write = 0
     return {
         "model": model_name,
         "canonical_model": model_name,
@@ -245,8 +262,8 @@ def _model_breakdown(model_name: str, model_totals: dict[str, Any], ownership: s
         "ownership_rule_version": OWNERSHIP_RULE_VERSION,
         "input_tokens": model_totals["input_tokens"],
         "output_tokens": model_totals["output_tokens"],
-        "cache_read_tokens": model_totals["cache_read_tokens"],
-        "cache_write_tokens": model_totals["cache_write_tokens"],
+        "cache_read_tokens": cache_read,
+        "cache_write_tokens": cache_write,
         "total_tokens": model_totals["total_tokens"],
         "count": model_totals["count"],
         "quota_total": model_totals["quota_total"],
@@ -263,10 +280,11 @@ def aggregate_records(
 ) -> dict[str, Any]:
     """Aggregate One API traffic by ownership.
 
-    The GPT/Codex model family stays excluded (Codex is collected from local
-    rollout jsonl and does not transit this gateway).  Claude model family
-    traffic is split out into a dedicated ``claude`` series destined for the
-    "Claude Code" tool; every other model remains the residual "One API" series.
+    The GPT/Codex model family is split out into a dedicated ``codex`` series
+    (destined to append onto the local Codex "Codex" tool series) rather than
+    being excluded.  Claude model family traffic is split out into a dedicated
+    ``claude`` series destined for the "Claude Code" tool; every other model
+    remains the residual "One API" series.
     """
     tz = resolve_tz(timezone)
     by_date_model: dict[str, dict[str, dict[str, Any]]] = defaultdict(
@@ -275,9 +293,9 @@ def aggregate_records(
     claude_by_date_model: dict[str, dict[str, dict[str, Any]]] = defaultdict(
         lambda: defaultdict(_new_model_acc)
     )
-    excluded: dict[str, dict[str, int]] = {
-        "codex": {"requests": 0, "tokens": 0, "quota": 0},
-    }
+    codex_by_date_model: dict[str, dict[str, dict[str, Any]]] = defaultdict(
+        lambda: defaultdict(_new_model_acc)
+    )
     unclassified = {"requests": 0, "tokens": 0, "quota": 0}
     raw_tokens = 0
     raw_quota = 0
@@ -290,11 +308,6 @@ def aggregate_records(
         raw_tokens += tokens
         raw_quota += quota
         owner = classify_model(record.get("model_name"))
-        if owner == "codex":
-            excluded["codex"]["requests"] += 1
-            excluded["codex"]["tokens"] += tokens
-            excluded["codex"]["quota"] += quota
-            continue
         if owner == "unclassified":
             unclassified["requests"] += 1
             unclassified["tokens"] += tokens
@@ -310,7 +323,12 @@ def aggregate_records(
         date_key = dt.datetime.fromtimestamp(created_at, tz=tz).strftime("%Y-%m-%d")
         raw_model = str(record.get("model_name") or "").strip()
         canonical_model = canonical_model_name(raw_model)
-        target = claude_by_date_model if owner == "claude" else by_date_model
+        if owner == "claude":
+            target = claude_by_date_model
+        elif owner == "codex":
+            target = codex_by_date_model
+        else:
+            target = by_date_model
         acc = target[date_key][canonical_model]
         acc["raw_models"].add(raw_model)
         acc["input_tokens"] += safe_int(record.get("prompt_tokens"))
@@ -429,10 +447,64 @@ def aggregate_records(
         claude_quota += day_quota
         claude_requests += day_requests
 
+    # Codex family: cache_write_tokens is the gateway's cache-write count, which
+    # maps onto the Codex "cache read" component the same way the local Codex
+    # collector does not split cache creation.  This series appends onto the
+    # local Codex series in the pipeline (additive, no deduplication).
+    codex_daily: list[dict[str, Any]] = []
+    codex_input = 0
+    codex_output = 0
+    codex_cache_read = 0
+    codex_tokens = 0
+    codex_quota = 0
+    codex_requests = 0
+    for date_key in sorted(codex_by_date_model):
+        models = codex_by_date_model[date_key]
+        day_input = sum(model["input_tokens"] for model in models.values())
+        day_output = sum(model["output_tokens"] for model in models.values())
+        day_cache_read = sum(
+            model["cache_read_tokens"] + model["cache_write_tokens"]
+            for model in models.values()
+        )
+        day_tokens = sum(model["total_tokens"] for model in models.values())
+        day_quota = sum(model["quota_total"] for model in models.values())
+        day_requests = sum(model["count"] for model in models.values())
+        codex_daily.append(
+            {
+                "date": date_key,
+                "tokens": day_tokens,
+                "input": day_input,
+                "output": day_output,
+                "cache_read": day_cache_read,
+                "requests": day_requests,
+                "quota": day_quota,
+                "cost_cny": quota_to_cny(day_quota),
+                "cost_usd": quota_to_usd(day_quota),
+                "model_breakdowns": [
+                    _model_breakdown(model_name, model_totals, "codex", merge_cache=True)
+                    for model_name, model_totals in sorted(
+                        models.items(),
+                        key=lambda item: (
+                            -item[1]["total_tokens"],
+                            item[0],
+                        ),
+                    )
+                ],
+            }
+        )
+        codex_input += day_input
+        codex_output += day_output
+        codex_cache_read += day_cache_read
+        codex_tokens += day_tokens
+        codex_quota += day_quota
+        codex_requests += day_requests
+
     first = daily[0]["date"] if daily else ""
     last = daily[-1]["date"] if daily else ""
     claude_first = claude_daily[0]["date"] if claude_daily else ""
     claude_last = claude_daily[-1]["date"] if claude_daily else ""
+    codex_first = codex_daily[0]["date"] if codex_daily else ""
+    codex_last = codex_daily[-1]["date"] if codex_daily else ""
     calendar_days = window_calendar_days(window_start, window_end)
     window_complete = bool(window_start and window_end and calendar_days)
     return {
@@ -451,7 +523,7 @@ def aggregate_records(
         "ownership_rule_version": OWNERSHIP_RULE_VERSION,
         "timezone": timezone,
         "request_count": len(records),
-        "included_request_count": total_requests + claude_requests,
+        "included_request_count": total_requests + claude_requests + codex_requests,
         "window": {
             "start": window_start,
             "end": window_end,
@@ -465,7 +537,7 @@ def aggregate_records(
             "quota": raw_quota,
             "requests": len(records),
         },
-        "excluded": excluded,
+        "excluded": {},
         "unclassified": unclassified,
         "totals": {
             "input_tokens": total_input,
@@ -503,6 +575,30 @@ def aggregate_records(
                 "requests": claude_requests,
             },
             "daily_timeline": claude_daily,
+        },
+        "codex": {
+            "available": True,
+            "complete": window_complete,
+            "timezone": timezone,
+            "window": {
+                "start": window_start,
+                "end": window_end,
+                "timezone": timezone,
+                "calendar_days": calendar_days,
+                "complete": window_complete,
+            },
+            "history": {"first": codex_first, "last": codex_last},
+            "totals": {
+                "input_tokens": codex_input,
+                "output_tokens": codex_output,
+                "cache_read_tokens": codex_cache_read,
+                "total_tokens": codex_tokens,
+                "quota": codex_quota,
+                "cost_cny": quota_to_cny(codex_quota),
+                "cost_usd": quota_to_usd(codex_quota),
+                "requests": codex_requests,
+            },
+            "daily_timeline": codex_daily,
         },
     }
 
