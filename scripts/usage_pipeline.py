@@ -599,6 +599,89 @@ def reconcile_claude_rows(
     return result
 
 
+def codex_data_from_oneapi(oneapi_data: dict[str, Any]) -> dict[str, Any]:
+    codex = oneapi_data.get("codex")
+    if isinstance(codex, dict):
+        return codex
+    return {}
+
+
+def apply_codex_gateway_point(row: dict[str, Any], point: dict[str, Any]) -> None:
+    """Additive Codex gateway point: oneapi codex series appends onto the local
+    Codex series rather than replacing it.  The gateway's cache_write_tokens
+    (gateway cache-write) maps onto the Codex cache_read component.
+    """
+    had_local = bool(
+        safe_int(row.get("codex_tokens")) or safe_float(row.get("codex_cost"))
+    )
+    row["codex_tokens"] = safe_int(row.get("codex_tokens")) + safe_int(
+        point.get("tokens")
+    )
+    row["codex_cost"] = safe_float(row.get("codex_cost")) + safe_float(
+        point.get("cost_usd")
+    )
+    row["codex_input"] = safe_int(row.get("codex_input")) + safe_int(
+        point.get("input")
+    )
+    row["codex_output"] = safe_int(row.get("codex_output")) + safe_int(
+        point.get("output")
+    )
+    row["codex_cache_read"] = safe_int(row.get("codex_cache_read")) + safe_int(
+        point.get("cache_read")
+    )
+    row["codex_models"] = normalize_models(
+        [
+            *(
+                row.get("codex_models")
+                if isinstance(row.get("codex_models"), list)
+                else []
+            ),
+            *(
+                point.get("model_breakdowns")
+                if isinstance(point.get("model_breakdowns"), list)
+                else []
+            ),
+        ]
+    )
+    if not had_local:
+        row["codex_snapshot_complete"] = True
+        row["codex_pricing_version"] = "oneapi"
+        row["codex_pricing_complete"] = True
+        row["codex_pricing_provenance"] = "oneapi"
+
+
+def reconcile_codex_rows(
+    current_rows: list[dict[str, Any]],
+    codex_data: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Append the One API Codex model family onto the local Codex series.
+
+    Local Codex is collected per-machine from ``~/.codex`` jsonl and is already
+    present in ``current_rows``.  The gateway's Codex family represents
+    additional gateway-routed Codex traffic, so the two are summed (additive,
+    no deduplication).
+    """
+    by_date = {
+        str(row.get("date")): dict(row)
+        for row in current_rows
+        if isinstance(row, dict) and row.get("date")
+    }
+    for point in codex_data.get("daily_timeline") or []:
+        if not isinstance(point, dict) or not point.get("date"):
+            continue
+        date_key = str(point["date"])
+        row = by_date.setdefault(date_key, empty_daily_row(date_key))
+        apply_codex_gateway_point(row, point)
+
+    result: list[dict[str, Any]] = []
+    for date_key in sorted(by_date):
+        row = by_date[date_key]
+        recompute_daily_total(row)
+        if has_daily_activity(row):
+            result.append(row)
+    return result
+
+
 def oneapi_point_from_comate(point: dict[str, Any]) -> dict[str, Any]:
     return {
         "date": str(point.get("date") or ""),
@@ -799,6 +882,14 @@ def reconcile_oneapi_payload(
             if isinstance(point, dict) and point.get("date"):
                 by_date[str(point["date"])] = copy.deepcopy(point)
 
+    # Merge the gateway Codex family series the same way: prior days outside the
+    # fresh window are retained so the appended Codex series stays complete.
+    codex_by_date: dict[str, dict[str, Any]] = {}
+    if compatible:
+        for point in (prior.get("codex") or {}).get("daily_timeline") or []:
+            if isinstance(point, dict) and point.get("date"):
+                codex_by_date[str(point["date"])] = copy.deepcopy(point)
+
     result = copy.deepcopy(fetched if fetched else prior)
     if fetched.get("available") and fetched.get("complete"):
         window = fetched.get("window")
@@ -822,6 +913,21 @@ def reconcile_oneapi_payload(
             gateway_point["source"] = "oneapi"
             by_date[date_key] = gateway_point
 
+        fetched_codex = fetched.get("codex") if isinstance(fetched.get("codex"), dict) else {}
+        if fetched_codex.get("daily_timeline"):
+            for date_key in list(codex_by_date):
+                if start <= date_key <= end:
+                    del codex_by_date[date_key]
+            for point in fetched_codex.get("daily_timeline") or []:
+                if not isinstance(point, dict) or not point.get("date"):
+                    continue
+                date_key = str(point["date"])
+                if not (start <= date_key <= end):
+                    raise ValueError(
+                        f"One API Codex point {date_key} falls outside {start}..{end}"
+                    )
+                codex_by_date[date_key] = copy.deepcopy(point)
+
     for point in legacy_comate.get("daily_timeline") or []:
         if not isinstance(point, dict) or not point.get("date"):
             continue
@@ -839,6 +945,16 @@ def reconcile_oneapi_payload(
         "total_tokens": safe_int(legacy_comate.get("total_tokens")),
         "note": "Local Comate context deltas are retained only for dates without One API gateway coverage.",
     }
+    if codex_by_date:
+        codex_series = (
+            result.get("codex")
+            if isinstance(result.get("codex"), dict)
+            else {}
+        )
+        result["codex"] = {
+            **codex_series,
+            "daily_timeline": [codex_by_date[key] for key in sorted(codex_by_date)],
+        }
     return recompute_oneapi_totals(result)
 
 
@@ -1423,6 +1539,7 @@ def render_today_text(data: dict[str, Any]) -> str:
         "Historical local Comate context deltas are retained under One API.",
         "Codex reasoning tokens are included in total but omitted from this table.",
         "Claude Code is collected from One API's Claude model family.",
+        "Codex totals include local ~/.codex rollout jsonl plus the One API gateway's Codex model family.",
     ]
     cursor = data.get("cursor") if isinstance(data.get("cursor"), dict) else {}
     if cursor.get("error"):
@@ -2034,6 +2151,7 @@ PUBLIC_ONEAPI_FIELDS = {
     "available",
     "captured_at",
     "claude",
+    "codex",
     "complete",
     "daily_timeline",
     "excluded",
@@ -3133,6 +3251,12 @@ def collect_usage(
         claude_data_from_oneapi(oneapi_data),
         rebuild_from=claude_rebuild_from,
     )
+    # The One API Codex model family appends onto the local Codex series
+    # (gateway-routed Codex traffic that is not present in local ~/.codex jsonl).
+    daily_rows = reconcile_codex_rows(
+        daily_rows,
+        codex_data_from_oneapi(oneapi_data),
+    )
     daily_rows = reconcile_oneapi_rows(
         daily_rows,
         durable_oneapi_rows,
@@ -3497,6 +3621,9 @@ def main() -> int:
                         "Codex cache = cache read; Claude cache = create + read; "
                         "Cursor cache = write + read. Claude Code is collected from the "
                         "One API gateway's Claude model family. "
+                        "Codex totals are the local ~/.codex rollout jsonl summed across "
+                        "public/machines/*.json plus the One API gateway's Codex model "
+                        "family (gateway-routed Codex traffic). "
                         "One API includes only non-GPT/Codex and non-Claude model families "
                         "from the gateway, such as Grok and DeepSeek. Historical local "
                         "Comate context deltas are retained under One API only on dates "
@@ -3513,12 +3640,13 @@ def main() -> int:
                         "Cursor costs come from the authenticated Dashboard API; "
                         "One API quota uses 250,000 units/CNY and is estimated at "
                         "~0.14 USD/CNY. "
-                        "Codex daily totals are SUMMED across public/machines/*.json; "
+                        "Codex daily totals are SUMMED across public/machines/*.json "
+                        "plus the One API gateway's Codex model family; "
                         "Claude Code and One API are account-level and rebuilt from the "
                         "One API gateway on each publish; "
                         "Cursor is account-level and replaced from the API on each publish "
                         "(if API unavailable, prior usage.json Cursor series is kept); "
-                        "One API is account-level, excludes GPT/Codex traffic, "
+                        "One API is account-level, excludes no owned model families, "
                         "and keeps its prior series when authentication or pagination fails."
                     ),
                     "merge": (

@@ -150,7 +150,7 @@ def saved_browser_state(*, expiry: float = 2_000_000_000) -> dict:
 
 
 class OneApiExclusiveAggregationTests(unittest.TestCase):
-    def test_excludes_codex_but_keeps_claude_in_own_series_and_other_models(self):
+    def test_splits_codex_and_claude_into_own_series_and_keeps_other_models(self):
         result = oneapi_usage.aggregate_records(
             [
                 record("gpt-5.6-sol", prompt=100, quota=1000),
@@ -174,7 +174,9 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
             [row["model"] for row in result["daily_timeline"][0]["model_breakdowns"]],
             ["deepseek-v4-flash", "grok-4.5", "provider.deepseek-v4"],
         )
-        self.assertEqual(result["excluded"]["codex"]["requests"], 4)
+        self.assertEqual(result["excluded"], {})
+        self.assertEqual(result["codex"]["totals"]["requests"], 4)
+        self.assertEqual(result["codex"]["totals"]["total_tokens"], 1800)
         self.assertEqual(
             result["claude"]["totals"]["requests"],
             2,
@@ -183,6 +185,24 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
             result["claude"]["totals"]["total_tokens"],
             900,
         )
+        self.assertEqual(result["included_request_count"], 9)
+
+    def test_codex_series_folds_gateway_cache_write_into_cache_read(self):
+        result = oneapi_usage.aggregate_records(
+            [record("gpt-5.6-sol", prompt=10, cache_write=5, quota=1000)],
+            timezone="Asia/Shanghai",
+            window_start="2026-07-29",
+            window_end="2026-07-29",
+        )
+        point = result["codex"]["daily_timeline"][0]
+        self.assertEqual(point["tokens"], 15)
+        self.assertEqual(point["input"], 10)
+        self.assertEqual(point["cache_read"], 5)
+        self.assertEqual(point["output"], 0)
+        model = point["model_breakdowns"][0]
+        self.assertEqual(model["cache_read_tokens"], 5)
+        self.assertEqual(model["cache_write_tokens"], 0)
+        self.assertEqual(model["total_tokens"], 15)
 
     def test_provider_prefixed_owned_models_have_stable_canonical_names(self):
         cases = {
@@ -1059,6 +1079,117 @@ class OneApiReconciliationTests(unittest.TestCase):
         self.assertEqual(by_date["2026-07-29"]["oneapi_cache_read"], 150)
         self.assertAlmostEqual(by_date["2026-07-29"]["oneapi_cost"], 0.14)
         self.assertAlmostEqual(by_date["2026-07-29"]["total_cost"], 0.14)
+
+    def test_codex_gateway_series_appends_onto_local_codex(self):
+        row = usage_report.empty_daily_row("2026-07-29")
+        row.update(
+            {
+                "codex_tokens": 100,
+                "codex_cost": 1.0,
+                "codex_input": 50,
+                "codex_cache_read": 30,
+                "codex_output": 20,
+                "codex_models": [{"model": "local-codex", "tokens": 100, "cost": 1.0}],
+            }
+        )
+        codex_data = {
+            "daily_timeline": [
+                {
+                    "date": "2026-07-29",
+                    "tokens": 15,
+                    "input": 10,
+                    "output": 0,
+                    "cache_read": 5,
+                    "cost_usd": 0.01,
+                    "model_breakdowns": [
+                        {"model": "gpt-5.6-sol", "total_tokens": 15, "cost_usd": 0.01}
+                    ],
+                }
+            ]
+        }
+
+        rows = usage_report.reconcile_codex_rows([row], codex_data)
+        merged = rows[0]
+
+        self.assertEqual(merged["codex_tokens"], 115)
+        self.assertAlmostEqual(merged["codex_cost"], 1.01)
+        self.assertEqual(merged["codex_input"], 60)
+        self.assertEqual(merged["codex_cache_read"], 35)
+        self.assertEqual(merged["codex_output"], 20)
+        self.assertEqual(merged["total_tokens"], 115)
+        self.assertEqual(
+            {m["model"] for m in merged["codex_models"]},
+            {"local-codex", "gpt-5.6-sol"},
+        )
+        self.assertEqual(merged.get("codex_pricing_version", ""), "")
+
+    def test_codex_gateway_point_on_empty_date_sets_oneapi_provenance(self):
+        row = usage_report.empty_daily_row("2026-07-29")
+        codex_data = {
+            "daily_timeline": [
+                {
+                    "date": "2026-07-29",
+                    "tokens": 15,
+                    "input": 10,
+                    "output": 0,
+                    "cache_read": 5,
+                    "cost_usd": 0.01,
+                    "model_breakdowns": [
+                        {"model": "gpt-5.6-sol", "total_tokens": 15, "cost_usd": 0.01}
+                    ],
+                }
+            ]
+        }
+
+        rows = usage_report.reconcile_codex_rows([row], codex_data)
+        merged = rows[0]
+
+        self.assertEqual(merged["codex_tokens"], 15)
+        self.assertEqual(merged["codex_pricing_provenance"], "oneapi")
+        self.assertEqual(merged["codex_pricing_version"], "oneapi")
+
+    def test_codex_payload_merge_keeps_prior_days_outside_fresh_window(self):
+        prior = {
+            "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+            "daily_timeline": [],
+            "codex": {
+                "daily_timeline": [
+                    {
+                        "date": "2026-07-27",
+                        "tokens": 3,
+                        "input": 3,
+                        "output": 0,
+                        "cache_read": 0,
+                        "cost_usd": 0.001,
+                    }
+                ]
+            },
+        }
+        fetched = {
+            "available": True,
+            "complete": True,
+            "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+            "window": {"start": "2026-07-28", "end": "2026-07-29"},
+            "daily_timeline": [],
+            "codex": {
+                "daily_timeline": [
+                    {
+                        "date": "2026-07-29",
+                        "tokens": 7,
+                        "input": 7,
+                        "output": 0,
+                        "cache_read": 0,
+                        "cost_usd": 0.002,
+                    }
+                ]
+            },
+        }
+
+        result = usage_report.reconcile_oneapi_payload(
+            prior, fetched, {"daily_timeline": [], "total_tokens": 0}
+        )
+        codex_days = [p["date"] for p in result["codex"]["daily_timeline"]]
+        self.assertEqual(codex_days, ["2026-07-27", "2026-07-29"])
 
     def test_payload_keeps_prior_models_and_adds_non_overlapping_comate_history(self):
         prior = {

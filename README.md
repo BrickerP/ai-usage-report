@@ -74,8 +74,11 @@ What happens:
    - A lower source snapshot is never allowed to overwrite the stored high-water value
 2. `git pull --rebase` — pick up the other Mac’s fragment and latest account snapshots
 3. After the pull, fetch and atomically cache a complete five-calendar-day One API
-   account snapshot. Retain only residual non-GPT/Codex and non-Claude models;
-   preserve the complete prior model timeline outside that window
+   account snapshot. Keep the Codex model family and Claude model family in their
+   own series (Codex appends onto the local Codex series; Claude rebuilds the
+   Claude Code series), and retain only residual non-GPT/Codex and non-Claude
+   models in the One API series; preserve the complete prior model timeline
+   outside that window
 4. Fetch Cursor Dashboard API (account-level; it has its own `cursor_mutable_from` boundary)
 5. SUM local tools across all fragments and reconcile each account-level source by
    its latest complete snapshot → write `public/usage.json`
@@ -93,10 +96,10 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 
 | Tool | Rule |
 |------|------|
-| Codex | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected from `~/.codex` rollout JSONL; report = SUM across `machines/*.json` |
+| Codex | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected from `~/.codex` rollout JSONL; report = SUM across `machines/*.json` **plus the One API gateway's Codex model family** (additive append, no dedup) |
 | Claude Code | Account-level; rebuilt from the One API gateway's Claude model family for the last two calendar days, older local collector values stay frozen; do not SUM across Macs |
 | Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
-| One API | Account-level residual gateway series; collect after pull, exclude the GPT/Codex model family, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |
+| One API | Account-level residual gateway series; collect after pull, keep the GPT/Codex model family in a dedicated `codex` series and the Claude family in the `claude` series, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |
 
 The non-overlap rule assumes Cursor reports its own cloud usage and
 `use_openai_key=false`. This is the currently verified account configuration.
@@ -188,8 +191,9 @@ Do not use `--force-reseed` for this migration.
 - Historical Comate: `~/.comate-engine/store/chat_session_*` (positive
   `contextUsed` deltas; cost always 0), migrated under One API only on dates
   without gateway coverage
-- One API: management log API through a saved `chrome-use` UUAP session. GPT/Codex
-  model families are excluded; the Claude model family is split out into the
+- One API: management log API through a saved `chrome-use` UUAP session. The GPT/Codex
+  model families are split out into a dedicated `codex` series (appended onto the
+  local Codex tool series); the Claude model family is split out into the
   Claude Code tool; other named models such as Grok,
   DeepSeek, GLM, Kimi, and MiniMax form the residual series. Empty model names are
   excluded as unclassified. Ownership matching recognizes provider prefixes
@@ -202,7 +206,8 @@ Do not use `--force-reseed` for this migration.
   Codex estimates; unresolved historical models retain any collector
   estimate, or remain unpriced, with explicit `legacy`/`unpriced` provenance
   rather than being presented as part of the pinned ledger.
-  Cursor uses its account API; One API quota (including the Claude Code series)
+  Cursor uses its account API; One API quota (including the Claude Code series
+  and the gateway-routed Codex series)
   is converted at 250,000 units/CNY and estimated at the pinned 0.14 USD/CNY rate.
 
 Save or refresh the One API browser state after logging in manually:
