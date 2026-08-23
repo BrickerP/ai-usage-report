@@ -971,12 +971,16 @@ class OneApiPublishFlowTests(unittest.TestCase):
     def test_account_snapshot_is_atomic_five_day_and_collected_after_pull(self):
         source = (ROOT / "scripts" / "publish.sh").read_text(encoding="utf-8")
         main = source.index("# Capture local sources before touching the network")
+        recover = source.index("\nrecover_leftover_generated_git_state", main)
         pull = source.index("\npull_latest", main)
         collect = source.index("collect_oneapi_cache", pull)
         merge = source.index("remerge_usage", collect)
 
+        self.assertLess(recover, pull)
         self.assertLess(pull, collect)
         self.assertLess(collect, merge)
+        self.assertIn("backup_local_machine_fragment", source)
+        self.assertIn("sidecar backup", source)
         self.assertIn("--skip-oneapi-live", source)
         self.assertNotIn("passing the existing One API cache", source)
         self.assertIn("--days 5", source)

@@ -12,12 +12,18 @@
 #
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PUBLISH_SOURCE_ONLY=0
+if [[ "${AI_USAGE_PUBLISH_SOURCE_ONLY:-}" == "1" ]]; then
+  PUBLISH_SOURCE_ONLY=1
+else
+  cd "$ROOT"
+fi
 
 SKIP_COLLECT=0
 SKIP_PUSH=0
 BACKFILL_CODEX_CACHE=0
+if (( PUBLISH_SOURCE_ONLY == 0 )); then
 for arg in "$@"; do
   case "$arg" in
     --skip-collect) SKIP_COLLECT=1 ;;
@@ -33,6 +39,7 @@ for arg in "$@"; do
       ;;
   esac
 done
+fi
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 GH_PUBLISH_ACCOUNT="${GH_PUBLISH_ACCOUNT:-BrickerP}"
@@ -82,10 +89,10 @@ require_publish_auth() {
   die "Git credential dry-run push probe failed after ${PULL_RETRY_ATTEMPTS} attempts for $REMOTE_NAME"
 }
 
-if (( BACKFILL_CODEX_CACHE == 1 && SKIP_COLLECT == 1 )); then
+if (( PUBLISH_SOURCE_ONLY == 0 && BACKFILL_CODEX_CACHE == 1 && SKIP_COLLECT == 1 )); then
   die "--backfill-codex-cache cannot be combined with --skip-collect"
 fi
-if (( BACKFILL_CODEX_CACHE == 1 )) && [[ -z "$AI_USAGE_MACHINE_ID" ]]; then
+if (( PUBLISH_SOURCE_ONLY == 0 && BACKFILL_CODEX_CACHE == 1 )) && [[ -z "$AI_USAGE_MACHINE_ID" ]]; then
   die "AI_USAGE_MACHINE_ID is required for --backfill-codex-cache"
 fi
 
@@ -108,6 +115,274 @@ require_backfill_at_remote_tip() {
   fi
 }
 
+is_generated_report_path() {
+  case "$1" in
+    public/usage.json|public/ai-usage-card-light.svg|public/ai-usage-card-dark.svg|docs/*|public/machines/*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+list_unmerged_paths() {
+  git diff --name-only --diff-filter=U
+}
+
+machine_fragment_path() {
+  if [[ -z "${AI_USAGE_MACHINE_ID:-}" ]]; then
+    return 1
+  fi
+  printf '%s\n' "$ROOT/public/machines/${AI_USAGE_MACHINE_ID}.json"
+}
+
+json_file_is_valid() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  python3 -c 'import json, sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$path" >/dev/null 2>&1
+}
+
+unmerged_paths_are_generated_only() {
+  local path unexpected=0
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    if ! is_generated_report_path "$path"; then
+      log "ERROR: refusing to auto-resolve unexpected conflict: $path"
+      unexpected=1
+    fi
+  done <<< "$1"
+  return "$unexpected"
+}
+
+restore_unmerged_machine_json() {
+  local path="$1" tmp
+  if json_file_is_valid "$path"; then
+    git reset -q HEAD -- "$path" || return 1
+    return 0
+  fi
+  tmp="$(mktemp "${TMPDIR:-/tmp}/ai-usage-unmerged.XXXXXX")"
+  if git show ":3:$path" >"$tmp" 2>/dev/null && json_file_is_valid "$tmp"; then
+    mv -f -- "$tmp" "$path" || return 1
+    git reset -q HEAD -- "$path" || return 1
+    return 0
+  fi
+  if git show ":2:$path" >"$tmp" 2>/dev/null && json_file_is_valid "$tmp"; then
+    mv -f -- "$tmp" "$path" || return 1
+    git reset -q HEAD -- "$path" || return 1
+    return 0
+  fi
+  rm -f -- "$tmp"
+  return 1
+}
+
+clear_unmerged_generated_paths() {
+  local path
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    case "$path" in
+      public/machines/*.json)
+        restore_unmerged_machine_json "$path" || return 1
+        ;;
+      *)
+        git reset -q HEAD -- "$path" || return 1
+        git checkout -q HEAD -- "$path" 2>/dev/null || rm -f -- "$path"
+        ;;
+    esac
+  done <<< "$1"
+}
+
+drop_stale_generated_autostashes() {
+  local i line entry files path keep
+  local -a stash_refs=()
+  while IFS= read -r line; do
+    [[ "$line" == *'publish.sh auto-stash'* ]] || continue
+    entry="${line%%:*}"
+    [[ -n "$entry" ]] || continue
+    stash_refs+=("$entry")
+  done <<EOF
+$(git stash list)
+EOF
+  (( ${#stash_refs[@]} > 0 )) || return 0
+
+  for (( i=${#stash_refs[@]}-1; i>=0; i-- )); do
+    entry="${stash_refs[$i]}"
+    files="$(git stash show --name-only "$entry" 2>/dev/null || true)"
+    [[ -n "$files" ]] || continue
+    keep=0
+    while IFS= read -r path; do
+      [[ -n "$path" ]] || continue
+      if ! is_generated_report_path "$path"; then
+        keep=1
+        break
+      fi
+    done <<< "$files"
+    if (( keep == 0 )); then
+      log "dropping leftover generated auto-stash ${entry}"
+      git stash drop -q "$entry" || log "WARN: could not drop leftover auto-stash ${entry}"
+    fi
+  done
+}
+
+reset_generated_paths_to_head() {
+  local path
+  for path in public/usage.json public/ai-usage-card-light.svg public/ai-usage-card-dark.svg; do
+    if git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
+      git restore --source=HEAD --staged --worktree -- "$path" || return 1
+    fi
+  done
+  if git ls-files -- "public/machines/" | grep -q .; then
+    git restore --source=HEAD --staged --worktree -- public/machines || return 1
+  fi
+  if git ls-files -- "docs/" | grep -q .; then
+    git restore --source=HEAD --staged --worktree -- docs || return 1
+  fi
+}
+
+backup_local_machine_fragment() {
+  local src dest
+  src="$(machine_fragment_path)" || return 0
+  [[ -f "$src" ]] || return 0
+  dest="$(mktemp "${TMPDIR:-/tmp}/ai-usage-fragment.${AI_USAGE_MACHINE_ID}.XXXXXX")"
+  cp "$src" "$dest" || die "could not backup local machine fragment"
+  printf '%s\n' "$dest"
+}
+
+restore_local_machine_fragment() {
+  local backup="$1" dest
+  [[ -n "$backup" && -f "$backup" ]] || return 0
+  dest="$(machine_fragment_path)" || {
+    rm -f -- "$backup"
+    return 0
+  }
+  mkdir -p "$(dirname "$dest")"
+  cp "$backup" "$dest" || die "could not restore local machine fragment"
+  rm -f -- "$backup"
+}
+
+resolve_generated_stash_conflicts() {
+  local conflicts path
+  conflicts="$(list_unmerged_paths)"
+  [[ -n "$conflicts" ]] || return 1
+  if ! unmerged_paths_are_generated_only "$conflicts"; then
+    return 1
+  fi
+
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    case "$path" in
+      public/machines/*)
+        git checkout --theirs -- "$path" || git rm -f -- "$path" || return 1
+        ;;
+      *)
+        git checkout --ours -- "$path" || git rm -f -- "$path" || return 1
+        ;;
+    esac
+    git add -- "$path" || return 1
+  done <<< "$conflicts"
+
+  if [[ -n "$(list_unmerged_paths)" ]]; then
+    return 1
+  fi
+  if git stash list | head -1 | grep -q 'publish.sh auto-stash'; then
+    git stash drop -q || log "WARN: resolved stash conflicts but could not drop auto-stash"
+  fi
+  return 0
+}
+
+snapshot_valid_machine_fragments() {
+  local dest="$1" path rel
+  mkdir -p "$dest"
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    case "$path" in
+      public/machines/*.json)
+        if json_file_is_valid "$ROOT/$path"; then
+          rel="${path#public/machines/}"
+          mkdir -p "$(dirname "$dest/$rel")"
+          cp "$ROOT/$path" "$dest/$rel" || return 1
+        fi
+        ;;
+    esac
+  done <<EOF
+$( { git diff --name-only --diff-filter=U; git ls-files -- "public/machines/"; } | sort -u )
+EOF
+}
+
+restore_snapshotted_machine_fragments() {
+  local src="$1" file rel dest
+  [[ -d "$src" ]] || return 0
+  while IFS= read -r file; do
+    rel="${file#"$src"/}"
+    dest="$ROOT/public/machines/$rel"
+    mkdir -p "$(dirname "$dest")"
+    cp "$file" "$dest" || return 1
+    git reset -q HEAD -- "public/machines/$rel" >/dev/null 2>&1 || true
+  done < <(find "$src" -type f -name '*.json' 2>/dev/null)
+}
+
+recover_leftover_generated_git_state() {
+  local conflicts remote_tip snapshot
+
+  snapshot="$(mktemp -d "${TMPDIR:-/tmp}/ai-usage-fragment-snap.XXXXXX")"
+  snapshot_valid_machine_fragments "$snapshot" || true
+
+  if [ -d "$ROOT/.git/rebase-merge" ] || [ -d "$ROOT/.git/rebase-apply" ]; then
+    log "WARN: leftover rebase detected; attempting generated-file recovery"
+    remote_tip="$(git rev-parse "${REMOTE_NAME}/${PUBLISH_BRANCH}" 2>/dev/null || git rev-parse HEAD)"
+    if ! resolve_generated_rebase_conflicts "$remote_tip"; then
+      log "WARN: aborting leftover rebase so publish can continue"
+      abort_publish_rebase
+    fi
+  fi
+
+  if [ -f "$ROOT/.git/MERGE_HEAD" ]; then
+    conflicts="$(list_unmerged_paths)"
+    if [[ -n "$conflicts" ]] && ! unmerged_paths_are_generated_only "$conflicts"; then
+      rm -rf -- "$snapshot"
+      die "refusing to auto-abort a merge with non-generated conflicts"
+    fi
+    log "WARN: aborting leftover merge of generated files"
+    git merge --abort || {
+      rm -rf -- "$snapshot"
+      die "failed to abort leftover merge"
+    }
+  fi
+
+  conflicts="$(list_unmerged_paths)"
+  if [[ -n "$conflicts" ]]; then
+    if ! unmerged_paths_are_generated_only "$conflicts"; then
+      rm -rf -- "$snapshot"
+      die "refusing to auto-reset non-generated unmerged paths"
+    fi
+    log "WARN: clearing leftover unmerged generated files"
+    clear_unmerged_generated_paths "$conflicts" || {
+      rm -rf -- "$snapshot"
+      die "failed to clear leftover unmerged generated files"
+    }
+  fi
+
+  restore_snapshotted_machine_fragments "$snapshot" || {
+    rm -rf -- "$snapshot"
+    die "failed to restore snapshotted machine fragments"
+  }
+  rm -rf -- "$snapshot"
+
+  drop_stale_generated_autostashes
+}
+
+restore_autostash_after_pull() {
+  if git stash pop; then
+    return 0
+  fi
+  log "WARN: git stash pop conflicted; auto-resolving generated files"
+  if resolve_generated_stash_conflicts; then
+    return 0
+  fi
+  return 1
+}
+
+
 reject_in_progress_git_ops() {
   if [ -d "$ROOT/.git/rebase-merge" ] || [ -d "$ROOT/.git/rebase-apply" ]; then
     die "refusing to publish during an in-progress rebase"
@@ -117,6 +392,9 @@ reject_in_progress_git_ops() {
   fi
   if [ -d "$ROOT/.git/cherry-pick-head" ] || [ -f "$ROOT/.git/CHERRY_PICK_HEAD" ]; then
     die "refusing to publish during an in-progress cherry-pick"
+  fi
+  if [[ -n "$(list_unmerged_paths)" ]]; then
+    die "refusing to publish with unmerged paths"
   fi
 }
 
@@ -159,13 +437,10 @@ resolve_generated_rebase_conflicts() {
     if [[ -n "$conflicts" ]]; then
       unexpected=0
       while IFS= read -r path; do
-        case "$path" in
-          public/usage.json|public/ai-usage-card-light.svg|public/ai-usage-card-dark.svg|docs/*|public/machines/*) ;;
-          *)
-            log "ERROR: refusing to auto-resolve unexpected conflict: $path"
-            unexpected=1
-            ;;
-        esac
+        if ! is_generated_report_path "$path"; then
+          log "ERROR: refusing to auto-resolve unexpected conflict: $path"
+          unexpected=1
+        fi
       done <<< "$conflicts"
       if (( unexpected == 1 )); then
         return 1
@@ -224,9 +499,18 @@ pull_latest() {
   remote_tip="$(git rev-parse "${REMOTE_NAME}/${PUBLISH_BRANCH}")" || \
     die "could not resolve ${REMOTE_NAME}/${PUBLISH_BRANCH}"
 
+  local fragment_backup=""
+  fragment_backup="$(backup_local_machine_fragment || true)"
+  trap '[[ -n "${fragment_backup:-}" ]] && rm -f -- "$fragment_backup"' RETURN
+
+  # Generated report artifacts are regenerated after pull. Reset them so a
+  # local machine fragment cannot stall stash/rebase the way it did on 8/23.
+  log "resetting generated report artifacts to HEAD before pull --rebase"
+  reset_generated_paths_to_head || die "could not reset generated report artifacts before pull"
+
   local stashed=0
   if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-    log "stashing local changes before pull --rebase"
+    log "stashing remaining non-generated local changes before pull --rebase"
     git stash push -u -m "publish.sh auto-stash $(date -u '+%Y-%m-%dT%H:%MZ')" || die "git stash failed"
     stashed=1
   fi
@@ -245,8 +529,10 @@ pull_latest() {
       log "ERROR: pull --rebase has a non-generated or unresolvable conflict"
       abort_publish_rebase
       if (( stashed )); then
-        git stash pop || log "WARN: stash pop failed after pull error"
+        restore_autostash_after_pull || log "WARN: stash pop failed after pull error"
       fi
+      restore_local_machine_fragment "$fragment_backup"
+      fragment_backup=""
       die "git pull --rebase ${REMOTE_NAME}/${PUBLISH_BRANCH} failed"
     fi
     if (( attempt < PULL_RETRY_ATTEMPTS )); then
@@ -255,8 +541,10 @@ pull_latest() {
     else
       log "ERROR: pull --rebase failed after ${PULL_RETRY_ATTEMPTS} attempts"
       if (( stashed )); then
-        git stash pop || log "WARN: stash pop failed after pull error"
+        restore_autostash_after_pull || log "WARN: stash pop failed after pull error"
       fi
+      restore_local_machine_fragment "$fragment_backup"
+      fragment_backup=""
       die "git pull --rebase ${REMOTE_NAME}/${PUBLISH_BRANCH} failed"
     fi
     ((attempt += 1))
@@ -264,9 +552,11 @@ pull_latest() {
 
   if (( stashed )); then
     log "restoring stashed local changes"
-    git stash pop || die "git stash pop conflict after pull --rebase; resolve manually"
+    restore_autostash_after_pull || die "git stash pop conflict after pull --rebase; resolve manually"
   fi
 
+  restore_local_machine_fragment "$fragment_backup"
+  fragment_backup=""
   ensure_on_publish_branch
 }
 
@@ -661,11 +951,16 @@ push_with_remmerge() {
   die "git push failed after re-merge retries"
 }
 
+if (( PUBLISH_SOURCE_ONLY == 1 )); then
+  return 0
+fi
+
 command -v python3 >/dev/null || die "python3 not found"
 command -v npm >/dev/null || die "npm not found"
 
 # Capture local sources before touching the network.  A GitHub outage must not
 # prevent this Mac from advancing its durable local high-water snapshot.
+recover_leftover_generated_git_state
 if (( BACKFILL_CODEX_CACHE == 1 )); then
   recover_codex_cache_transaction
 fi
@@ -687,7 +982,7 @@ if (( SKIP_PUSH == 0 )); then
   require_publish_auth
 fi
 
-# Pull after local capture; pull_latest safely stashes and restores the fragment.
+# Pull after local capture. The local machine fragment is restored from a sidecar backup so generated-file stash/rebase conflicts cannot stall publish.
 pull_latest
 require_backfill_at_remote_tip
 
