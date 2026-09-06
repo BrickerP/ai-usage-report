@@ -1211,6 +1211,7 @@ def fetch_cursor_usage(
     expected_event_count: int | None = None
     first_event = ""
     last_event = ""
+    last_event_day = ""
     cursor_day_tokens: dict[str, int] = defaultdict(int)
     cursor_day_input: dict[str, int] = defaultdict(int)
     cursor_day_output: dict[str, int] = defaultdict(int)
@@ -1274,6 +1275,7 @@ def fetch_cursor_usage(
             if not day_key:
                 filtered_complete = False
                 continue
+            last_event_day = max(last_event_day, day_key)
             input_tokens = safe_int(event.get("input_tokens"))
             output_tokens = safe_int(event.get("output_tokens"))
             cache_write_tokens = safe_int(event.get("cache_write_tokens"))
@@ -1432,6 +1434,7 @@ def fetch_cursor_usage(
         "history": {
             "first": first_event or cursor_api.ms_to_iso(start_ms),
             "last": last_event or cursor_api.ms_to_iso(end_ms),
+            "data_through": last_event_day,
             "events": expected_event_count or 0,
             "input": total_input,
             "output": total_output,
@@ -2228,7 +2231,11 @@ SOURCE_STATUS_ERRORS = {
         "oneapi_state_unavailable",
         "oneapi_unavailable",
     },
-    "cursor": {"cursor_incomplete", "cursor_unavailable"},
+    "cursor": {
+        "cursor_data_lagging",
+        "cursor_incomplete",
+        "cursor_unavailable",
+    },
     "oneapi": {
         "oneapi_incomplete",
         "oneapi_browser_unavailable",
@@ -2452,11 +2459,19 @@ def reconcile_source_status(
         attempt = attempts.get(source) if isinstance(attempts.get(source), dict) else {}
         attempted = bool(attempt.get("attempted"))
         fresh = bool(attempt.get("fresh"))
+        attempt_window_end = str(attempt.get("window_end") or "")
+        attempt_lag_days = source_lag_days(today, attempt_window_end)
         prior_last_success = str(prior.get("last_success_at") or "")
         observed_last_success = str(attempt.get("last_success_at") or "")
 
         if fresh:
-            status = "fresh"
+            status = (
+                "stale"
+                if source == "cursor"
+                and attempt_lag_days is not None
+                and attempt_lag_days > 0
+                else "fresh"
+            )
         elif attempted:
             status = (
                 "stale"
@@ -2488,13 +2503,11 @@ def reconcile_source_status(
             if fresh
             else observed_last_success or prior_last_success
         )
-        window_end = (
-            str(attempt.get("window_end") or "")
-            if fresh or observed_last_success
-            else str(prior.get("window_end") or "")
-        )
+        window_end = attempt_window_end or str(prior.get("window_end") or "")
         error = (
-            ""
+            "cursor_data_lagging"
+            if source == "cursor" and status == "stale" and attempt_lag_days is not None
+            else ""
             if fresh
             else public_source_error(
                 source,
@@ -3342,7 +3355,16 @@ def collect_usage(
                 "attempted": True,
                 "fresh": cursor_api_complete,
                 "has_data": bool(cursor_pts),
-                "window_end": today if cursor_api_complete else "",
+                "window_end": str(
+                    (
+                        cursor_usage.get("history")
+                        if isinstance(cursor_usage.get("history"), dict)
+                        else {}
+                    ).get("data_through")
+                    or ""
+                )
+                if cursor_api_complete
+                else "",
                 "error": cursor_status_error,
             },
             "oneapi": {
