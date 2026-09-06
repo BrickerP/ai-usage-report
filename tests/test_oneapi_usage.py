@@ -1898,6 +1898,27 @@ class SourceStatusTests(unittest.TestCase):
         self.assertEqual(result["codex"]["window_end"], "2026-07-30")
         self.assertEqual(result["codex"]["lag_days"], 0)
 
+    def test_cursor_status_uses_actual_data_through_date(self):
+        result = usage_report.reconcile_source_status(
+            {},
+            {
+                "cursor": {
+                    "attempted": True,
+                    "fresh": True,
+                    "has_data": True,
+                    "window_end": "2026-08-15",
+                    "error": "",
+                }
+            },
+            attempted_at="2026-09-06T20:00:00+08:00",
+            today="2026-09-06",
+        )
+
+        self.assertEqual(result["cursor"]["status"], "stale")
+        self.assertEqual(result["cursor"]["window_end"], "2026-08-15")
+        self.assertEqual(result["cursor"]["lag_days"], 22)
+        self.assertEqual(result["cursor"]["error"], "cursor_data_lagging")
+
     def test_retired_machine_metadata_survives_a_future_fragment_write(self):
         with tempfile.TemporaryDirectory() as tmp:
             machines = Path(tmp)
