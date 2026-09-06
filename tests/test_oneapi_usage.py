@@ -1283,10 +1283,9 @@ class OneApiReconciliationTests(unittest.TestCase):
 
         self.assertEqual(sum(model["tokens"] for model in models), 90)
         self.assertAlmostEqual(sum(model["cost"] for model in models), 9)
-        self.assertIn(
-            {"model": "Legacy unknown", "tokens": 10, "cost": 1.0},
-            models,
-        )
+        legacy = next(model for model in models if model["model"] == "Legacy unknown")
+        self.assertEqual(legacy["tokens"], 10)
+        self.assertAlmostEqual(legacy["cost"], 1.0)
 
 
 class SourceStatusTests(unittest.TestCase):

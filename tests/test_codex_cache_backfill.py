@@ -625,6 +625,9 @@ class CliContractTests(unittest.TestCase):
                 )
                 for source in (ROOT / "scripts").glob("*.py"):
                     (repo / "scripts" / source.name).write_bytes(source.read_bytes())
+                (repo / "scripts" / "model_prices.v1.json").write_bytes(
+                    (ROOT / "scripts" / "model_prices.v1.json").read_bytes()
+                )
                 (repo / ".gitignore").write_bytes((ROOT / ".gitignore").read_bytes())
 
                 fragment = repo / "public" / "machines" / "mac-test.json"
