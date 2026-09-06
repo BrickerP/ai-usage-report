@@ -2213,6 +2213,7 @@ SOURCE_STATUS_NAMES = ("codex", "claude", "cursor", "oneapi")
 SOURCE_STATUS_ERRORS = {
     "codex": {
         "codex_unavailable",
+        "codex_scan_incomplete",
         "local_fragments_stale",
         "local_fragments_unavailable",
         "local_fragment_timestamp_invalid",
@@ -2372,8 +2373,11 @@ def local_fragment_source_attempt(
     tz = resolve_tz(timezone)
     collected: list[tuple[dt.datetime, str, str]] = []
     missing: list[str] = []
+    incomplete: list[str] = []
     for fragment in active_fragments:
         machine_id = str(fragment.get("machine_id") or "unknown")
+        if fragment.get("scan_complete") is False:
+            incomplete.append(machine_id)
         raw = str(fragment.get("collected_at") or "").strip()
         if not raw:
             missing.append(machine_id)
@@ -2386,6 +2390,20 @@ def local_fragment_source_attempt(
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=tz)
         collected.append((parsed.astimezone(tz), raw, machine_id))
+
+    if incomplete:
+        return {
+            "attempted": attempted,
+            "fresh": False,
+            "has_data": True,
+            "attempted_at": max(
+                (raw for _parsed, raw, _machine_id in collected),
+                default="",
+            ),
+            "last_success_at": "",
+            "window_end": "",
+            "error": "codex_scan_incomplete",
+        }
 
     if missing or len(collected) != len(active_fragments):
         return {
@@ -2735,6 +2753,14 @@ def collect_local_machine(
         comate,
         model_seed_complete=model_seed_complete,
     )
+    fragment_payload = machine_fragments.load_machine_fragment(
+        machines_path, machine_id
+    )
+    if fragment_payload is None:
+        raise FileNotFoundError(f"machine fragment disappeared: {fragment_file}")
+    fragment_payload["scan_complete"] = bool(codex_usage.get("scan_complete", True))
+    fragment_payload["scan_errors"] = dict(codex_usage.get("scan_errors") or {})
+    machine_fragments.write_json_atomic(fragment_file, fragment_payload)
     local_summary["machine_fragment"] = str(fragment_file)
     local_summary["fragment_mode"] = fragment_meta.get("mode")
     local_summary["fragment_stats"] = fragment_meta.get("stats")

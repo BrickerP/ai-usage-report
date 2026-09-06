@@ -255,6 +255,60 @@ restore_local_machine_fragment() {
     rm -f -- "$backup"
     return 0
   }
+  if [[ -f "$dest" ]]; then
+    # Pull may have brought a newer copy of this machine fragment from another
+    # publisher. Restore only when the sidecar is valid and demonstrably newer.
+    # A valid remote object without a timestamp is retained because its recency
+    # cannot be proven; a malformed remote file is repaired from a valid sidecar.
+    if python3 - "$backup" "$dest" <<'PY'
+import datetime as dt
+import json
+import sys
+
+def load(path):
+    try:
+        value = json.load(open(path, encoding="utf-8"))
+    except (OSError, ValueError):
+        return "invalid"
+    return value if isinstance(value, dict) else None
+
+def collected_at(value):
+    raw = value.get("collected_at") if isinstance(value, dict) else None
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(raw.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(dt.timezone.utc)
+
+backup = load(sys.argv[1])
+current = load(sys.argv[2])
+backup_time = collected_at(backup)
+current_time = collected_at(current)
+should_restore = (
+    isinstance(backup, dict)
+    and (
+        current == "invalid"
+        or (
+            backup_time is not None
+            and isinstance(current, dict)
+            and current_time is not None
+            and backup_time > current_time
+        )
+    )
+)
+raise SystemExit(0 if should_restore else 1)
+PY
+    then
+      mkdir -p "$(dirname "$dest")"
+      cp "$backup" "$dest" || die "could not restore local machine fragment"
+    fi
+    rm -f -- "$backup"
+    return 0
+  fi
   mkdir -p "$(dirname "$dest")"
   cp "$backup" "$dest" || die "could not restore local machine fragment"
   rm -f -- "$backup"
