@@ -26,7 +26,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPTS_DIR.parent
 DEFAULT_TZ = "Asia/Shanghai"
 PUBLIC_SCHEMA_VERSION = 4
-MODEL_BREAKDOWN_VERSION = 4
+MODEL_BREAKDOWN_VERSION = 5
 DEFAULT_MACHINES_DIR = REPO_ROOT / "public" / "machines"
 PINNED_MODEL_PRICES_PATH = SCRIPTS_DIR / "model_prices.v1.json"
 CURSOR_START = dt.datetime(2025, 1, 1, tzinfo=dt.timezone.utc)
@@ -412,7 +412,8 @@ def codex_daily_points(daily: list[dict[str, Any]]) -> list[dict[str, Any]]:
         model_tokens = sum(safe_int(model.get("tokens")) for model in models)
         model_cost = sum(safe_float(model.get("cost")) for model in models)
         point["snapshot_complete"] = (
-            component_total == point["tokens"]
+            bool(row.get("scan_complete", True))
+            and component_total == point["tokens"]
             and model_tokens == point["tokens"]
             and abs(model_cost - point["cost"]) <= max(1e-9, abs(point["cost"]) * 1e-9)
         )
@@ -1943,8 +1944,13 @@ def codex_daily_from_jsonl(
         )
 
     day_acc: dict[str, dict[str, Any]] = {}
-    seen_requests: set[tuple[str, int, int, int]] = set()
     model_usage: dict[str, dict[str, dict[str, int]]] = {}
+    scan_errors = {
+        "unreadable_files": 0,
+        "invalid_json_lines": 0,
+        "invalid_timestamps": 0,
+    }
+    sessions: list[dict[str, Any]] = []
 
     # Rollout filenames carry a UTC creation timestamp (YYYY-MM-DDTHH-MM-SS).
     # A session created after the end of the requested window cannot contain
@@ -1963,34 +1969,58 @@ def codex_daily_from_jsonl(
                 if stamp and stamp >= earliest_skip:
                     continue
         file_model = ""
-        events: list[tuple[str, int, int, int, int]] = []
+        session_id = f"file:{path}"
+        parent_thread_id = ""
+        events: list[dict[str, Any]] = []
+        file_scan_errors = defaultdict(int)
         try:
             with open(path, encoding="utf-8", errors="replace") as handle:
-                for line in handle:
+                for event_order, line in enumerate(handle):
                     line = line.strip()
                     if not line:
                         continue
                     try:
                         obj = json.loads(line)
                     except json.JSONDecodeError:
+                        file_scan_errors["invalid_json_lines"] += 1
                         continue
                     if not isinstance(obj, dict):
                         continue
                     typ = obj.get("type") or ""
                     payload = obj.get("payload") if isinstance(obj.get("payload"), dict) else {}
+                    if typ == "session_meta":
+                        session_id = str(
+                            payload.get("id")
+                            or payload.get("session_id")
+                            or session_id
+                        ).strip()
+                        parent_thread_id = str(
+                            payload.get("parent_thread_id") or ""
+                        ).strip()
+                        continue
                     if typ == "turn_context":
                         new_model = str(payload.get("model") or "").strip()
                         if new_model:
                             file_model = new_model
                         continue
                     if typ == "event_msg" and payload.get("type") == "token_count":
-                        ts = obj.get("timestamp") or payload.get("timestamp") or ""
+                        raw_timestamp = obj.get("timestamp") or payload.get("timestamp")
+                        if not isinstance(raw_timestamp, str):
+                            file_scan_errors["invalid_timestamps"] += 1
+                            continue
                         try:
-                            event_dt = dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                        except ValueError:
+                            event_dt = dt.datetime.fromisoformat(
+                                raw_timestamp.strip().replace("Z", "+00:00")
+                            )
+                        except (TypeError, ValueError):
+                            file_scan_errors["invalid_timestamps"] += 1
                             continue
                         if event_dt.tzinfo is None:
                             event_dt = event_dt.replace(tzinfo=dt.timezone.utc)
+                        event_dt = event_dt.astimezone(dt.timezone.utc)
+                        normalized_timestamp = event_dt.isoformat(
+                            timespec="microseconds"
+                        ).replace("+00:00", "Z")
                         local = event_dt.astimezone(tz)
                         if since_dt and local < since_dt:
                             continue
@@ -2008,24 +2038,82 @@ def codex_daily_from_jsonl(
                         reasoning = safe_int(last.get("reasoning_output_tokens"))
                         if not (input_tokens or cached_input or output_tokens or reasoning):
                             continue
-                        events.append((ts, input_tokens, cached_input, output_tokens, reasoning))
+                        events.append(
+                            {
+                                "timestamp": normalized_timestamp,
+                                "event_dt": event_dt,
+                                "order": event_order,
+                                "input": input_tokens,
+                                "cache_read": cached_input,
+                                "output": output_tokens,
+                                "reasoning": reasoning,
+                                "model": file_model,
+                            }
+                        )
         except OSError:
-            continue
+            file_scan_errors["unreadable_files"] += 1
+        for error_name, count in file_scan_errors.items():
+            scan_errors[error_name] += count
+        sessions.append(
+            {
+                "path": str(path),
+                "session_id": session_id,
+                "parent_thread_id": parent_thread_id,
+                "events": events,
+                "order": len(sessions),
+            }
+        )
 
-        for ts, input_tokens, cached_input, output_tokens, reasoning in events:
-            request_key = (ts, input_tokens, cached_input, output_tokens)
-            if request_key in seen_requests:
-                continue
-            seen_requests.add(request_key)
+    sessions_by_id = {
+        session["session_id"]: session
+        for session in sessions
+        if session["session_id"]
+    }
 
-            # Determine local calendar day for this request's timestamp.
-            try:
-                event_dt = dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            except ValueError:
+    def root_and_depth(session: dict[str, Any]) -> tuple[str, int]:
+        current_id = session["session_id"]
+        root_id = current_id
+        depth = 0
+        visited: set[str] = set()
+        while current_id not in visited:
+            visited.add(current_id)
+            current = sessions_by_id.get(current_id)
+            parent_id = str((current or {}).get("parent_thread_id") or "").strip()
+            if not parent_id:
+                break
+            root_id = parent_id
+            depth += 1
+            current_id = parent_id
+        return root_id, depth
+
+    ordered_sessions = [
+        (root_and_depth(session)[0], root_and_depth(session)[1], session)
+        for session in sessions
+    ]
+    ordered_sessions.sort(key=lambda item: (item[0], item[1], item[2]["order"]))
+    seen_candidates: dict[str, dict[tuple[Any, ...], set[str]]] = defaultdict(dict)
+    for root_id, _depth, session in ordered_sessions:
+        session_key = session["session_id"]
+        for event in session["events"]:
+            input_tokens = event["input"]
+            cached_input = event["cache_read"]
+            output_tokens = event["output"]
+            reasoning = event["reasoning"]
+            candidate_key = (
+                event["timestamp"],
+                input_tokens,
+                cached_input,
+                output_tokens,
+                reasoning,
+            )
+            candidate_sessions = seen_candidates[root_id].setdefault(
+                candidate_key, set()
+            )
+            if candidate_sessions and session_key not in candidate_sessions:
                 continue
-            if event_dt.tzinfo is None:
-                event_dt = event_dt.replace(tzinfo=dt.timezone.utc)
-            local = event_dt.astimezone(tz)
+            candidate_sessions.add(session_key)
+
+            local = event["event_dt"].astimezone(tz)
             day = local.strftime("%Y-%m-%d")
             acc = day_acc.setdefault(
                 day,
@@ -2041,7 +2129,7 @@ def codex_daily_from_jsonl(
             acc["output"] += output_tokens
             acc["reasoning"] += reasoning
 
-            model_key = file_model or "unknown"
+            model_key = event["model"] or "unknown"
             if model_key == "codex-auto-review":
                 model_key = "gpt-5.5"
             macc = model_usage.setdefault(day, {}).setdefault(
@@ -2051,6 +2139,8 @@ def codex_daily_from_jsonl(
             macc["cache_read"] += cached_input
             macc["output"] += output_tokens
             macc["reasoning"] += reasoning
+
+    scan_complete = not any(scan_errors.values())
 
     daily: list[dict[str, Any]] = []
     for day in sorted(day_acc):
@@ -2081,6 +2171,7 @@ def codex_daily_from_jsonl(
                 "totalTokens": total_tokens,
                 "costUSD": 0.0,
                 "models": models,
+                "scan_complete": scan_complete,
             }
         )
 
@@ -2092,7 +2183,14 @@ def codex_daily_from_jsonl(
         "totalTokens": sum(d["totalTokens"] for d in daily),
         "costUSD": 0.0,
     }
-    return reprice_models_with_pinned_ledger({"daily": daily, "totals": totals})
+    return reprice_models_with_pinned_ledger(
+        {
+            "daily": daily,
+            "totals": totals,
+            "scan_complete": scan_complete,
+            "scan_errors": scan_errors,
+        }
+    )
 
 
 def filter_points_since(points: list[dict[str, Any]], since: str) -> list[dict[str, Any]]:
@@ -2115,6 +2213,7 @@ SOURCE_STATUS_NAMES = ("codex", "claude", "cursor", "oneapi")
 SOURCE_STATUS_ERRORS = {
     "codex": {
         "codex_unavailable",
+        "codex_scan_incomplete",
         "local_fragments_stale",
         "local_fragments_unavailable",
         "local_fragment_timestamp_invalid",
@@ -2259,7 +2358,8 @@ def local_fragment_source_attempt(
     *,
     attempted: bool,
 ) -> dict[str, Any]:
-    if not fragments:
+    active_fragments = [fragment for fragment in fragments if fragment.get("retired") is not True]
+    if not active_fragments:
         return {
             "attempted": attempted,
             "fresh": False,
@@ -2273,8 +2373,11 @@ def local_fragment_source_attempt(
     tz = resolve_tz(timezone)
     collected: list[tuple[dt.datetime, str, str]] = []
     missing: list[str] = []
-    for fragment in fragments:
+    incomplete: list[str] = []
+    for fragment in active_fragments:
         machine_id = str(fragment.get("machine_id") or "unknown")
+        if fragment.get("scan_complete") is False:
+            incomplete.append(machine_id)
         raw = str(fragment.get("collected_at") or "").strip()
         if not raw:
             missing.append(machine_id)
@@ -2288,7 +2391,21 @@ def local_fragment_source_attempt(
             parsed = parsed.replace(tzinfo=tz)
         collected.append((parsed.astimezone(tz), raw, machine_id))
 
-    if missing or len(collected) != len(fragments):
+    if incomplete:
+        return {
+            "attempted": attempted,
+            "fresh": False,
+            "has_data": True,
+            "attempted_at": max(
+                (raw for _parsed, raw, _machine_id in collected),
+                default="",
+            ),
+            "last_success_at": "",
+            "window_end": "",
+            "error": "codex_scan_incomplete",
+        }
+
+    if missing or len(collected) != len(active_fragments):
         return {
             "attempted": attempted,
             "fresh": False,
@@ -2586,12 +2703,14 @@ def collect_local_machine(
         )
 
     model_codex_usage = codex_usage
-    model_seed_complete = first_seed or not needs_model_seed
+    model_seed_complete = bool(codex_usage.get("scan_complete", True)) and (
+        first_seed or not needs_model_seed
+    )
     if needs_model_seed and not first_seed:
         model_seed_complete = False
         try:
             model_codex_usage = codex_daily_from_jsonl(home, timezone)
-            model_seed_complete = True
+            model_seed_complete = bool(model_codex_usage.get("scan_complete", True))
         except Exception as exc:
             print(
                 f"warning: full model backfill failed; keeping incremental model rows: {exc}",
@@ -2634,6 +2753,14 @@ def collect_local_machine(
         comate,
         model_seed_complete=model_seed_complete,
     )
+    fragment_payload = machine_fragments.load_machine_fragment(
+        machines_path, machine_id
+    )
+    if fragment_payload is None:
+        raise FileNotFoundError(f"machine fragment disappeared: {fragment_file}")
+    fragment_payload["scan_complete"] = bool(codex_usage.get("scan_complete", True))
+    fragment_payload["scan_errors"] = dict(codex_usage.get("scan_errors") or {})
+    machine_fragments.write_json_atomic(fragment_file, fragment_payload)
     local_summary["machine_fragment"] = str(fragment_file)
     local_summary["fragment_mode"] = fragment_meta.get("mode")
     local_summary["fragment_stats"] = fragment_meta.get("stats")

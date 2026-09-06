@@ -90,13 +90,17 @@ What happens:
 but the page shows the affected source as stale or failed instead of implying that
 every source was refreshed successfully.
 
+The GitHub Actions pipeline runs the collector regression suite separately from the
+frontend build, so changes to JSONL parsing and source reconciliation are checked
+before a report update is deployed.
+
 Same launchd schedule on both Macs is fine; a push collision just triggers re-merge.
 
 ### Merge rules
 
 | Tool | Rule |
 |------|------|
-| Codex | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected from `~/.codex` rollout JSONL; report = SUM across `machines/*.json` **plus the One API gateway's Codex model family** (additive append, no dedup) |
+| Codex | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected from `~/.codex` rollout JSONL; report = SUM across `machines/*.json` **plus the One API gateway's Codex model family** (additive append, no dedup). A fragment marked `retired` remains in historical totals but is excluded from active freshness and hostname checks |
 | Claude Code | Account-level; rebuilt from the One API gateway's Claude model family for the last two calendar days, older local collector values stay frozen; do not SUM across Macs |
 | Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
 | One API | Account-level residual gateway series; collect after pull, keep the GPT/Codex model family in a dedicated `codex` series and the Claude family in the `claude` series, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |

@@ -11,7 +11,30 @@ permissions:
   actions: write
 
 jobs:
+  collector:
+    runs-on: macos-latest
+    env:
+      GIT_AUTHOR_NAME: CI
+      GIT_AUTHOR_EMAIL: ci@users.noreply.github.com
+      GIT_COMMITTER_NAME: CI
+      GIT_COMMITTER_EMAIL: ci@users.noreply.github.com
+    concurrency:
+      group: ci-collector-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run collector tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
   frontend:
+    needs: collector
     runs-on: ubuntu-latest
     concurrency:
       group: ci-frontend-${{ github.ref }}

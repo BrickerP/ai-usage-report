@@ -50,10 +50,13 @@ def turn_context(model: str, ts: str = "2026-08-03T00:00:00.000Z") -> dict:
     }
 
 
-def session_meta(session_id: str = "s1") -> dict:
+def session_meta(session_id: str = "s1", *, parent_id: str | None = None) -> dict:
+    payload = {"id": session_id, "cwd": "/tmp", "originator": "Codex Desktop"}
+    if parent_id:
+        payload["parent_thread_id"] = parent_id
     return {
         "type": "session_meta",
-        "payload": {"id": session_id, "cwd": "/tmp", "originator": "Codex Desktop"},
+        "payload": payload,
     }
 
 
@@ -92,7 +95,7 @@ class CodexDailyFromJsonlTests(unittest.TestCase):
             self.assertEqual(day["outputTokens"], 30)
             self.assertEqual(payload["totals"]["totalTokens"], 330)
 
-    def test_deduplicates_same_request_across_parent_and_subagent(self):
+    def test_deduplicates_same_request_across_parent_and_child(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
             sessions = home / ".codex" / "sessions" / "2026" / "08" / "03"
@@ -100,15 +103,25 @@ class CodexDailyFromJsonlTests(unittest.TestCase):
             evt = token_event(
                 "2026-08-02T17:00:00.000Z", input_tokens=100, cached_input=80, output=10
             )
+            child_evt = token_event(
+                "2026-08-03T01:00:00.000+08:00",
+                input_tokens=100,
+                cached_input=80,
+                output=10,
+            )
             write_session(
                 sessions,
                 "rollout-2026-08-03T01-00-00-parent.jsonl",
-                [session_meta("p"), turn_context("gpt-5.6-sol"), evt],
+                [session_meta("root"), turn_context("gpt-5.6-sol"), evt],
             )
             write_session(
                 sessions,
                 "rollout-2026-08-03T01-00-00-child.jsonl",
-                [session_meta("c"), turn_context("gpt-5.6-luna"), evt],
+                [
+                    session_meta("child", parent_id="root"),
+                    turn_context("gpt-5.6-luna"),
+                    child_evt,
+                ],
             )
             payload = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
             self.assertEqual(payload["daily"][0]["totalTokens"], 110)
@@ -116,6 +129,61 @@ class CodexDailyFromJsonlTests(unittest.TestCase):
             models = payload["daily"][0]["models"]
             self.assertEqual(models["gpt-5.6-sol"]["totalTokens"], 110)
             self.assertNotIn("gpt-5.6-luna", models)
+
+    def test_same_session_keeps_identical_token_events(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions" / "2026" / "08" / "03"
+            sessions.mkdir(parents=True)
+            evt = token_event(
+                "2026-08-02T17:00:00.000Z",
+                input_tokens=100,
+                cached_input=80,
+                output=10,
+            )
+            write_session(
+                sessions,
+                "rollout-2026-08-03T01-00-00-same-session.jsonl",
+                [session_meta("same"), turn_context("gpt-5.6-sol"), evt, evt],
+            )
+
+            payload = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
+
+            self.assertEqual(payload["daily"][0]["totalTokens"], 220)
+
+    def test_uses_the_most_recent_turn_context_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions" / "2026" / "08" / "03"
+            sessions.mkdir(parents=True)
+            write_session(
+                sessions,
+                "rollout-2026-08-03T01-00-00-model-switch.jsonl",
+                [
+                    session_meta("switch"),
+                    turn_context("gpt-5.6-sol"),
+                    token_event(
+                        "2026-08-02T17:00:00.000Z",
+                        input_tokens=100,
+                        cached_input=80,
+                        output=10,
+                    ),
+                    turn_context("gpt-5.6-luna"),
+                    token_event(
+                        "2026-08-02T17:00:01.000Z",
+                        input_tokens=200,
+                        cached_input=180,
+                        output=20,
+                    ),
+                ],
+            )
+
+            models = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")["daily"][0][
+                "models"
+            ]
+
+            self.assertEqual(models["gpt-5.6-sol"]["totalTokens"], 110)
+            self.assertEqual(models["gpt-5.6-luna"]["totalTokens"], 220)
 
     def test_maps_codex_auto_review_to_gpt_5_5_for_pricing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -136,6 +204,62 @@ class CodexDailyFromJsonlTests(unittest.TestCase):
             self.assertIn("gpt-5.5", models)
             self.assertNotIn("codex-auto-review", models)
             self.assertEqual(models["gpt-5.5"]["totalTokens"], 110)
+
+    def test_invalid_json_line_marks_the_snapshot_incomplete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions" / "2026" / "08" / "03"
+            sessions.mkdir(parents=True)
+            path = sessions / "rollout-2026-08-03T01-00-00-invalid.jsonl"
+            path.write_text(
+                "\n".join(
+                    [
+                        json.dumps(session_meta("invalid")),
+                        json.dumps(turn_context("gpt-5.6-sol")),
+                        "not-json",
+                        json.dumps(
+                            token_event(
+                                "2026-08-02T17:00:00.000Z",
+                                input_tokens=100,
+                                cached_input=80,
+                                output=10,
+                            )
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
+
+            self.assertFalse(payload["scan_complete"])
+            self.assertEqual(payload["scan_errors"]["invalid_json_lines"], 1)
+            self.assertFalse(payload["daily"][0]["scan_complete"])
+            self.assertFalse(
+                usage_report.codex_daily_points(payload["daily"])[0]["snapshot_complete"]
+            )
+
+    def test_invalid_timestamp_marks_the_snapshot_incomplete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions" / "2026" / "08" / "03"
+            sessions.mkdir(parents=True)
+            write_session(
+                sessions,
+                "rollout-2026-08-03T01-00-00-invalid-timestamp.jsonl",
+                [
+                    session_meta("invalid-timestamp"),
+                    turn_context("gpt-5.6-sol"),
+                    token_event("not-a-timestamp", input_tokens=100, cached_input=80, output=10),
+                ],
+            )
+
+            payload = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
+
+            self.assertFalse(payload["scan_complete"])
+            self.assertEqual(payload["scan_errors"]["invalid_timestamps"], 1)
+            self.assertEqual(payload["daily"], [])
 
     def test_respects_since_until_window(self):
         with tempfile.TemporaryDirectory() as tmp:
