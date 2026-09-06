@@ -834,7 +834,8 @@ def write_machine_fragment_append(
     machines_dir.mkdir(parents=True, exist_ok=True)
     mid = sanitize_machine_id(machine_id)
     path = fragment_path(machines_dir, mid)
-    existing = None if force_reseed else load_machine_fragment(machines_dir, mid)
+    stored_existing = load_machine_fragment(machines_dir, mid)
+    existing = None if force_reseed else stored_existing
     first = force_reseed or is_first_seed(existing)
 
     existing_timezone = str((existing or {}).get("timezone") or "").strip()
@@ -913,6 +914,9 @@ def write_machine_fragment_append(
         ),
         "daily": merged,
     }
+    for key in ("retired", "retired_at", "retirement_note"):
+        if key in (stored_existing or {}):
+            payload[key] = (stored_existing or {})[key]
     write_json_atomic(path, payload)
     meta = {
         "path": str(path),
@@ -970,6 +974,8 @@ def validate_unique_fragment_hostnames(fragments: list[dict[str, Any]]) -> None:
     """Reject active fragments that identify the same physical host twice."""
     by_hostname: dict[str, tuple[str, str]] = {}
     for fragment in fragments:
+        if fragment.get("retired") is True:
+            continue
         hostname = str(fragment.get("hostname") or "").strip()
         if not hostname:
             continue

@@ -1870,6 +1870,115 @@ class SourceStatusTests(unittest.TestCase):
             self.assertEqual(status["window_end"], "2026-07-29")
             self.assertEqual(status["lag_days"], 1)
 
+    def test_local_status_ignores_retired_machine_fragments(self):
+        attempts = usage_report.local_fragment_source_attempt(
+            [
+                {
+                    "machine_id": "mac-fresh",
+                    "collected_at": "2026-07-30T08:15:00+08:00",
+                },
+                {
+                    "machine_id": "mac-retired",
+                    "collected_at": "2026-07-01T03:35:00+08:00",
+                    "retired": True,
+                },
+            ],
+            "Asia/Shanghai",
+            "2026-07-30",
+            attempted=False,
+        )
+
+        result = usage_report.reconcile_source_status(
+            {},
+            {"codex": attempts},
+            attempted_at="2026-07-30T12:00:00+08:00",
+            today="2026-07-30",
+        )
+
+        self.assertEqual(result["codex"]["status"], "fresh")
+        self.assertEqual(result["codex"]["window_end"], "2026-07-30")
+        self.assertEqual(result["codex"]["lag_days"], 0)
+
+    def test_retired_machine_metadata_survives_a_future_fragment_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            machines = Path(tmp)
+            fragment = machines / "mac-test.json"
+            fragment.write_text(
+                json.dumps(
+                    {
+                        "machine_id": "mac-test",
+                        "hostname": "mac-test.local",
+                        "retired": True,
+                        "retired_at": "2026-07-30T12:00:00+08:00",
+                        "retirement_note": "historical",
+                        "daily": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            usage_report.machine_fragments.write_machine_fragment_append(
+                machines,
+                "mac-test",
+                "Asia/Shanghai",
+                [],
+                usage_report.TOOL_TOKEN_FIELDS,
+                usage_report.safe_int,
+                usage_report.safe_float,
+                today="2026-07-30",
+                hostname="mac-test.local",
+            )
+
+            written = json.loads(fragment.read_text(encoding="utf-8"))
+            self.assertTrue(written["retired"])
+            self.assertEqual(written["retired_at"], "2026-07-30T12:00:00+08:00")
+            self.assertEqual(written["retirement_note"], "historical")
+
+    def test_retired_machine_does_not_block_hostname_reuse(self):
+        fragments = [
+            {
+                "machine_id": "mac-retired",
+                "hostname": "same-mac.local",
+                "retired": True,
+                "daily": [],
+            },
+            {
+                "machine_id": "mac-current",
+                "hostname": "same-mac.local",
+                "daily": [],
+            },
+        ]
+
+        usage_report.machine_fragments.validate_unique_fragment_hostnames(fragments)
+
+    def test_incomplete_model_scan_does_not_advance_breakdown_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            machines = Path(tmp)
+            fragment = machines / "mac-test.json"
+            fragment.write_text(
+                json.dumps(
+                    {
+                        "machine_id": "mac-test",
+                        "daily": [],
+                        "model_breakdown_version": usage_report.MODEL_BREAKDOWN_VERSION - 1,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            usage_report.persist_local_model_metadata(
+                fragment,
+                [],
+                {},
+                model_seed_complete=False,
+            )
+
+            written = json.loads(fragment.read_text(encoding="utf-8"))
+            self.assertEqual(
+                written["model_breakdown_version"],
+                usage_report.MODEL_BREAKDOWN_VERSION - 1,
+            )
+
     def test_main_writes_source_status_to_usage_json(self):
         source_status = {
             source: {

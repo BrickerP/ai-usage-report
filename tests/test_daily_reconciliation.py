@@ -492,6 +492,7 @@ class CursorReconciliationTests(unittest.TestCase):
         self.assertEqual(result["history"]["total_tokens"], 20)
         self.assertEqual(result["history"]["cost"], 2.5)
         self.assertEqual(result["history"]["estimated_raw_cost"], 9.0)
+        self.assertEqual(result["history"]["data_through"], "2026-07-29")
         self.assertEqual(result["daily_timeline"][0]["cost"], 2.5)
         self.assertEqual(result["daily_timeline"][0]["models"][0]["cost"], 2.5)
         self.assertFalse(result["aggregate_audit"]["available"])
