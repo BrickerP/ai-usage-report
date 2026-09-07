@@ -2620,7 +2620,7 @@ def persist_local_model_metadata(
                 incoming_cost + max(1e-9, abs(existing_cost) * 1e-9) < existing_cost
                 and not pricing_complete
             )
-            if not snapshot_complete or unpriced_decrease:
+            if not snapshot_complete:
                 row[f"{prefix}_models"] = models_with_remainder(
                     row.get(f"{prefix}_models"),
                     total_tokens=row.get(f"{prefix}_tokens"),
@@ -2630,17 +2630,19 @@ def persist_local_model_metadata(
                 row[f"{prefix}_snapshot_complete"] = False
                 row[f"{prefix}_pricing_complete"] = False
                 row[f"{prefix}_pricing_provenance"] = "legacy-preserved"
-                if unpriced_decrease:
-                    pricing_regressions.add(date_key)
                 continue
 
-            target_cost = incoming_cost
+            target_cost = existing_cost if unpriced_decrease else incoming_cost
             try:
                 reconciled_models = models_with_remainder(
                     point.get("models"),
                     total_tokens=row.get(f"{prefix}_tokens"),
                     total_cost=target_cost,
-                    label="Legacy unknown",
+                    label=(
+                        "Legacy collector residual"
+                        if unpriced_decrease
+                        else "Legacy unknown"
+                    ),
                 )
             except ValueError:
                 row[f"{prefix}_snapshot_complete"] = False
@@ -2654,10 +2656,14 @@ def persist_local_model_metadata(
             row[f"{prefix}_pricing_version"] = str(
                 point.get("pricing_version") or "legacy"
             )
-            row[f"{prefix}_pricing_complete"] = pricing_complete
-            row[f"{prefix}_pricing_provenance"] = str(
-                point.get("pricing_provenance") or "legacy"
+            row[f"{prefix}_pricing_complete"] = pricing_complete and not unpriced_decrease
+            row[f"{prefix}_pricing_provenance"] = (
+                "legacy-preserved"
+                if unpriced_decrease
+                else str(point.get("pricing_provenance") or "legacy")
             )
+            if unpriced_decrease:
+                pricing_regressions.add(date_key)
 
     if model_seed_complete:
         fragment["model_breakdown_version"] = MODEL_BREAKDOWN_VERSION

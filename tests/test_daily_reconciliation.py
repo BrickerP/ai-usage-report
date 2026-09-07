@@ -173,16 +173,31 @@ class LocalReconciliationTests(unittest.TestCase):
 
         self.assertEqual(rows[0]["codex_tokens"], before["codex_tokens"])
 
-    def test_unpriced_cost_decrease_is_kept_open(self):
+    def test_unpriced_cost_decrease_accepts_new_facts_and_preserves_cost(self):
         existing = local_row("2026-07-19", codex_tokens=100)
-        incoming = local_row("2026-07-19", codex_tokens=100)
+        incoming = local_row("2026-07-19", codex_tokens=120)
         incoming["codex_cost"] = 0.5
-        incoming["codex_models"] = [{"model": "unknown", "tokens": 100, "cost": 0.5}]
+        incoming["codex_models"] = [{"model": "unknown", "tokens": 120, "cost": 0.5}]
         incoming["codex_pricing_complete"] = False
 
         rows, stats = merge_local([existing], [incoming], today="2026-07-20", mutable_from="2026-07-19")
 
+        self.assertEqual(rows[0]["codex_tokens"], 120)
+        self.assertEqual(rows[0]["codex_input"], incoming["codex_input"])
+        self.assertEqual(rows[0]["codex_cache_read"], incoming["codex_cache_read"])
+        self.assertEqual(rows[0]["codex_output"], incoming["codex_output"])
         self.assertEqual(rows[0]["codex_cost"], 1.0)
+        self.assertEqual(
+            sum(model["tokens"] for model in rows[0]["codex_models"]),
+            120,
+        )
+        self.assertAlmostEqual(
+            sum(model["cost"] for model in rows[0]["codex_models"]),
+            1.0,
+        )
+        self.assertEqual(stats["regression_kept"], 0)
+        self.assertEqual(stats["regression_dates"], [])
+        self.assertEqual(stats["pricing_regression_dates"], ["2026-07-19"])
         self.assertEqual(stats["regression_reasons"]["2026-07-19:codex"], "unpriced_cost_regression")
 
     def test_complete_pinned_reprice_can_lower_cost_with_audit_record(self):

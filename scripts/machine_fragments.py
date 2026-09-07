@@ -739,8 +739,10 @@ def merge_append_daily(
         "regression_dates": [],
         "regression_reasons": {},
         "pricing_changes": [],
+        "pricing_regression_dates": [],
     }
     regression_dates: set[str] = set()
+    pricing_regression_dates: set[str] = set()
 
     for date_key in sorted(set(by_date) | set(incoming_by_date)):
         existing = by_date.get(date_key)
@@ -778,6 +780,28 @@ def merge_append_daily(
                 safe_int,
                 safe_float,
             )
+            if regression_reason == "unpriced_cost_regression":
+                old_cost = safe_float(existing.get(f"{prefix}_cost"))
+                new_cost = safe_float(incoming.get(f"{prefix}_cost"))
+                _copy_tool_group(merged, incoming, prefix, tool_token_fields)
+                merged[f"{prefix}_cost"] = old_cost
+                residual_cost = old_cost - new_cost
+                if residual_cost > max(1e-9, abs(old_cost) * 1e-9):
+                    merged[f"{prefix}_models"] = [
+                        *merged.get(f"{prefix}_models", []),
+                        {
+                            "model": "Legacy collector residual",
+                            "tokens": 0,
+                            "cost": residual_cost,
+                            "pricing_version": "legacy",
+                            "pricing_provenance": "collector-residual",
+                        },
+                    ]
+                merged[f"{prefix}_pricing_complete"] = False
+                merged[f"{prefix}_pricing_provenance"] = "legacy-preserved"
+                pricing_regression_dates.add(date_key)
+                stats["regression_reasons"][f"{date_key}:{prefix}"] = regression_reason
+                continue
             if regression_reason:
                 regression_dates.add(date_key)
                 stats["regression_kept"] += 1
@@ -808,6 +832,7 @@ def merge_append_daily(
             stats["refreshed"] += 1
 
     stats["regression_dates"] = sorted(regression_dates)
+    stats["pricing_regression_dates"] = sorted(pricing_regression_dates)
 
     rows = [
         by_date[key]
