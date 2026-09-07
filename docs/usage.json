@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-09-07T00:36:55+08:00",
-  "snapshot_id": "sha256:9e1b235732dcc4c3b4ecdf520fc6e88b95a7b2e7e8b74907e5f4faabea2733b5",
-  "generated_at": "2026-09-07T00:36:55+08:00",
+  "captured_at": "2026-09-07T13:46:24+08:00",
+  "snapshot_id": "sha256:72e3edb48525561b28c44f5cdd908b5ad9bd1838855da5e3f435756c65edd87c",
+  "generated_at": "2026-09-07T13:46:24+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -74,27 +74,41 @@
     {
       "tool": "Codex",
       "history": "2026-01-08 to 2026-09-07",
-      "cost": 150237.18138889,
-      "total_tokens": 235860918696,
+      "cost": 150260.47242113,
+      "total_tokens": 239600130670,
       "models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 168342445934,
-          "cost": 108274.92640031998,
+          "tokens": 127832496428,
+          "cost": 81735.83601379998,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-sol"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 3382318489,
-          "output": 319699541,
-          "cache_read": 164640427904,
+          "input": 2493815251,
+          "output": 245245785,
+          "cache_read": 125093435392,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 131885367,
+          "reasoning": 103319085,
           "canonical_model": "gpt-5.6-sol",
           "pricing_version": "2026-07-31.v1",
           "ownership_rule_version": "3"
+        },
+        {
+          "model": "unknown",
+          "tokens": 52602703606,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 1090890497,
+          "output": 92852213,
+          "cache_read": 51418960896,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 35960539,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.5",
@@ -116,25 +130,6 @@
           "ownership_rule_version": "3"
         },
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 10127463429,
-          "cost": 1442.6577780000002,
-          "components_complete": true,
-          "raw_models": [
-            "gpt-5.6-luna"
-          ],
-          "pricing_provenance": "pinned-ledger",
-          "input": 303439089,
-          "output": 26613524,
-          "cache_read": 9797410816,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 11095392,
-          "canonical_model": "gpt-5.6-luna",
-          "pricing_version": "2026-07-31.v1",
-          "ownership_rule_version": "3"
-        },
-        {
           "model": "gpt-5.4",
           "tokens": 7064720593,
           "cost": 3218.185395000001,
@@ -147,6 +142,25 @@
           "cache_create": 0,
           "reasoning": 9774913,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 5489618006,
+          "cost": 883.5020437600001,
+          "components_complete": true,
+          "raw_models": [
+            "gpt-5.6-luna"
+          ],
+          "pricing_provenance": "pinned-ledger",
+          "input": 240205334,
+          "output": 20095936,
+          "cache_read": 5229316736,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 8419356,
+          "canonical_model": "gpt-5.6-luna",
+          "pricing_version": "2026-07-31.v1",
+          "ownership_rule_version": "3"
         },
         {
           "model": "gpt-5.3-codex",
@@ -191,39 +205,6 @@
           "pricing_version": "legacy"
         },
         {
-          "model": "unknown",
-          "tokens": 2818349045,
-          "cost": 0.0,
-          "components_complete": true,
-          "pricing_provenance": "unpriced",
-          "input": 39217978,
-          "output": 3980987,
-          "cache_read": 2775150080,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 1601853,
-          "pricing_version": "legacy"
-        },
-        {
-          "model": "gpt-5.6-terra",
-          "tokens": 980850362,
-          "cost": 338.74554084000005,
-          "components_complete": true,
-          "raw_models": [
-            "gpt-5.6-terra"
-          ],
-          "pricing_provenance": "pinned-ledger",
-          "input": 28544731,
-          "output": 2118495,
-          "cache_read": 950187136,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 831044,
-          "canonical_model": "gpt-5.6-terra",
-          "pricing_version": "2026-07-31.v1",
-          "ownership_rule_version": "3"
-        },
-        {
           "model": "gpt-6-astra",
           "tokens": 206466536,
           "cost": 0.0,
@@ -250,6 +231,25 @@
           "cache_create": 0,
           "reasoning": 104671,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 83502704,
+          "cost": 41.42772884000001,
+          "components_complete": true,
+          "raw_models": [
+            "gpt-5.6-terra"
+          ],
+          "pricing_provenance": "pinned-ledger",
+          "input": 7394231,
+          "output": 396985,
+          "cache_read": 75711488,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 148104,
+          "canonical_model": "gpt-5.6-terra",
+          "pricing_version": "2026-07-31.v1",
+          "ownership_rule_version": "3"
         },
         {
           "model": "gpt-5.1-codex-mini",
@@ -296,14 +296,9 @@
         {
           "model": "Legacy collector residual",
           "tokens": 0,
-          "cost": 9380.869115299998,
-          "components_complete": true,
+          "cost": 36799.7240803,
+          "components_complete": false,
           "pricing_provenance": "collector-residual",
-          "input": 0,
-          "output": 0,
-          "cache_read": 0,
-          "cache_write": 0,
-          "cache_create": 0,
           "reasoning": 0,
           "pricing_version": "legacy"
         }
@@ -311,9 +306,9 @@
     },
     {
       "tool": "Claude Code",
-      "history": "2026-04-08 to 2026-09-06",
-      "cost": 33635.85997445,
-      "total_tokens": 18226314912,
+      "history": "2026-04-08 to 2026-09-07",
+      "cost": 33646.42515173,
+      "total_tokens": 18253189072,
       "models": [
         {
           "model": "Legacy unknown",
@@ -323,14 +318,14 @@
         },
         {
           "model": "claude-opus-5",
-          "tokens": 996438467,
-          "cost": 392.42578928000006,
+          "tokens": 1023312627,
+          "cost": 402.99096656000006,
           "components_complete": true,
           "raw_models": [
             "claude-opus-5"
           ],
-          "input": 995276994,
-          "output": 1161473,
+          "input": 1022131705,
+          "output": 1180922,
           "cache_read": 0,
           "cache_write": 0,
           "canonical_model": "claude-opus-5",
@@ -429,15 +424,15 @@
     },
     {
       "tool": "One API",
-      "history": "2026-07-13 to 2026-09-06",
-      "cost": 233.04945832,
-      "total_tokens": 11209906289,
-      "requests": 47304,
+      "history": "2026-07-13 to 2026-09-07",
+      "cost": 233.65538952000003,
+      "total_tokens": 11224876897,
+      "requests": 47442,
       "models": [
         {
           "model": "deepseek-v4-flash",
-          "tokens": 8263189939,
-          "cost": 53.9574112,
+          "tokens": 8268483822,
+          "cost": 54.032242880000005,
           "components_complete": true,
           "raw_models": [
             "deepseek-v4-flash"
@@ -447,16 +442,16 @@
             "2",
             "3"
           ],
-          "input": 98085878,
-          "output": 13647293,
-          "cache_read": 8151456768,
+          "input": 98216330,
+          "output": 13665380,
+          "cache_read": 8156602112,
           "cache_write": 0,
           "canonical_model": "deepseek-v4-flash"
         },
         {
           "model": "deepseek-v4-pro",
-          "tokens": 2308383244,
-          "cost": 101.57264376,
+          "tokens": 2318059969,
+          "cost": 102.10374328,
           "components_complete": true,
           "raw_models": [
             "deepseek-v4-pro"
@@ -466,9 +461,9 @@
             "2",
             "3"
           ],
-          "input": 27681766,
-          "output": 6578214,
-          "cache_read": 2274123264,
+          "input": 28161917,
+          "output": 6597188,
+          "cache_read": 2283300864,
           "cache_write": 0,
           "canonical_model": "deepseek-v4-pro"
         },
@@ -703,32 +698,32 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-09-07T00:19:53+08:00",
-      "last_success_at": "2026-09-07T00:19:53+08:00",
+      "attempted_at": "2026-09-07T13:41:17+08:00",
+      "last_success_at": "2026-09-07T13:41:17+08:00",
       "window_end": "2026-09-07",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
       "status": "fresh",
-      "attempted_at": "2026-09-07T00:36:23+08:00",
-      "last_success_at": "2026-09-07T00:36:23+08:00",
+      "attempted_at": "2026-09-07T13:45:58+08:00",
+      "last_success_at": "2026-09-07T13:45:58+08:00",
       "window_end": "2026-09-07",
       "lag_days": 0,
       "error": ""
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-09-07T00:36:23+08:00",
-      "last_success_at": "2026-09-07T00:36:23+08:00",
+      "attempted_at": "2026-09-07T13:45:58+08:00",
+      "last_success_at": "2026-09-07T13:45:58+08:00",
       "window_end": "2026-08-15",
       "lag_days": 23,
       "error": "cursor_data_lagging"
     },
     "oneapi": {
       "status": "fresh",
-      "attempted_at": "2026-09-07T00:36:23+08:00",
-      "last_success_at": "2026-09-07T00:36:23+08:00",
+      "attempted_at": "2026-09-07T13:45:58+08:00",
+      "last_success_at": "2026-09-07T13:45:58+08:00",
       "window_end": "2026-09-07",
       "lag_days": 0,
       "error": ""
@@ -738,8 +733,8 @@
     "available": true,
     "complete": true,
     "accounting_version": 2,
-    "captured_at": "2026-09-07T00:36:21.734339+08:00",
-    "snapshot_id": "sha256:2395ec3f30a17152751d4100e979dfb0669a1f756d7d2e7102e1eb6ea5536893",
+    "captured_at": "2026-09-07T13:45:58.162353+08:00",
+    "snapshot_id": "sha256:f3d95888c508fc31d0123e33dcebe2b7c515ef3a28ed2b05c458954381b8499a",
     "scope": {
       "kind": "account",
       "scope_id": "oneapi:self",
@@ -750,8 +745,8 @@
     "ownership_rule": "codex_family_to_codex_claude_family_to_claude_remainder_to_oneapi",
     "ownership_rule_version": 3,
     "timezone": "Asia/Shanghai",
-    "request_count": 6227,
-    "included_request_count": 6227,
+    "request_count": 6753,
+    "included_request_count": 6753,
     "window": {
       "start": "2026-09-03",
       "end": "2026-09-07",
@@ -761,12 +756,12 @@
     },
     "history": {
       "first": "2026-07-13",
-      "last": "2026-09-06"
+      "last": "2026-09-07"
     },
     "raw_totals": {
-      "total_tokens": 2115742308,
-      "quota": 901142733,
-      "requests": 6227
+      "total_tokens": 2342198798,
+      "quota": 962682270,
+      "requests": 6753
     },
     "excluded": {},
     "unclassified": {
@@ -775,15 +770,15 @@
       "quota": 0
     },
     "totals": {
-      "input_tokens": 441434899,
-      "output_tokens": 22826796,
-      "cache_read_tokens": 10745644594,
+      "input_tokens": 442045502,
+      "output_tokens": 22863857,
+      "cache_read_tokens": 10759967538,
       "cache_write_tokens": 0,
-      "total_tokens": 11209906289,
-      "quota": 416159747,
-      "cost_cny": 1664.638988,
-      "cost_usd": 233.04945832,
-      "requests": 47304
+      "total_tokens": 11224876897,
+      "quota": 417241767,
+      "cost_cny": 1668.967068,
+      "cost_usd": 233.65538952000003,
+      "requests": 47442
     },
     "daily_timeline": [
       {
@@ -3650,6 +3645,57 @@
           }
         ],
         "source": "oneapi"
+      },
+      {
+        "date": "2026-09-07",
+        "tokens": 14970608,
+        "input": 610603,
+        "output": 37061,
+        "cache_read": 14322944,
+        "cache_write": 0,
+        "requests": 138,
+        "quota": 1082020,
+        "cost_cny": 4.32808,
+        "cost_usd": 0.6059312,
+        "model_breakdowns": [
+          {
+            "model": "deepseek-v4-pro",
+            "canonical_model": "deepseek-v4-pro",
+            "raw_model": "deepseek-v4-pro",
+            "raw_models": [
+              "deepseek-v4-pro"
+            ],
+            "ownership": "oneapi",
+            "ownership_rule_version": 3,
+            "input_tokens": 480151,
+            "output_tokens": 18974,
+            "cache_read_tokens": 9177600,
+            "cache_write_tokens": 0,
+            "total_tokens": 9676725,
+            "count": 53,
+            "quota_total": 948392,
+            "cost_usd": 0.53109952
+          },
+          {
+            "model": "deepseek-v4-flash",
+            "canonical_model": "deepseek-v4-flash",
+            "raw_model": "deepseek-v4-flash",
+            "raw_models": [
+              "deepseek-v4-flash"
+            ],
+            "ownership": "oneapi",
+            "ownership_rule_version": 3,
+            "input_tokens": 130452,
+            "output_tokens": 18087,
+            "cache_read_tokens": 5145344,
+            "cache_write_tokens": 0,
+            "total_tokens": 5293883,
+            "count": 85,
+            "quota_total": 133628,
+            "cost_usd": 0.07483168000000001
+          }
+        ],
+        "source": "oneapi"
       }
     ],
     "claude": {
@@ -3665,18 +3711,18 @@
       },
       "history": {
         "first": "2026-09-03",
-        "last": "2026-09-06"
+        "last": "2026-09-07"
       },
       "totals": {
-        "input_tokens": 1084075732,
-        "output_tokens": 1250503,
+        "input_tokens": 1110930443,
+        "output_tokens": 1269952,
         "cache_read_tokens": 0,
         "cache_create_tokens": 0,
-        "total_tokens": 1085326235,
-        "quota": 741991194,
-        "cost_cny": 2967.964776,
-        "cost_usd": 415.51506864000004,
-        "requests": 3216
+        "total_tokens": 1112200395,
+        "quota": 760857582,
+        "cost_cny": 3043.430328,
+        "cost_usd": 426.08024592000004,
+        "requests": 3257
       },
       "daily_timeline": [
         {
@@ -3842,6 +3888,38 @@
               "cost_usd": 172.41467152000004
             }
           ]
+        },
+        {
+          "date": "2026-09-07",
+          "tokens": 26874160,
+          "input": 26854711,
+          "output": 19449,
+          "cache_read": 0,
+          "cache_create": 0,
+          "requests": 41,
+          "quota": 18866388,
+          "cost_cny": 75.465552,
+          "cost_usd": 10.565177280000002,
+          "model_breakdowns": [
+            {
+              "model": "claude-opus-5",
+              "canonical_model": "claude-opus-5",
+              "raw_model": "claude-opus-5",
+              "raw_models": [
+                "claude-opus-5"
+              ],
+              "ownership": "claude",
+              "ownership_rule_version": 3,
+              "input_tokens": 26854711,
+              "output_tokens": 19449,
+              "cache_read_tokens": 0,
+              "cache_write_tokens": 0,
+              "total_tokens": 26874160,
+              "count": 41,
+              "quota_total": 18866388,
+              "cost_usd": 10.565177280000002
+            }
+          ]
         }
       ]
     },
@@ -3861,14 +3939,14 @@
         "last": "2026-09-07"
       },
       "totals": {
-        "input_tokens": 18868845,
-        "output_tokens": 1187196,
-        "cache_read_tokens": 513482240,
-        "total_tokens": 533538281,
-        "quota": 139095870,
-        "cost_cny": 556.38348,
-        "cost_usd": 77.8936872,
-        "requests": 1275
+        "input_tokens": 22019381,
+        "output_tokens": 1401150,
+        "cache_read_tokens": 694729472,
+        "total_tokens": 718150003,
+        "quota": 180686999,
+        "cost_cny": 722.747996,
+        "cost_usd": 101.18471944,
+        "requests": 1622
       },
       "daily_timeline": [
         {
@@ -4500,14 +4578,14 @@
         },
         {
           "date": "2026-09-07",
-          "tokens": 44913549,
-          "input": 3508974,
-          "output": 77215,
-          "cache_read": 41327360,
-          "requests": 93,
-          "quota": 14967244,
-          "cost_cny": 59.868976,
-          "cost_usd": 8.381656640000001,
+          "tokens": 229525271,
+          "input": 6659510,
+          "output": 291169,
+          "cache_read": 222574592,
+          "requests": 440,
+          "quota": 56558373,
+          "cost_cny": 226.233492,
+          "cost_usd": 31.672688880000006,
           "model_breakdowns": [
             {
               "model": "gpt-5.6-sol",
@@ -4518,14 +4596,14 @@
               ],
               "ownership": "codex",
               "ownership_rule_version": 3,
-              "input_tokens": 3508796,
-              "output_tokens": 77037,
-              "cache_read_tokens": 41327360,
+              "input_tokens": 6654299,
+              "output_tokens": 290514,
+              "cache_read_tokens": 222574592,
               "cache_write_tokens": 0,
-              "total_tokens": 44913193,
-              "count": 92,
-              "quota_total": 14967004,
-              "cost_usd": 8.38152224
+              "total_tokens": 229519405,
+              "count": 435,
+              "quota_total": 56556612,
+              "cost_usd": 31.671702720000003
             },
             {
               "model": "gpt-5.6-luna",
@@ -4536,26 +4614,26 @@
               ],
               "ownership": "codex",
               "ownership_rule_version": 3,
-              "input_tokens": 178,
-              "output_tokens": 178,
+              "input_tokens": 5211,
+              "output_tokens": 655,
               "cache_read_tokens": 0,
               "cache_write_tokens": 0,
-              "total_tokens": 356,
-              "count": 1,
-              "quota_total": 240,
-              "cost_usd": 0.00013440000000000001
+              "total_tokens": 5866,
+              "count": 5,
+              "quota_total": 1761,
+              "cost_usd": 0.00098616
             }
           ]
         }
       ]
     },
-    "pages": 312,
+    "pages": 338,
     "rate_limit_retries": 0,
     "pagination": {
       "complete": true,
-      "pages": 312,
+      "pages": 338,
       "page_size": 20,
-      "records_after_deduplication": 6227,
+      "records_after_deduplication": 6753,
       "duplicates_removed": 0
     },
     "stale": false,
@@ -15706,12 +15784,12 @@
     },
     {
       "date": "2026-07-16",
-      "codex_tokens": 3287411299,
+      "codex_tokens": 3422765481,
       "codex_cost": 2359.252623,
-      "codex_input": 106721859,
-      "codex_cache_read": 3172713216,
-      "codex_output": 7976224,
-      "codex_reasoning": 2955328,
+      "codex_input": 109117855,
+      "codex_cache_read": 3305449216,
+      "codex_output": 8198410,
+      "codex_reasoning": 3083137,
       "claude_tokens": 1449618,
       "claude_cost": 7.57889,
       "claude_input": 1433078,
@@ -15734,17 +15812,37 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 3287411299,
-          "cost": 2359.252623,
+          "tokens": 2900448043,
+          "cost": 2098.741993,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 106721859,
-          "output": 7976224,
-          "cache_read": 3172713216,
+          "input": 95620553,
+          "output": 7397474,
+          "cache_read": 2797430016,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 2955328,
+          "reasoning": 2739544,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "unknown",
+          "tokens": 522317438,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 13497302,
+          "output": 800936,
+          "cache_read": 508019200,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 343593,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 260.51062999999976,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -15770,9 +15868,9 @@
         }
       ],
       "oneapi_models": [],
-      "total_tokens": 3349279051,
+      "total_tokens": 3484633233,
       "total_cost": 2407.4668522399998,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -15899,12 +15997,12 @@
     },
     {
       "date": "2026-07-19",
-      "codex_tokens": 5689685885,
+      "codex_tokens": 5884485478,
       "codex_cost": 3783.3352972000002,
-      "codex_input": 173453372,
-      "codex_cache_read": 5504275456,
-      "codex_output": 11957057,
-      "codex_reasoning": 4201286,
+      "codex_input": 177441598,
+      "codex_cache_read": 5694668800,
+      "codex_output": 12375080,
+      "codex_reasoning": 4333333,
       "claude_tokens": 7521667,
       "claude_cost": 38.438255,
       "claude_input": 7480171,
@@ -15926,45 +16024,31 @@
       "oneapi_requests": 0,
       "codex_models": [
         {
+          "model": "unknown",
+          "tokens": 4655286064,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 136214878,
+          "output": 8515538,
+          "cache_read": 4510555648,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 2950461,
+          "pricing_version": "legacy"
+        },
+        {
           "model": "gpt-5.6-sol",
-          "tokens": 5141003698,
-          "cost": 3606.582858,
+          "tokens": 1158253697,
+          "cost": 862.849378,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 158784354,
-          "output": 10900048,
-          "cache_read": 4971319296,
+          "input": 38498076,
+          "output": 3745125,
+          "cache_read": 1116010496,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 3849651,
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-5.6-terra",
-          "tokens": 384162803,
-          "cost": 127.13789050000001,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 9805053,
-          "output": 612598,
-          "cache_read": 373745152,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 221515,
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-5.6-luna",
-          "tokens": 110938440,
-          "cost": 16.875297200000002,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 3690970,
-          "output": 416878,
-          "cache_read": 106830592,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 115611,
+          "reasoning": 1353752,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -15982,6 +16066,34 @@
           "pricing_version": "2026-07-31.v1"
         },
         {
+          "model": "gpt-5.6-luna",
+          "tokens": 12586958,
+          "cost": 2.5723521999999996,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 1093851,
+          "output": 55795,
+          "cache_read": 11437312,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 4789,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 4777815,
+          "cost": 2.6920620000000004,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 461798,
+          "output": 31089,
+          "cache_read": 4284928,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 9822,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
           "model": "gpt-5",
           "tokens": 45436,
           "cost": 0.0483805,
@@ -15994,6 +16106,12 @@
           "cache_create": 0,
           "reasoning": 165,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 2882.4822535000003,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -16019,9 +16137,9 @@
         }
       ],
       "oneapi_models": [],
-      "total_tokens": 5764429280,
+      "total_tokens": 5959228873,
       "total_cost": 3862.6064467,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "mixed",
@@ -16032,12 +16150,12 @@
     },
     {
       "date": "2026-07-20",
-      "codex_tokens": 20627695650,
+      "codex_tokens": 21504869385,
       "codex_cost": 12812.2227295,
-      "codex_input": 443192844,
-      "codex_cache_read": 20142316544,
-      "codex_output": 42186262,
-      "codex_reasoning": 15236237,
+      "codex_input": 458377791,
+      "codex_cache_read": 21002523136,
+      "codex_output": 43968458,
+      "codex_reasoning": 15842002,
       "claude_tokens": 166692839,
       "claude_cost": 956.206012,
       "claude_input": 93385145,
@@ -16059,45 +16177,31 @@
       "oneapi_requests": 0,
       "codex_models": [
         {
+          "model": "unknown",
+          "tokens": 18215514188,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 380279479,
+          "output": 35411349,
+          "cache_read": 17799823360,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 12856151,
+          "pricing_version": "legacy"
+        },
+        {
           "model": "gpt-5.6-sol",
-          "tokens": 18838335109,
-          "cost": 12404.818383,
+          "tokens": 3041279413,
+          "cost": 2105.235347,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 408221791,
-          "output": 38937382,
-          "cache_read": 18391175936,
+          "input": 74584859,
+          "output": 8439450,
+          "cache_read": 2958255104,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 14055992,
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-5.6-luna",
-          "tokens": 1174934236,
-          "cost": 154.58011499999998,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 24843857,
-          "output": 2496139,
-          "cache_read": 1147594240,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 888830,
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-5.6-terra",
-          "tokens": 377876583,
-          "cost": 122.16716249999999,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 7793701,
-          "output": 688962,
-          "cache_read": 369393920,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 265469,
+          "reasoning": 2948836,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -16113,6 +16217,40 @@
           "cache_create": 0,
           "reasoning": 25946,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 8205416,
+          "cost": 1.8172836,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 887054,
+          "output": 33626,
+          "cache_read": 7284736,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 3685,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 3320646,
+          "cost": 1.7879420000000001,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 292904,
+          "output": 20254,
+          "cache_read": 3007488,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 7384,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 10572.7250879,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -16144,9 +16282,9 @@
         }
       ],
       "oneapi_models": [],
-      "total_tokens": 20994040865,
+      "total_tokens": 21871214600,
       "total_cost": 13852.110205219999,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "mixed",
@@ -16298,12 +16436,12 @@
     },
     {
       "date": "2026-07-23",
-      "codex_tokens": 186953161,
+      "codex_tokens": 188369720,
       "codex_cost": 143.4364328,
-      "codex_input": 8142502,
-      "codex_cache_read": 178198272,
-      "codex_output": 612387,
-      "codex_reasoning": 248705,
+      "codex_input": 8152230,
+      "codex_cache_read": 179603200,
+      "codex_output": 614290,
+      "codex_reasoning": 249254,
       "claude_tokens": 510039685,
       "claude_cost": 2578.256253,
       "claude_input": 508602323,
@@ -16326,16 +16464,16 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 136100789,
-          "cost": 104.31393,
+          "tokens": 106137898,
+          "cost": 83.350488,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 4462284,
-          "output": 548585,
-          "cache_read": 131089920,
+          "input": 3984564,
+          "output": 418678,
+          "cache_read": 101734656,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 229174,
+          "reasoning": 179907,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -16353,17 +16491,31 @@
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-terra",
-          "tokens": 7189260,
-          "cost": 2.8373160000000004,
+          "model": "unknown",
+          "tokens": 33477319,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 256352,
-          "output": 31404,
-          "cache_read": 6901504,
+          "pricing_provenance": "unpriced",
+          "input": 508769,
+          "output": 142182,
+          "cache_read": 32826368,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 10083,
+          "reasoning": 54452,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 5091391,
+          "cost": 2.1118895,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 235031,
+          "output": 21032,
+          "cache_read": 4835328,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 5447,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -16379,6 +16531,12 @@
           "cache_create": 0,
           "reasoning": 521,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 21.688868499999998,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -16398,9 +16556,9 @@
         }
       ],
       "oneapi_models": [],
-      "total_tokens": 743766146,
+      "total_tokens": 745182705,
       "total_cost": 2780.4949831,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -16642,12 +16800,12 @@
     },
     {
       "date": "2026-07-26",
-      "codex_tokens": 1232388928,
+      "codex_tokens": 1252942043,
       "codex_cost": 796.2750535,
-      "codex_input": 39625601,
-      "codex_cache_read": 1189775360,
-      "codex_output": 2987967,
-      "codex_reasoning": 1301370,
+      "codex_input": 39885993,
+      "codex_cache_read": 1210041856,
+      "codex_output": 3014194,
+      "codex_reasoning": 1309118,
       "claude_tokens": 295497461,
       "claude_cost": 1487.526865,
       "claude_input": 294995483,
@@ -16669,45 +16827,31 @@
       "oneapi_requests": 0,
       "codex_models": [
         {
+          "model": "unknown",
+          "tokens": 713304989,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 18577523,
+          "output": 1733674,
+          "cache_read": 692993792,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 790257,
+          "pricing_version": "legacy"
+        },
+        {
           "model": "gpt-5.6-sol",
-          "tokens": 996073514,
-          "cost": 714.575963,
+          "tokens": 466894237,
+          "cost": 349.450015,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 31846201,
-          "output": 2482417,
-          "cache_read": 961744896,
+          "input": 18029663,
+          "output": 1182014,
+          "cache_read": 447682560,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 1086868,
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-5.6-luna",
-          "tokens": 106780057,
-          "cost": 15.274059,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 3435151,
-          "output": 254986,
-          "cache_read": 103089920,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 93737,
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-5.6-terra",
-          "tokens": 68907297,
-          "cost": 25.2834055,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 2250043,
-          "output": 202982,
-          "cache_read": 66454272,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 96790,
+          "reasoning": 488910,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -16723,6 +16867,40 @@
           "cache_create": 0,
           "reasoning": 23975,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 10455683,
+          "cost": 2.162884,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 964470,
+          "output": 42253,
+          "cache_read": 9448960,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 2802,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 1659074,
+          "cost": 1.0379605,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 220131,
+          "output": 8671,
+          "cache_read": 1430272,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 3174,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 402.482568,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -16748,9 +16926,9 @@
         }
       ],
       "oneapi_models": [],
-      "total_tokens": 1588690794,
+      "total_tokens": 1609243909,
       "total_cost": 2342.177423,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -16896,12 +17074,12 @@
     },
     {
       "date": "2026-07-28",
-      "codex_tokens": 2159170946,
+      "codex_tokens": 2206101587,
       "codex_cost": 1545.8470286,
-      "codex_input": 79063964,
-      "codex_cache_read": 2074078464,
-      "codex_output": 6028518,
-      "codex_reasoning": 2501097,
+      "codex_input": 80130703,
+      "codex_cache_read": 2119845376,
+      "codex_output": 6125508,
+      "codex_reasoning": 2538504,
       "claude_tokens": 987000937,
       "claude_cost": 4957.797945,
       "claude_input": 985861274,
@@ -16924,31 +17102,31 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 1989130985,
-          "cost": 1460.4512909999999,
+          "tokens": 1379225586,
+          "cost": 1022.638338,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 66921451,
-          "output": 5584382,
-          "cache_read": 1916625152,
+          "input": 47934442,
+          "output": 3976968,
+          "cache_read": 1327314176,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 2339667,
+          "reasoning": 1664031,
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 84281532,
-          "cost": 13.9340936,
+          "model": "unknown",
+          "tokens": 743574238,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 4269412,
-          "output": 281944,
-          "cache_read": 79730176,
+          "pricing_provenance": "unpriced",
+          "input": 22701393,
+          "output": 2007949,
+          "cache_read": 718864896,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 96422,
-          "pricing_version": "2026-07-31.v1"
+          "reasoning": 834739,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.5",
@@ -16965,18 +17143,38 @@
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-terra",
-          "tokens": 29004786,
-          "cost": 11.631189,
+          "model": "gpt-5.6-luna",
+          "tokens": 20541999,
+          "cost": 4.279752,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 1197442,
-          "output": 114288,
-          "cache_read": 27693056,
+          "input": 2050730,
+          "output": 64389,
+          "cache_read": 18426880,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 42717,
+          "reasoning": 5269,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "tokens": 6006121,
+          "cost": 3.6480035,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 768479,
+          "output": 28298,
+          "cache_read": 5209344,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 12174,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 455.45048010000005,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -17051,9 +17249,9 @@
           "ownership_rule_version": "1"
         }
       ],
-      "total_tokens": 3278741157,
+      "total_tokens": 3325671798,
       "total_cost": 6641.34809765,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -17064,12 +17262,12 @@
     },
     {
       "date": "2026-07-29",
-      "codex_tokens": 5329729986,
+      "codex_tokens": 5529790079,
       "codex_cost": 3644.2429404,
-      "codex_input": 139534350,
-      "codex_cache_read": 5178149376,
-      "codex_output": 12046260,
-      "codex_reasoning": 4654065,
+      "codex_input": 155793076,
+      "codex_cache_read": 5361587968,
+      "codex_output": 12409035,
+      "codex_reasoning": 4790843,
       "claude_tokens": 173741993,
       "claude_cost": 896.088065,
       "claude_input": 172373088,
@@ -17092,17 +17290,31 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 5244636231,
-          "cost": 3576.206423,
+          "tokens": 3496593983,
+          "cost": 2448.3989039999997,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 133348659,
-          "output": 11993876,
-          "cache_read": 5099293696,
+          "input": 101052730,
+          "output": 8317445,
+          "cache_read": 3387223808,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 4636064,
+          "reasoning": 3220324,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "unknown",
+          "tokens": 1952002477,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 48816097,
+          "output": 4053708,
+          "cache_read": 1899132672,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 1557687,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.5",
@@ -17120,17 +17332,23 @@
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 4889213,
-          "cost": 0.9728243999999999,
+          "tokens": 989077,
+          "cost": 0.2619512,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 390924,
-          "output": 22385,
-          "cache_read": 4475904,
+          "input": 129482,
+          "output": 7883,
+          "cache_read": 851712,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 6104,
+          "reasoning": 935,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 1128.5183922,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -17334,9 +17552,9 @@
           "ownership_rule_version": "1"
         }
       ],
-      "total_tokens": 5782361327,
+      "total_tokens": 5982421420,
       "total_cost": 4628.2339489,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -17347,12 +17565,12 @@
     },
     {
       "date": "2026-07-30",
-      "codex_tokens": 2866670721,
+      "codex_tokens": 2950556087,
       "codex_cost": 2020.0271842000002,
-      "codex_input": 84731025,
-      "codex_cache_read": 2774902272,
-      "codex_output": 7037424,
-      "codex_reasoning": 2834522,
+      "codex_input": 89070870,
+      "codex_cache_read": 2854312448,
+      "codex_output": 7172769,
+      "codex_reasoning": 2880105,
       "claude_tokens": 237678098,
       "claude_cost": 1201.8763700000002,
       "claude_input": 237003804,
@@ -17375,17 +17593,31 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 2794216652,
-          "cost": 1954.1102230000001,
+          "tokens": 2306136127,
+          "cost": 1634.7157240000001,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 78086849,
-          "output": 6969867,
-          "cache_read": 2709159936,
+          "input": 68443398,
+          "output": 5886521,
+          "cache_read": 2231806208,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 2809342,
+          "reasoning": 2356919,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "unknown",
+          "tokens": 537741609,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 12808654,
+          "output": 1138011,
+          "cache_read": 523794944,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 462465,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.5",
@@ -17403,17 +17635,23 @@
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 2424761,
-          "cost": 0.5504492,
+          "tokens": 36649043,
+          "cost": 5.5060671999999995,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 264568,
-          "output": 11841,
-          "cache_read": 2148352,
+          "input": 1439210,
+          "output": 92521,
+          "cache_read": 35117312,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 991,
+          "reasoning": 36532,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 314.43888100000004,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -17464,9 +17702,9 @@
           "ownership_rule_version": "1"
         }
       ],
-      "total_tokens": 3534696237,
+      "total_tokens": 3618581603,
       "total_cost": 3244.36554142,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -17477,12 +17715,12 @@
     },
     {
       "date": "2026-07-31",
-      "codex_tokens": 1714996460,
+      "codex_tokens": 1740244077,
       "codex_cost": 1262.3702965000002,
-      "codex_input": 61447903,
-      "codex_cache_read": 1648893184,
-      "codex_output": 4655373,
-      "codex_reasoning": 1964168,
+      "codex_input": 61939842,
+      "codex_cache_read": 1673588224,
+      "codex_output": 4716011,
+      "codex_reasoning": 1990247,
       "claude_tokens": 431526424,
       "claude_cost": 2168.4235,
       "claude_input": 430986855,
@@ -17505,16 +17743,44 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 1625828309,
-          "cost": 1203.6677770000001,
+          "tokens": 1021836229,
+          "cost": 761.335707,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 57082877,
-          "output": 4538328,
-          "cache_read": 1564207104,
+          "input": 35847731,
+          "output": 3020434,
+          "cache_read": 982968064,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 1927871,
+          "reasoning": 1300777,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "unknown",
+          "tokens": 514671290,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 17338005,
+          "output": 1274149,
+          "cache_read": 496059136,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 519926,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 124860337,
+          "cost": 18.9368474,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 4936217,
+          "output": 340376,
+          "cache_read": 119583744,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 143479,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -17532,20 +17798,6 @@
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 10291930,
-          "cost": 1.733975,
-          "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 547137,
-          "output": 35993,
-          "cache_read": 9708800,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 10232,
-          "pricing_version": "2026-07-31.v1"
-        },
-        {
           "model": "gpt-5.6-terra",
           "tokens": 3658687,
           "cost": 2.0411004999999998,
@@ -17558,6 +17810,12 @@
           "cache_create": 0,
           "reasoning": 7280,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 425.1291976000002,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -17635,9 +17893,9 @@
           "ownership_rule_version": "1"
         }
       ],
-      "total_tokens": 2806202124,
+      "total_tokens": 2831449741,
       "total_cost": 3448.3515599800003,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -17648,12 +17906,12 @@
     },
     {
       "date": "2026-08-01",
-      "codex_tokens": 2872716811,
+      "codex_tokens": 2912661558,
       "codex_cost": 1951.4470502,
-      "codex_input": 73843171,
-      "codex_cache_read": 2792414464,
-      "codex_output": 6459176,
-      "codex_reasoning": 2580913,
+      "codex_input": 76012372,
+      "codex_cache_read": 2830106624,
+      "codex_output": 6542562,
+      "codex_reasoning": 2623052,
       "claude_tokens": 76633359,
       "claude_cost": 386.133615,
       "claude_input": 76485018,
@@ -17676,17 +17934,31 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 2711975028,
-          "cost": 1850.871299,
+          "tokens": 1650092215,
+          "cost": 1175.718092,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 68327261,
-          "output": 6352919,
-          "cache_read": 2637294848,
+          "input": 49166358,
+          "output": 4387233,
+          "cache_read": 1596538624,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 2556302,
+          "reasoning": 1794396,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "unknown",
+          "tokens": 973566384,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 18344536,
+          "output": 1797208,
+          "cache_read": 953424640,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 697320,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.5",
@@ -17704,17 +17976,23 @@
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 15087866,
-          "cost": 1.9378292,
+          "tokens": 143349042,
+          "cost": 18.936955599999997,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 350690,
-          "output": 19224,
-          "cache_read": 14717952,
+          "input": 3336258,
+          "output": 271088,
+          "cache_read": 139741696,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 6267,
+          "reasoning": 112992,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 658.1540805999998,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -17756,9 +18034,9 @@
           "ownership_rule_version": "1"
         }
       ],
-      "total_tokens": 3109500477,
+      "total_tokens": 3149445224,
       "total_cost": 2536.82234392,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -17870,12 +18148,12 @@
     },
     {
       "date": "2026-08-03",
-      "codex_tokens": 1220240301,
+      "codex_tokens": 1244011653,
       "codex_cost": 706.2833538,
-      "codex_input": 38906941,
-      "codex_cache_read": 1177729280,
-      "codex_output": 3604080,
-      "codex_reasoning": 1591160,
+      "codex_input": 39173114,
+      "codex_cache_read": 1201195008,
+      "codex_output": 3643531,
+      "codex_reasoning": 1610055,
       "claude_tokens": 46187941,
       "claude_cost": 231.884305,
       "claude_input": 46140711,
@@ -17898,31 +18176,45 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 883682914,
-          "cost": 633.647421,
+          "tokens": 820933527,
+          "cost": 588.8998770000001,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 25941527,
-          "output": 2544715,
-          "cache_read": 855196672,
+          "input": 24087957,
+          "output": 2374146,
+          "cache_read": 794471424,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 1121344,
+          "reasoning": 1041403,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 295106020,
-          "cost": 45.598574799999994,
+          "tokens": 235516992,
+          "cost": 38.1166018,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 11265598,
-          "output": 1008294,
-          "cache_read": 282832128,
+          "input": 10340855,
+          "output": 891209,
+          "cache_read": 224284928,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 454672,
+          "reasoning": 393127,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "unknown",
+          "tokens": 146109767,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 3044486,
+          "output": 327105,
+          "cache_read": 142738176,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 160381,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.5",
@@ -17951,6 +18243,12 @@
           "cache_create": 0,
           "reasoning": 8990,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 52.22951699999987,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -17986,9 +18284,9 @@
           "ownership_rule_version": "1"
         }
       ],
-      "total_tokens": 1798623781,
+      "total_tokens": 1822395133,
       "total_cost": 1081.6730892799999,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -17999,12 +18297,12 @@
     },
     {
       "date": "2026-08-04",
-      "codex_tokens": 5053992978,
+      "codex_tokens": 5355872777,
       "codex_cost": 1878.6250931999998,
-      "codex_input": 110187414,
-      "codex_cache_read": 4933340160,
-      "codex_output": 10465404,
-      "codex_reasoning": 4234767,
+      "codex_input": 113663012,
+      "codex_cache_read": 5231270912,
+      "codex_output": 10938853,
+      "codex_reasoning": 4459697,
       "claude_tokens": 135939565,
       "claude_cost": 686.863773,
       "claude_input": 135561553,
@@ -18026,32 +18324,52 @@
       "oneapi_requests": 4058,
       "codex_models": [
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 2696827061,
-          "cost": 363.2360442,
+          "model": "unknown",
+          "tokens": 3590281935,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 64697761,
-          "output": 5987348,
-          "cache_read": 2626141952,
+          "pricing_provenance": "unpriced",
+          "input": 60940380,
+          "output": 5980275,
+          "cache_read": 3523361280,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 2445471,
-          "pricing_version": "2026-07-31.v1"
+          "reasoning": 2444448,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.6-sol",
-          "tokens": 2357165917,
-          "cost": 1515.3890489999999,
+          "tokens": 1075397738,
+          "cost": 729.5294889999999,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 45489653,
-          "output": 4478056,
-          "cache_read": 2307198208,
+          "input": 26638355,
+          "output": 2439255,
+          "cache_read": 1046320128,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 1789296,
+          "reasoning": 995381,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 690193104,
+          "cost": 107.3591654,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 26084277,
+          "output": 2519323,
+          "cache_read": 661589504,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 1019868,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 1041.7364387999999,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -18240,9 +18558,9 @@
           "ownership_rule_version": "1"
         }
       ],
-      "total_tokens": 5944615990,
+      "total_tokens": 6246495789,
       "total_cost": 2748.16108239,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -18253,12 +18571,12 @@
     },
     {
       "date": "2026-08-05",
-      "codex_tokens": 4547989098,
+      "codex_tokens": 4659780775,
       "codex_cost": 2577.9485602,
-      "codex_input": 128208411,
-      "codex_cache_read": 4410027776,
-      "codex_output": 9752911,
-      "codex_reasoning": 3896130,
+      "codex_input": 132269601,
+      "codex_cache_read": 4517626368,
+      "codex_output": 9884806,
+      "codex_reasoning": 3951187,
       "claude_tokens": 231468893,
       "claude_cost": 1160.625665,
       "claude_input": 231304833,
@@ -18281,31 +18599,51 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 3546591318,
-          "cost": 2437.774882,
+          "tokens": 2283186040,
+          "cost": 1611.3490789999998,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 98782018,
-          "output": 7456276,
-          "cache_read": 3440353024,
+          "input": 70179105,
+          "output": 5218647,
+          "cache_read": 2207788288,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 2996620,
+          "reasoning": 2103061,
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 1001397780,
-          "cost": 140.17367819999998,
+          "model": "unknown",
+          "tokens": 1480744476,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 29426393,
-          "output": 2296635,
-          "cache_read": 969674752,
+          "pricing_provenance": "unpriced",
+          "input": 36247625,
+          "output": 2676179,
+          "cache_read": 1441820672,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 899510,
+          "reasoning": 1054270,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 895850259,
+          "cost": 124.5844918,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 25842871,
+          "output": 1989980,
+          "cache_read": 868017408,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 793856,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 842.0149894000001,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -18452,9 +18790,9 @@
           "ownership_rule_version": "1"
         }
       ],
-      "total_tokens": 5989982921,
+      "total_tokens": 6101774598,
       "total_cost": 3819.45491552,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -18668,12 +19006,12 @@
     },
     {
       "date": "2026-08-07",
-      "codex_tokens": 346553345,
+      "codex_tokens": 356165496,
       "codex_cost": 182.72331499999999,
-      "codex_input": 11058803,
-      "codex_cache_read": 334162944,
-      "codex_output": 1331598,
-      "codex_reasoning": 540499,
+      "codex_input": 11186774,
+      "codex_cache_read": 343628032,
+      "codex_output": 1350690,
+      "codex_reasoning": 547618,
       "claude_tokens": 81516874,
       "claude_cost": 410.68859000000003,
       "claude_input": 81361663,
@@ -18695,32 +19033,52 @@
       "oneapi_requests": 3113,
       "codex_models": [
         {
-          "model": "gpt-5.6-sol",
-          "tokens": 211185953,
-          "cost": 162.823287,
+          "model": "unknown",
+          "tokens": 185130537,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 7175295,
-          "output": 845474,
-          "cache_read": 203165184,
+          "pricing_provenance": "unpriced",
+          "input": 5154695,
+          "output": 674466,
+          "cache_read": 179301376,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 369969,
+          "reasoning": 250039,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 153253302,
+          "cost": 119.458861,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 5327807,
+          "output": 639223,
+          "cache_read": 147286272,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 288755,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 135367392,
-          "cost": 19.900028,
+          "tokens": 17781657,
+          "cost": 2.6303164,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 3883508,
-          "output": 486124,
-          "cache_read": 130997760,
+          "input": 704272,
+          "output": 37001,
+          "cache_read": 17040384,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 170530,
+          "reasoning": 8824,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 60.63413759999999,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -18786,9 +19144,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 1292963649,
+      "total_tokens": 1302575800,
       "total_cost": 708.289161,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -18799,12 +19157,12 @@
     },
     {
       "date": "2026-08-08",
-      "codex_tokens": 321287297,
+      "codex_tokens": 331788292,
       "codex_cost": 190.9732514,
-      "codex_input": 11007429,
-      "codex_cache_read": 309083136,
-      "codex_output": 1196732,
-      "codex_reasoning": 539102,
+      "codex_input": 11175302,
+      "codex_cache_read": 319396864,
+      "codex_output": 1216126,
+      "codex_reasoning": 546229,
       "claude_tokens": 40409489,
       "claude_cost": 205.381605,
       "claude_input": 40242781,
@@ -18827,31 +19185,51 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 232957074,
-          "cost": 177.346396,
+          "tokens": 222466877,
+          "cost": 168.681353,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 7662784,
-          "output": 894418,
-          "cache_read": 224399872,
+          "input": 7125541,
+          "output": 860440,
+          "cache_read": 214480896,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 401499,
+          "reasoning": 381071,
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 88330223,
-          "cost": 13.6268554,
+          "model": "unknown",
+          "tokens": 79596269,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 3344645,
-          "output": 302314,
-          "cache_read": 84683264,
+          "pricing_provenance": "unpriced",
+          "input": 3118526,
+          "output": 249647,
+          "cache_read": 76228096,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 137603,
+          "reasoning": 130441,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 29725146,
+          "cost": 4.4362562,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 931235,
+          "output": 106039,
+          "cache_read": 28687872,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 34717,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 17.855642200000005,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -18902,9 +19280,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 580548266,
+      "total_tokens": 591049261,
       "total_cost": 421.84261504,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -18915,12 +19293,12 @@
     },
     {
       "date": "2026-08-09",
-      "codex_tokens": 4235522602,
+      "codex_tokens": 4390614780,
       "codex_cost": 2452.0929434,
-      "codex_input": 120580764,
-      "codex_cache_read": 4104551552,
-      "codex_output": 10390286,
-      "codex_reasoning": 4340465,
+      "codex_input": 122499240,
+      "codex_cache_read": 4257493504,
+      "codex_output": 10622036,
+      "codex_reasoning": 4410325,
       "claude_tokens": 97485374,
       "claude_cost": 497.10039000000006,
       "claude_input": 97001698,
@@ -18942,45 +19320,59 @@
       "oneapi_requests": 1538,
       "codex_models": [
         {
-          "model": "gpt-5.6-sol",
-          "tokens": 3339535236,
-          "cost": 2316.0137409999998,
+          "model": "unknown",
+          "tokens": 2476798963,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 91040771,
-          "output": 8019073,
-          "cache_read": 3240475392,
+          "pricing_provenance": "unpriced",
+          "input": 59932727,
+          "output": 4689596,
+          "cache_read": 2412176640,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 3345464,
+          "reasoning": 1916150,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 1485602626,
+          "cost": 1078.336519,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 45130685,
+          "output": 4489733,
+          "cache_read": 1435982208,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 1899936,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 876451114,
-          "cost": 126.55699539999999,
+          "tokens": 423735768,
+          "cost": 65.7842764,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 28313363,
-          "output": 2276247,
-          "cache_read": 845861504,
+          "input": 16773498,
+          "output": 1409246,
+          "cache_read": 405553024,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 948731,
+          "reasoning": 581206,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-terra",
-          "tokens": 19315490,
-          "cost": 8.567250999999999,
+          "tokens": 4256661,
+          "cost": 2.62567,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 1045830,
-          "output": 93916,
-          "cache_read": 18175744,
+          "input": 481530,
+          "output": 32411,
+          "cache_read": 3742720,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 45713,
+          "reasoning": 12476,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -18996,6 +19388,12 @@
           "cache_create": 0,
           "reasoning": 557,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 1304.3915220000001,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -19043,9 +19441,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 4625964366,
+      "total_tokens": 4781056544,
       "total_cost": 3002.77114864,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -19056,12 +19454,12 @@
     },
     {
       "date": "2026-08-10",
-      "codex_tokens": 2452839555,
+      "codex_tokens": 2553284318,
       "codex_cost": 1424.0418748,
-      "codex_input": 75333581,
-      "codex_cache_read": 2371236864,
-      "codex_output": 6269110,
-      "codex_reasoning": 2735852,
+      "codex_input": 76167426,
+      "codex_cache_read": 2470756608,
+      "codex_output": 6360284,
+      "codex_reasoning": 2773488,
       "claude_tokens": 126283004,
       "claude_cost": 504.0480315000001,
       "claude_input": 125008870,
@@ -19083,46 +19481,66 @@
       "oneapi_requests": 2149,
       "codex_models": [
         {
-          "model": "gpt-5.6-sol",
-          "tokens": 1886453543,
-          "cost": 1332.145417,
+          "model": "unknown",
+          "tokens": 1478862273,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 57081457,
-          "output": 4476342,
-          "cache_read": 1824895744,
+          "pricing_provenance": "unpriced",
+          "input": 38202845,
+          "output": 2814308,
+          "cache_read": 1437845120,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 1888982,
+          "reasoning": 1138329,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 789326799,
+          "cost": 581.489645,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 26245213,
+          "output": 2329586,
+          "cache_read": 760752000,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 1016496,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 533593731,
-          "cost": 78.14043480000001,
+          "tokens": 282104125,
+          "cost": 45.4587788,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 16679516,
-          "output": 1655847,
-          "cache_read": 515258368,
+          "input": 11357152,
+          "output": 1191005,
+          "cache_read": 269555968,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 788533,
+          "reasoning": 607360,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-terra",
-          "tokens": 32792281,
-          "cost": 13.756023,
+          "tokens": 2991121,
+          "cost": 1.937195,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 1572608,
-          "output": 136921,
-          "cache_read": 31082752,
+          "input": 362216,
+          "output": 25385,
+          "cache_read": 2603520,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 58337,
+          "reasoning": 11303,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 795.156256,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -19173,9 +19591,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 3149089546,
+      "total_tokens": 3249534309,
       "total_cost": 2014.4111807000002,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -19186,12 +19604,12 @@
     },
     {
       "date": "2026-08-11",
-      "codex_tokens": 4583843052,
+      "codex_tokens": 4788879411,
       "codex_cost": 3145.2001131,
-      "codex_input": 143332060,
-      "codex_cache_read": 4428735360,
-      "codex_output": 11775632,
-      "codex_reasoning": 5255053,
+      "codex_input": 149148696,
+      "codex_cache_read": 4627621760,
+      "codex_output": 12108955,
+      "codex_reasoning": 5402874,
       "claude_tokens": 60592594,
       "claude_cost": 284.980631,
       "claude_input": 60249073,
@@ -19214,30 +19632,44 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 4388292234,
-          "cost": 3110.135967,
+          "tokens": 3529149448,
+          "cost": 2500.180733,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 131842517,
-          "output": 10938933,
-          "cache_read": 4245510784,
+          "input": 105533483,
+          "output": 8837469,
+          "cache_read": 3414778496,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 4813450,
+          "reasoning": 3933897,
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 195231995,
-          "cost": 34.7153826,
+          "model": "unknown",
+          "tokens": 1015931280,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 11414273,
-          "output": 833786,
-          "cache_read": 182983936,
+          "pricing_provenance": "unpriced",
+          "input": 24986345,
+          "output": 1912231,
+          "cache_read": 989032704,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 440524,
+          "reasoning": 851361,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 243479860,
+          "cost": 49.048642,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 18553598,
+          "output": 1356342,
+          "cache_read": 223569920,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 616537,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -19267,6 +19699,12 @@
           "cache_create": 0,
           "reasoning": 89,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 595.6219746000002,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -19338,9 +19776,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 5218165876,
+      "total_tokens": 5423202235,
       "total_cost": 3556.2157383400004,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -19351,12 +19789,12 @@
     },
     {
       "date": "2026-08-12",
-      "codex_tokens": 2610409201,
+      "codex_tokens": 2680534458,
       "codex_cost": 1524.0878441,
-      "codex_input": 54632995,
-      "codex_cache_read": 2551076096,
-      "codex_output": 4700110,
-      "codex_reasoning": 1936679,
+      "codex_input": 55192340,
+      "codex_cache_read": 2620580352,
+      "codex_output": 4761766,
+      "codex_reasoning": 1956735,
       "claude_tokens": 492880765,
       "claude_cost": 157.96885496000002,
       "claude_input": 491589074,
@@ -19378,31 +19816,45 @@
       "oneapi_requests": 926,
       "codex_models": [
         {
-          "model": "gpt-5.6-sol",
-          "tokens": 2319853398,
-          "cost": 1482.5509,
+          "model": "unknown",
+          "tokens": 1993974092,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 45878240,
-          "output": 3938038,
-          "cache_read": 2270037120,
+          "pricing_provenance": "unpriced",
+          "input": 35185556,
+          "output": 2682296,
+          "cache_read": 1956106240,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 1558279,
+          "reasoning": 987663,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 587379005,
+          "cost": 410.471322,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 15291756,
+          "output": 1626065,
+          "cache_read": 570461184,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 695494,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 290379084,
-          "cost": 41.360511599999995,
+          "tokens": 99004642,
+          "cost": 16.7661778,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 8712378,
-          "output": 759570,
-          "cache_read": 280907136,
+          "input": 4672651,
+          "output": 450903,
+          "cache_read": 93881088,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 377908,
+          "reasoning": 273086,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -19418,6 +19870,12 @@
           "cache_create": 0,
           "reasoning": 492,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 1096.6739118,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -19474,9 +19932,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 3432311897,
+      "total_tokens": 3502437154,
       "total_cost": 1736.7492821,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -19487,12 +19945,12 @@
     },
     {
       "date": "2026-08-13",
-      "codex_tokens": 6867692359,
+      "codex_tokens": 7024459839,
       "codex_cost": 4237.7192608000005,
-      "codex_input": 127327547,
-      "codex_cache_read": 6726944512,
-      "codex_output": 13420300,
-      "codex_reasoning": 6165186,
+      "codex_input": 128832092,
+      "codex_cache_read": 6881945088,
+      "codex_output": 13682659,
+      "codex_reasoning": 6317007,
       "claude_tokens": 414940170,
       "claude_cost": 143.00114696000003,
       "claude_input": 414458203,
@@ -19515,30 +19973,44 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 6611450437,
-          "cost": 4195.828848,
+          "tokens": 5969262668,
+          "cost": 3778.727452,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 115873046,
-          "output": 12497455,
-          "cache_read": 6483079936,
+          "input": 101423468,
+          "output": 11447136,
+          "cache_read": 5856392064,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 5678015,
+          "reasoning": 5189092,
           "pricing_version": "2026-07-31.v1"
         },
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 255292603,
-          "cost": 41.0863188,
+          "model": "unknown",
+          "tokens": 932492468,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 11294400,
-          "output": 913915,
-          "cache_read": 243084288,
+          "pricing_provenance": "unpriced",
+          "input": 19258853,
+          "output": 1602383,
+          "cache_read": 911631232,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 483887,
+          "reasoning": 773653,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 121755384,
+          "cost": 23.049080399999998,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 7989670,
+          "output": 624210,
+          "cache_read": 113141504,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 350978,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -19568,6 +20040,12 @@
           "cache_create": 0,
           "reasoning": 135,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 435.1386344000002,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -19648,9 +20126,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 7553579272,
+      "total_tokens": 7710346752,
       "total_cost": 4441.411142880001,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -19661,12 +20139,12 @@
     },
     {
       "date": "2026-08-14",
-      "codex_tokens": 8385954584,
+      "codex_tokens": 8660402671,
       "codex_cost": 4883.4220319999995,
-      "codex_input": 120501772,
-      "codex_cache_read": 8253888000,
-      "codex_output": 11564812,
-      "codex_reasoning": 5192910,
+      "codex_input": 123772609,
+      "codex_cache_read": 8524704640,
+      "codex_output": 11925422,
+      "codex_reasoning": 5366546,
       "claude_tokens": 535418723,
       "claude_cost": 205.27556,
       "claude_input": 534954549,
@@ -19688,32 +20166,52 @@
       "oneapi_requests": 1207,
       "codex_models": [
         {
-          "model": "gpt-5.6-sol",
-          "tokens": 7991063255,
-          "cost": 4835.178234999999,
+          "model": "unknown",
+          "tokens": 7005928199,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 114345231,
-          "output": 11020104,
-          "cache_read": 7865697920,
+          "pricing_provenance": "unpriced",
+          "input": 87309622,
+          "output": 7664977,
+          "cache_read": 6910953600,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 4954381,
+          "reasoning": 3207390,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 1637307353,
+          "cost": 1099.819843,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 35264867,
+          "output": 4151670,
+          "cache_read": 1597890816,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 2101819,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 394891329,
-          "cost": 48.243797,
+          "tokens": 17167119,
+          "cost": 3.4367924,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 6156541,
-          "output": 544708,
-          "cache_read": 388190080,
+          "input": 1198120,
+          "output": 108775,
+          "cache_read": 15860224,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 238529,
+          "reasoning": 57337,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 3780.1653965999994,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -19791,9 +20289,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 9691703048,
+      "total_tokens": 9966151135,
       "total_cost": 5269.914722099999,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -19933,12 +20431,12 @@
     },
     {
       "date": "2026-08-16",
-      "codex_tokens": 4396681129,
+      "codex_tokens": 4593191639,
       "codex_cost": 3103.0942204999997,
-      "codex_input": 123038278,
-      "codex_cache_read": 4261721216,
-      "codex_output": 11921635,
-      "codex_reasoning": 5313247,
+      "codex_input": 126513907,
+      "codex_cache_read": 4454422400,
+      "codex_output": 12255332,
+      "codex_reasoning": 5474757,
       "claude_tokens": 74292925,
       "claude_cost": 29.905622880000003,
       "claude_input": 74219914,
@@ -19961,17 +20459,45 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 4395708513,
-          "cost": 3102.487393,
+          "tokens": 4348182989,
+          "cost": 2977.476089,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 122893893,
-          "output": 11919004,
-          "cache_read": 4260895616,
+          "input": 108021973,
+          "output": 10755448,
+          "cache_read": 4229405568,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 5312575,
+          "reasoning": 4912095,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 169687314,
+          "cost": 40.6763748,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 17217594,
+          "output": 1391832,
+          "cache_read": 151077888,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 513306,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "unknown",
+          "tokens": 74348720,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 1129955,
+          "output": 105421,
+          "cache_read": 73113344,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 48684,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.6-terra",
@@ -19986,6 +20512,12 @@
           "cache_create": 0,
           "reasoning": 672,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 84.3349291999998,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -20014,9 +20546,9 @@
           "ownership_rule_version": "2"
         }
       ],
-      "total_tokens": 4471040947,
+      "total_tokens": 4667551457,
       "total_cost": 3133.0031008999995,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -20180,12 +20712,12 @@
     },
     {
       "date": "2026-08-18",
-      "codex_tokens": 6529490594,
+      "codex_tokens": 6831425355,
       "codex_cost": 4350.9731790000005,
-      "codex_input": 151132585,
-      "codex_cache_read": 6364590848,
-      "codex_output": 13767161,
-      "codex_reasoning": 6039326,
+      "codex_input": 155082200,
+      "codex_cache_read": 6662170752,
+      "codex_output": 14172403,
+      "codex_reasoning": 6227585,
       "claude_tokens": 604683725,
       "claude_cost": 243.46641760000003,
       "claude_input": 604052730,
@@ -20208,17 +20740,51 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 6529490594,
-          "cost": 4350.9731790000005,
+          "tokens": 6531860686,
+          "cost": 4263.570272,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 151132585,
-          "output": 13767161,
-          "cache_read": 6364590848,
+          "input": 137785956,
+          "output": 12800106,
+          "cache_read": 6381274624,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 6039326,
+          "reasoning": 5721146,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 160260241,
+          "cost": 38.416576199999994,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 16261061,
+          "output": 1314508,
+          "cache_read": 142684672,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 484789,
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "unknown",
+          "tokens": 139304428,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 1035183,
+          "output": 57789,
+          "cache_read": 138211456,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 21650,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 48.98633080000036,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -20262,9 +20828,9 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 7349076206,
+      "total_tokens": 7651010967,
       "total_cost": 4607.2298034000005,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -20302,17 +20868,31 @@
       "oneapi_requests": 1357,
       "codex_models": [
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 105780414,
-          "cost": 15.284835399999999,
+          "model": "unknown",
+          "tokens": 58053650,
+          "cost": 0.0,
           "components_complete": true,
-          "pricing_provenance": "pinned-ledger",
-          "input": 3441291,
-          "output": 272819,
-          "cache_read": 102066304,
+          "pricing_provenance": "unpriced",
+          "input": 1884075,
+          "output": 123111,
+          "cache_read": 56046464,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 145168,
+          "reasoning": 61604,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 47726764,
+          "cost": 7.057448,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 1557216,
+          "output": 149708,
+          "cache_read": 46019840,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 83564,
           "pricing_version": "2026-07-31.v1"
         },
         {
@@ -20328,6 +20908,12 @@
           "cache_create": 0,
           "reasoning": 50014,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 8.227387399999998,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -20373,7 +20959,7 @@
       ],
       "total_tokens": 885044118,
       "total_cost": 164.57638352,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -21306,12 +21892,12 @@
     },
     {
       "date": "2026-08-26",
-      "codex_tokens": 126164448,
+      "codex_tokens": 131085217,
       "codex_cost": 89.04314784,
-      "codex_input": 6565875,
-      "codex_cache_read": 119232000,
-      "codex_output": 366573,
-      "codex_reasoning": 144082,
+      "codex_input": 6598189,
+      "codex_cache_read": 124114176,
+      "codex_output": 372852,
+      "codex_reasoning": 147633,
       "claude_tokens": 222744008,
       "claude_cost": 87.8467548,
       "claude_input": 222405376,
@@ -21333,39 +21919,53 @@
       "oneapi_requests": 7,
       "codex_models": [
         {
+          "model": "unknown",
+          "tokens": 79496810,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 2618703,
+          "output": 141083,
+          "cache_read": 76737024,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 59083,
+          "pricing_version": "legacy"
+        },
+        {
           "model": "gpt-5.6-sol",
-          "tokens": 115043348,
-          "cost": 84.46709944000001,
+          "tokens": 41899012,
+          "cost": 33.21124844,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-sol"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 4843742,
-          "output": 316726,
-          "cache_read": 109882880,
+          "input": 2442593,
+          "output": 185251,
+          "cache_read": 39271168,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 137632,
+          "reasoning": 83490,
           "canonical_model": "gpt-5.6-sol",
           "pricing_version": "2026-07-31.v1",
           "ownership_rule_version": "3"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 9646375,
-          "cost": 2.5385893999999993,
+          "tokens": 8214670,
+          "cost": 2.2090617999999997,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-luna"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 1471258,
-          "output": 44045,
-          "cache_read": 8131072,
+          "input": 1286018,
+          "output": 40716,
+          "cache_read": 6887936,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 3827,
+          "reasoning": 2437,
           "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1",
           "ownership_rule_version": "3"
@@ -21383,6 +21983,12 @@
           "cache_create": 0,
           "reasoning": 2623,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 51.585378600000006,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -21411,9 +22017,9 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 348917208,
+      "total_tokens": 353837977,
       "total_cost": 176.89324528,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -22204,12 +22810,12 @@
     },
     {
       "date": "2026-09-02",
-      "codex_tokens": 366069238,
+      "codex_tokens": 369949234,
       "codex_cost": 234.21481480000003,
-      "codex_input": 14645884,
-      "codex_cache_read": 350734592,
-      "codex_output": 688762,
-      "codex_reasoning": 363876,
+      "codex_input": 14653786,
+      "codex_cache_read": 354601472,
+      "codex_output": 693976,
+      "codex_reasoning": 368076,
       "claude_tokens": 420776672,
       "claude_cost": 165.75908496,
       "claude_input": 420256792,
@@ -22232,41 +22838,36 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 289964871,
-          "cost": 182.66364048000003,
+          "tokens": 213982328,
+          "cost": 134.15525848000001,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-sol"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 6726404,
-          "output": 549315,
-          "cache_read": 282689152,
+          "input": 5386624,
+          "output": 397176,
+          "cache_read": 208198528,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 287331,
+          "reasoning": 189828,
           "canonical_model": "gpt-5.6-sol",
           "pricing_version": "2026-07-31.v1",
           "ownership_rule_version": "3"
         },
         {
-          "model": "gpt-5.6-luna",
-          "tokens": 46973505,
-          "cost": 6.54285432,
+          "model": "unknown",
+          "tokens": 117022633,
+          "cost": 0.0,
           "components_complete": true,
-          "raw_models": [
-            "gpt-5.6-luna"
-          ],
-          "pricing_provenance": "pinned-ledger",
-          "input": 1336756,
-          "output": 111629,
-          "cache_read": 45525120,
+          "pricing_provenance": "unpriced",
+          "input": 2219160,
+          "output": 230801,
+          "cache_read": 114572672,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 63963,
-          "canonical_model": "gpt-5.6-luna",
-          "pricing_version": "2026-07-31.v1",
-          "ownership_rule_version": "3"
+          "reasoning": 149447,
+          "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.5",
@@ -22281,6 +22882,31 @@
           "cache_create": 0,
           "reasoning": 12582,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 9813411,
+          "cost": 1.6091715199999999,
+          "components_complete": true,
+          "raw_models": [
+            "gpt-5.6-luna"
+          ],
+          "pricing_provenance": "pinned-ledger",
+          "input": 465278,
+          "output": 38181,
+          "cache_read": 9309952,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 16219,
+          "canonical_model": "gpt-5.6-luna",
+          "pricing_version": "2026-07-31.v1",
+          "ownership_rule_version": "3"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 53.442064800000026,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -22354,9 +22980,9 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 1075235453,
+      "total_tokens": 1079115449,
       "total_cost": 410.12924664,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -22367,12 +22993,12 @@
     },
     {
       "date": "2026-09-03",
-      "codex_tokens": 279414049,
+      "codex_tokens": 281932519,
       "codex_cost": 134.76746319999998,
-      "codex_input": 5031441,
-      "codex_cache_read": 273818624,
-      "codex_output": 563984,
-      "codex_reasoning": 298842,
+      "codex_input": 5032243,
+      "codex_cache_read": 276336128,
+      "codex_output": 564148,
+      "codex_reasoning": 298888,
       "claude_tokens": 253700391,
       "claude_cost": 94.91978776,
       "claude_input": 253308837,
@@ -22395,33 +23021,47 @@
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 180974004,
-          "cost": 105.42808099999999,
+          "tokens": 133480679,
+          "cost": 79.53271199999999,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 1825855,
-          "output": 227957,
-          "cache_read": 178920192,
+          "input": 1642106,
+          "output": 183149,
+          "cache_read": 131655424,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 118000,
+          "reasoning": 91780,
           "pricing_version": "2026-07-31.v1"
         },
         {
+          "model": "unknown",
+          "tokens": 68822065,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 317147,
+          "output": 64854,
+          "cache_read": 68440064,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 37042,
+          "pricing_version": "legacy"
+        },
+        {
           "model": "gpt-5.6-luna",
-          "tokens": 67910782,
-          "cost": 10.3401692,
+          "tokens": 55302499,
+          "cost": 8.933820800000001,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-luna"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 2002167,
-          "output": 296455,
-          "cache_read": 65612160,
+          "input": 1921131,
+          "output": 284152,
+          "cache_read": 53097216,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 164287,
+          "reasoning": 157607,
           "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1",
           "ownership_rule_version": "3"
@@ -22442,17 +23082,23 @@
         },
         {
           "model": "gpt-5.6-terra",
-          "tokens": 8738829,
-          "cost": 2.848178,
+          "tokens": 2536842,
+          "cost": 1.069881,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 193586,
-          "output": 15451,
-          "cache_read": 8529792,
+          "input": 142026,
+          "output": 7872,
+          "cache_read": 2386944,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 7149,
+          "reasoning": 3053,
           "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "Legacy collector residual",
+          "tokens": 0,
+          "cost": 29.080014399999996,
+          "components_complete": false
         }
       ],
       "claude_models": [
@@ -22580,9 +23226,9 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 979643153,
+      "total_tokens": 982161623,
       "total_cost": 240.26114912,
-      "codex_snapshot_complete": false,
+      "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "legacy-preserved",
@@ -22994,68 +23640,119 @@
     },
     {
       "date": "2026-09-07",
-      "codex_tokens": 44913549,
-      "codex_cost": 8.381656640000001,
-      "codex_input": 3508974,
-      "codex_cache_read": 41327360,
-      "codex_output": 77215,
+      "codex_tokens": 229525271,
+      "codex_cost": 31.672688880000006,
+      "codex_input": 6659510,
+      "codex_cache_read": 222574592,
+      "codex_output": 291169,
       "codex_reasoning": 0,
-      "claude_tokens": 0,
-      "claude_cost": 0.0,
-      "claude_input": 0,
+      "claude_tokens": 26874160,
+      "claude_cost": 10.565177280000002,
+      "claude_input": 26854711,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
-      "claude_output": 0,
+      "claude_output": 19449,
       "cursor_tokens": 0,
       "cursor_cost": 0.0,
       "cursor_input": 0,
       "cursor_cache_write": 0,
       "cursor_cache_read": 0,
       "cursor_output": 0,
-      "oneapi_tokens": 0,
-      "oneapi_cost": 0.0,
-      "oneapi_input": 0,
-      "oneapi_cache_read": 0,
+      "oneapi_tokens": 14970608,
+      "oneapi_cost": 0.6059312,
+      "oneapi_input": 610603,
+      "oneapi_cache_read": 14322944,
       "oneapi_cache_write": 0,
-      "oneapi_output": 0,
-      "oneapi_requests": 0,
+      "oneapi_output": 37061,
+      "oneapi_requests": 138,
       "codex_models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 44913193,
-          "cost": 8.38152224,
+          "tokens": 229519405,
+          "cost": 31.671702720000003,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-sol"
           ],
-          "input": 3508796,
-          "output": 77037,
-          "cache_read": 41327360,
+          "input": 6654299,
+          "output": 290514,
+          "cache_read": 222574592,
           "cache_write": 0,
           "canonical_model": "gpt-5.6-sol",
           "ownership_rule_version": "3"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 356,
-          "cost": 0.00013440000000000001,
+          "tokens": 5866,
+          "cost": 0.00098616,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-luna"
           ],
-          "input": 178,
-          "output": 178,
+          "input": 5211,
+          "output": 655,
           "cache_read": 0,
           "cache_write": 0,
           "canonical_model": "gpt-5.6-luna",
           "ownership_rule_version": "3"
         }
       ],
-      "claude_models": [],
+      "claude_models": [
+        {
+          "model": "claude-opus-5",
+          "tokens": 26874160,
+          "cost": 10.565177280000002,
+          "components_complete": true,
+          "raw_models": [
+            "claude-opus-5"
+          ],
+          "input": 26854711,
+          "output": 19449,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-opus-5",
+          "ownership_rule_version": "3"
+        }
+      ],
       "cursor_models": [],
-      "oneapi_models": [],
-      "total_tokens": 44913549,
-      "total_cost": 8.381656640000001,
+      "oneapi_models": [
+        {
+          "model": "deepseek-v4-pro",
+          "tokens": 9676725,
+          "cost": 0.53109952,
+          "components_complete": true,
+          "raw_models": [
+            "deepseek-v4-pro"
+          ],
+          "input": 480151,
+          "output": 18974,
+          "cache_read": 9177600,
+          "cache_write": 0,
+          "canonical_model": "deepseek-v4-pro",
+          "ownership_rule_version": "3"
+        },
+        {
+          "model": "deepseek-v4-flash",
+          "tokens": 5293883,
+          "cost": 0.07483168000000001,
+          "components_complete": true,
+          "raw_models": [
+            "deepseek-v4-flash"
+          ],
+          "input": 130452,
+          "output": 18087,
+          "cache_read": 5145344,
+          "cache_write": 0,
+          "canonical_model": "deepseek-v4-flash",
+          "ownership_rule_version": "3"
+        }
+      ],
+      "total_tokens": 271370039,
+      "total_cost": 42.84379736000001,
+      "claude_snapshot_complete": true,
+      "claude_pricing_version": "oneapi",
+      "claude_pricing_complete": true,
+      "claude_pricing_provenance": "oneapi",
       "codex_snapshot_complete": true,
       "codex_pricing_version": "oneapi",
       "codex_pricing_complete": true,
