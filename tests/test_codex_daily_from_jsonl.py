@@ -323,6 +323,67 @@ class CodexDailyFromJsonlTests(unittest.TestCase):
             )
             self.assertEqual(len(payload["daily"]), 0)
 
+    def test_events_before_the_first_turn_context_use_that_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions" / "2026" / "08" / "03"
+            sessions.mkdir(parents=True)
+            # A resumed rollout records replayed token events before it declares
+            # its first turn_context. They must not be stranded as "unknown".
+            write_session(
+                sessions,
+                "rollout-2026-08-03T01-00-00-resumed.jsonl",
+                [
+                    session_meta("resumed"),
+                    token_event(
+                        "2026-08-02T17:00:00.000Z",
+                        input_tokens=100,
+                        cached_input=80,
+                        output=10,
+                    ),
+                    turn_context("gpt-5.6-sol"),
+                    token_event(
+                        "2026-08-02T17:00:01.000Z",
+                        input_tokens=200,
+                        cached_input=180,
+                        output=20,
+                    ),
+                ],
+            )
+
+            payload = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
+
+            models = payload["daily"][0]["models"]
+            self.assertNotIn("unknown", models)
+            self.assertEqual(models["gpt-5.6-sol"]["totalTokens"], 330)
+            self.assertEqual(payload["daily"][0]["totalTokens"], 330)
+
+    def test_events_stay_unknown_when_the_file_never_declares_a_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions" / "2026" / "08" / "03"
+            sessions.mkdir(parents=True)
+            write_session(
+                sessions,
+                "rollout-2026-08-03T01-00-00-nomodel.jsonl",
+                [
+                    session_meta("nomodel"),
+                    token_event(
+                        "2026-08-02T17:00:00.000Z",
+                        input_tokens=100,
+                        cached_input=80,
+                        output=10,
+                    ),
+                ],
+            )
+
+            models = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")["daily"][0][
+                "models"
+            ]
+
+            self.assertEqual(list(models), ["unknown"])
+            self.assertEqual(models["unknown"]["totalTokens"], 110)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1999,6 +1999,83 @@ class SourceStatusTests(unittest.TestCase):
                 usage_report.MODEL_BREAKDOWN_VERSION - 1,
             )
 
+    def test_unpriced_cost_decrease_settles_without_reopening_the_ledger(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            machines = Path(tmp)
+            fragment = machines / "mac-test.json"
+            fragment.write_text(
+                json.dumps(
+                    {
+                        "machine_id": "mac-test",
+                        "mutable_from": "2026-09-05",
+                        "daily": [
+                            {
+                                "date": "2026-07-16",
+                                "codex_tokens": 100,
+                                "codex_cost": 9.0,
+                                "codex_input": 20,
+                                "codex_cache_read": 70,
+                                "codex_output": 10,
+                                "codex_reasoning": 4,
+                                "codex_models": [
+                                    {"model": "gpt-5.6-sol", "tokens": 100, "cost": 9.0}
+                                ],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            usage_report.persist_local_model_metadata(
+                fragment,
+                [
+                    {
+                        "date": "2026-07-16",
+                        "tokens": 100,
+                        "cost": 4.0,
+                        "input": 20,
+                        "cache_read": 70,
+                        "output": 10,
+                        "reasoning": 4,
+                        "snapshot_complete": True,
+                        "pricing_complete": False,
+                        "pricing_version": usage_report.PRICING_VERSION,
+                        "pricing_provenance": "mixed-legacy",
+                        "models": [
+                            {"model": "gpt-5.6-sol", "tokens": 60, "cost": 4.0},
+                            {"model": "unknown", "tokens": 40, "cost": 0.0},
+                        ],
+                    }
+                ],
+                {},
+                model_seed_complete=True,
+            )
+
+            written = json.loads(fragment.read_text(encoding="utf-8"))
+            row = written["daily"][0]
+            # The newer per-model facts are adopted, the durable cost is kept,
+            # and its remainder stays explicit.
+            self.assertEqual(row["codex_tokens"], 100)
+            self.assertEqual(row["codex_cost"], 9.0)
+            self.assertEqual(
+                sum(model["tokens"] for model in row["codex_models"]), 100
+            )
+            self.assertAlmostEqual(
+                sum(model["cost"] for model in row["codex_models"]), 9.0
+            )
+            self.assertFalse(row["codex_pricing_complete"])
+            self.assertEqual(row["codex_pricing_provenance"], "legacy-preserved")
+            # Settled in place: the durable boundary must not walk backwards.
+            self.assertEqual(written["mutable_from"], "2026-09-05")
+            self.assertEqual(
+                written["last_append_stats"]["pricing_regression_dates"],
+                ["2026-07-16"],
+            )
+            self.assertNotIn(
+                "model_reconcile_failure_dates", written["last_append_stats"]
+            )
+
     def test_main_writes_source_status_to_usage_json(self):
         source_status = {
             source: {

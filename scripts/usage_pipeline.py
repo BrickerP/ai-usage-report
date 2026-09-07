@@ -1972,6 +1972,7 @@ def codex_daily_from_jsonl(
                 if stamp and stamp >= earliest_skip:
                     continue
         file_model = ""
+        first_file_model = ""
         session_id = f"file:{path}"
         parent_thread_id = ""
         events: list[dict[str, Any]] = []
@@ -2005,6 +2006,8 @@ def codex_daily_from_jsonl(
                         new_model = str(payload.get("model") or "").strip()
                         if new_model:
                             file_model = new_model
+                            if not first_file_model:
+                                first_file_model = new_model
                         continue
                     if typ == "event_msg" and payload.get("type") == "token_count":
                         raw_timestamp = obj.get("timestamp") or payload.get("timestamp")
@@ -2055,6 +2058,15 @@ def codex_daily_from_jsonl(
                         )
         except OSError:
             file_scan_errors["unreadable_files"] += 1
+        # A resumed rollout can record token events before it declares its
+        # first turn_context. Those events belong to this file's own thread, so
+        # the first model the file declares is the best available attribution;
+        # leaving them as "unknown" would strand real tokens with no price.
+        if first_file_model:
+            for event in events:
+                if not event["model"]:
+                    event["model"] = first_file_model
+                    event["model_inferred"] = True
         for error_name, count in file_scan_errors.items():
             scan_errors[error_name] += count
         sessions.append(
@@ -2594,6 +2606,7 @@ def persist_local_model_metadata(
         },
     }
     pricing_regressions: set[str] = set()
+    reconcile_failures: set[str] = set()
     for row in fragment.get("daily") or []:
         if not isinstance(row, dict):
             continue
@@ -2646,7 +2659,7 @@ def persist_local_model_metadata(
                 )
             except ValueError:
                 row[f"{prefix}_snapshot_complete"] = False
-                pricing_regressions.add(date_key)
+                reconcile_failures.add(date_key)
                 continue
             row[f"{prefix}_models"] = reconciled_models
             row[f"{prefix}_cost"] = target_cost
@@ -2669,17 +2682,23 @@ def persist_local_model_metadata(
         fragment["model_breakdown_version"] = MODEL_BREAKDOWN_VERSION
     fragment["schema_version"] = PUBLIC_SCHEMA_VERSION
     fragment["pricing_version"] = PRICING_VERSION
-    if pricing_regressions:
-        current_boundary = str(fragment.get("mutable_from") or "")
-        fragment["mutable_from"] = min(
-            [value for value in [current_boundary, *pricing_regressions] if value]
-        )
+    if pricing_regressions or reconcile_failures:
         stats = (
             fragment.get("last_append_stats")
             if isinstance(fragment.get("last_append_stats"), dict)
             else {}
         )
-        stats["pricing_regression_dates"] = sorted(pricing_regressions)
+        # An unpriced cost decrease is already settled in place: the higher
+        # durable cost is preserved and its remainder is recorded explicitly.
+        # Only an unresolved reconciliation failure needs the day reopened.
+        if pricing_regressions:
+            stats["pricing_regression_dates"] = sorted(pricing_regressions)
+        if reconcile_failures:
+            stats["model_reconcile_failure_dates"] = sorted(reconcile_failures)
+            current_boundary = str(fragment.get("mutable_from") or "")
+            fragment["mutable_from"] = min(
+                [value for value in [current_boundary, *reconcile_failures] if value]
+            )
         fragment["last_append_stats"] = stats
     fragment["legacy_comate"] = legacy_comate
     fragment["tools"] = ["codex"]
