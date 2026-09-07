@@ -120,6 +120,7 @@ export const TOOLS: Array<{
   tokenKey: keyof DailyRow
   costKey: keyof DailyRow
   modelKey: keyof DailyRow
+  coverage: string
   breakdown: BreakdownSpec[]
   cacheKeys: Array<keyof DailyRow>
 }> = [
@@ -131,6 +132,8 @@ export const TOOLS: Array<{
     tokenKey: 'codex_tokens',
     costKey: 'codex_cost',
     modelKey: 'codex_models',
+    coverage:
+      'Covers Codex Desktop session logs plus the One API gateway Codex family. Runs started with codex exec --ephemeral persist no session file and are absent.',
     breakdown: [
       { key: 'codex_input', label: 'Input' },
       { key: 'codex_cache_read', label: 'Cache read' },
@@ -155,6 +158,7 @@ export const TOOLS: Array<{
     tokenKey: 'claude_tokens',
     costKey: 'claude_cost',
     modelKey: 'claude_models',
+    coverage: 'Covers the One API gateway Claude model family.',
     breakdown: [
       { key: 'claude_input', label: 'Input' },
       { key: 'claude_cache_create', label: 'Cache create' },
@@ -171,6 +175,7 @@ export const TOOLS: Array<{
     tokenKey: 'cursor_tokens',
     costKey: 'cursor_cost',
     modelKey: 'cursor_models',
+    coverage: 'Covers billed events returned by the Cursor Dashboard API.',
     breakdown: [
       { key: 'cursor_input', label: 'Input' },
       { key: 'cursor_cache_write', label: 'Cache write' },
@@ -187,6 +192,8 @@ export const TOOLS: Array<{
     tokenKey: 'oneapi_tokens',
     costKey: 'oneapi_cost',
     modelKey: 'oneapi_models',
+    coverage:
+      'Covers the One API gateway excluding its Codex and Claude families, which are reported under those tools.',
     breakdown: [
       { key: 'oneapi_input', label: 'Input' },
       { key: 'oneapi_cache_read', label: 'Cache read' },

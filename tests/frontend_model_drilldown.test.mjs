@@ -1303,3 +1303,25 @@ test('published usage conserves every tool across common ranges', () => {
     }
   }
 })
+
+test('every tool declares what its recorded numbers cover', () => {
+  for (const tool of TOOLS) {
+    assert.ok(
+      typeof tool.coverage === 'string' && tool.coverage.trim().length > 0,
+      `${tool.id} is missing a coverage statement`,
+    )
+  }
+
+  const codex = TOOLS.find((tool) => tool.id === 'codex')
+  assert.ok(codex)
+  assert.match(codex.coverage, /ephemeral/)
+  assert.match(codex.coverage, /One API/)
+
+  const summary = summarizeRange([
+    { date: '2026-09-06', codex_tokens: 5, codex_cost: 1 },
+  ])
+  for (const tool of summary.byTool) {
+    const declared = TOOLS.find((candidate) => candidate.id === tool.id)
+    assert.equal(tool.coverage, declared.coverage)
+  }
+})

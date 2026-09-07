@@ -736,6 +736,9 @@ function ReportApp() {
                 <Text size="sm" color="secondary">
                   recorded tokens in range
                 </Text>
+                <Text size="sm" color="secondary" className="tool-coverage">
+                  {tool.coverage}
+                </Text>
                 <div className="breakdown-grid">
                   {tool.parts.map((part) => (
                     <Fragment key={`${tool.id}-${part.label}`}>
