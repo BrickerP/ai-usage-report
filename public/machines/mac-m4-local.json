@@ -3,33 +3,24 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m4-local",
   "hostname": "yupengdeMacBook-Pro.local",
-  "collected_at": "2026-09-08T00:06:36+08:00",
-  "captured_at": "2026-09-08T00:06:36+08:00",
-  "snapshot_id": "mac-m4-local@2026-09-08T00:06:36+08:00",
+  "collected_at": "2026-09-08T15:04:33+08:00",
+  "captured_at": "2026-09-08T15:04:33+08:00",
+  "snapshot_id": "mac-m4-local@2026-09-08T15:04:33+08:00",
   "seeded_at": "2026-08-23T00:12:13+08:00",
   "seeded": true,
   "append_mode": true,
   "mutable_from": "2026-09-07",
   "last_mode": "append",
   "last_append_stats": {
-    "frozen_kept": 48,
-    "appended": 0,
-    "refreshed": 2,
+    "frozen_kept": 49,
+    "appended": 1,
+    "refreshed": 1,
     "today_updated": 0,
     "skipped": 0,
     "regression_kept": 0,
     "regression_dates": [],
     "regression_reasons": {},
-    "pricing_changes": [
-      {
-        "date": "2026-09-07",
-        "tool": "codex",
-        "from": 40.622422,
-        "to": 228.91147740000002,
-        "pricing_version": "2026-07-31.v1",
-        "pricing_complete": false
-      }
-    ],
+    "pricing_changes": [],
     "pricing_regression_dates": []
   },
   "timezone": "Asia/Shanghai",
@@ -2807,6 +2798,62 @@
           "cache_read": 115083776,
           "cache_create": 0,
           "reasoning": 39568,
+          "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
+        }
+      ],
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_complete": false,
+      "codex_pricing_provenance": "mixed-legacy"
+    },
+    {
+      "date": "2026-09-08",
+      "codex_tokens": 95831229,
+      "codex_cost": 14.1772248,
+      "codex_input": 4976956,
+      "codex_cache_read": 90740608,
+      "codex_output": 113665,
+      "codex_reasoning": 68662,
+      "codex_models": [
+        {
+          "model": "gpt-5.6-luna",
+          "tokens": 82318237,
+          "cost": 12.1111648,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 3781798,
+          "output": 80631,
+          "cache_read": 78455808,
+          "cache_create": 0,
+          "reasoning": 42266,
+          "canonical_model": "gpt-5.6-luna",
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-6-astra",
+          "tokens": 13043123,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 790988,
+          "output": 32615,
+          "cache_read": 12219520,
+          "cache_create": 0,
+          "reasoning": 26315,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.5",
+          "tokens": 469869,
+          "cost": 2.0660600000000002,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 404170,
+          "output": 419,
+          "cache_read": 65280,
+          "cache_create": 0,
+          "reasoning": 81,
           "canonical_model": "gpt-5.5",
           "pricing_version": "2026-07-31.v1"
         }
