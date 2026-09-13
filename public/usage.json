@@ -1,14 +1,20 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-09-13T06:06:50+08:00",
-  "snapshot_id": "sha256:1196380c5cfd7e2edc8111a5f43b220f23b16c8f641f7591c8b258bfbe179c36",
-  "generated_at": "2026-09-13T06:06:50+08:00",
+  "captured_at": "2026-09-13T11:53:25+08:00",
+  "snapshot_id": "sha256:8397b4fac53a42243248a4aeabb6296f9c416f9a1a9131be7ae6c027dcb4ce85",
+  "generated_at": "2026-09-13T11:53:25+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
     "regression_dates": [
+      "2026-07-29",
+      "2026-07-30",
+      "2026-07-31",
+      "2026-08-01",
+      "2026-08-02",
+      "2026-08-03",
       "2026-08-04",
       "2026-08-05",
       "2026-08-06",
@@ -25,8 +31,14 @@
       "2026-09-11",
       "2026-09-12"
     ],
-    "regression_kept": 15,
+    "regression_kept": 21,
     "regression_reasons": {
+      "2026-07-29": "incomplete_snapshot",
+      "2026-07-30": "incomplete_snapshot",
+      "2026-07-31": "incomplete_snapshot",
+      "2026-08-01": "incomplete_snapshot",
+      "2026-08-02": "incomplete_snapshot",
+      "2026-08-03": "incomplete_snapshot",
       "2026-08-04": "incomplete_snapshot",
       "2026-08-05": "incomplete_snapshot",
       "2026-08-06": "incomplete_snapshot",
@@ -825,7 +837,7 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-09-13T05:48:51+08:00",
+      "attempted_at": "2026-09-13T11:26:17+08:00",
       "last_success_at": "2026-09-12T00:10:17+08:00",
       "window_end": "2026-09-12",
       "lag_days": 1,
@@ -833,7 +845,7 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-09-13T05:48:51+08:00",
+      "attempted_at": "2026-09-13T11:26:17+08:00",
       "last_success_at": "2026-09-12T00:10:17+08:00",
       "window_end": "2026-09-11",
       "lag_days": 2,
@@ -841,7 +853,7 @@
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-09-13T05:48:51+08:00",
+      "attempted_at": "2026-09-13T11:26:17+08:00",
       "last_success_at": "2026-09-12T00:10:17+08:00",
       "window_end": "2026-09-12",
       "lag_days": 1,
