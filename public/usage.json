@@ -1,16 +1,24 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-09-13T16:37:03+08:00",
-  "snapshot_id": "sha256:1f4dd204bf68fb3bbac24e8258482749027d504cea593eeef4e5cbbbeb69eec6",
-  "generated_at": "2026-09-13T16:37:03+08:00",
+  "captured_at": "2026-09-13T23:44:21+08:00",
+  "snapshot_id": "sha256:f838582c0987db4c78dc6350ded435081f7a47e798d4c45c58e9913b199867db",
+  "generated_at": "2026-09-13T23:44:21+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [],
-    "regression_kept": 0,
-    "regression_reasons": {},
+    "regression_dates": [
+      "2026-07-18",
+      "2026-07-22",
+      "2026-07-23"
+    ],
+    "regression_kept": 3,
+    "regression_reasons": {
+      "2026-07-18": "token_regression",
+      "2026-07-22": "token_regression",
+      "2026-07-23": "token_regression"
+    },
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -367,9 +375,9 @@
     },
     {
       "tool": "Cursor",
-      "history": "2026-05-22 to 2026-09-11",
-      "cost": 4930.09897744,
-      "total_tokens": 5240521612,
+      "history": "2026-05-22 to 2026-09-13",
+      "cost": 4936.510321440001,
+      "total_tokens": 5248593342,
       "models": [
         {
           "model": "Legacy unknown",
@@ -385,8 +393,8 @@
         },
         {
           "model": "cursor-grok-4.6-xhigh-fast",
-          "tokens": 546696298,
-          "cost": 368.3510841,
+          "tokens": 546993002,
+          "cost": 369.2477801,
           "components_complete": false
         },
         {
@@ -445,8 +453,8 @@
         },
         {
           "model": "cursor-grok-4.6-high",
-          "tokens": 5646250,
-          "cost": 3.8371349,
+          "tokens": 13421276,
+          "cost": 9.3517829,
           "components_complete": false
         },
         {
@@ -780,7 +788,7 @@
     }
   ],
   "timeline_meta": {
-    "span": "2026-01-08 to 2026-09-11"
+    "span": "2026-01-08 to 2026-09-13"
   },
   "source_status": {
     "codex": {
@@ -793,23 +801,23 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-09-13T15:58:29+08:00",
+      "attempted_at": "2026-09-13T23:43:53+08:00",
       "last_success_at": "2026-09-12T00:10:17+08:00",
       "window_end": "2026-09-12",
       "lag_days": 1,
       "error": "oneapi_browser_unavailable"
     },
     "cursor": {
-      "status": "stale",
-      "attempted_at": "2026-09-13T15:58:29+08:00",
-      "last_success_at": "2026-09-12T00:10:17+08:00",
-      "window_end": "2026-09-11",
-      "lag_days": 2,
-      "error": "cursor_incomplete"
+      "status": "fresh",
+      "attempted_at": "2026-09-13T23:43:53+08:00",
+      "last_success_at": "2026-09-13T23:43:53+08:00",
+      "window_end": "2026-09-13",
+      "lag_days": 0,
+      "error": ""
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-09-13T15:58:29+08:00",
+      "attempted_at": "2026-09-13T23:43:53+08:00",
       "last_success_at": "2026-09-12T00:10:17+08:00",
       "window_end": "2026-09-12",
       "lag_days": 1,
@@ -24406,6 +24414,102 @@
       "claude_pricing_version": "oneapi",
       "claude_pricing_complete": true,
       "claude_pricing_provenance": "oneapi"
+    },
+    {
+      "date": "2026-09-12",
+      "codex_tokens": 0,
+      "codex_cost": 0.0,
+      "codex_input": 0,
+      "codex_cache_read": 0,
+      "codex_output": 0,
+      "codex_reasoning": 0,
+      "claude_tokens": 0,
+      "claude_cost": 0.0,
+      "claude_input": 0,
+      "claude_cache_create": 0,
+      "claude_cache_read": 0,
+      "claude_output": 0,
+      "cursor_tokens": 2171910,
+      "cursor_cost": 2.2692799999999997,
+      "cursor_input": 370928,
+      "cursor_cache_write": 0,
+      "cursor_cache_read": 1768512,
+      "cursor_output": 32470,
+      "oneapi_tokens": 0,
+      "oneapi_cost": 0.0,
+      "oneapi_input": 0,
+      "oneapi_cache_read": 0,
+      "oneapi_cache_write": 0,
+      "oneapi_output": 0,
+      "oneapi_requests": 0,
+      "codex_models": [],
+      "claude_models": [],
+      "cursor_models": [
+        {
+          "model": "cursor-grok-4.6-high",
+          "tokens": 1875206,
+          "cost": 1.372584,
+          "components_complete": false
+        },
+        {
+          "model": "cursor-grok-4.6-xhigh-fast",
+          "tokens": 296704,
+          "cost": 0.8966959999999999,
+          "components_complete": false
+        }
+      ],
+      "oneapi_models": [],
+      "total_tokens": 2171910,
+      "total_cost": 2.2692799999999997,
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
+      "cursor_pricing_complete": true,
+      "cursor_pricing_provenance": "filtered-events-charged-cents"
+    },
+    {
+      "date": "2026-09-13",
+      "codex_tokens": 0,
+      "codex_cost": 0.0,
+      "codex_input": 0,
+      "codex_cache_read": 0,
+      "codex_output": 0,
+      "codex_reasoning": 0,
+      "claude_tokens": 0,
+      "claude_cost": 0.0,
+      "claude_input": 0,
+      "claude_cache_create": 0,
+      "claude_cache_read": 0,
+      "claude_output": 0,
+      "cursor_tokens": 5899820,
+      "cursor_cost": 4.1420639999999995,
+      "cursor_input": 556678,
+      "cursor_cache_write": 0,
+      "cursor_cache_read": 5278208,
+      "cursor_output": 64934,
+      "oneapi_tokens": 0,
+      "oneapi_cost": 0.0,
+      "oneapi_input": 0,
+      "oneapi_cache_read": 0,
+      "oneapi_cache_write": 0,
+      "oneapi_output": 0,
+      "oneapi_requests": 0,
+      "codex_models": [],
+      "claude_models": [],
+      "cursor_models": [
+        {
+          "model": "cursor-grok-4.6-high",
+          "tokens": 5899820,
+          "cost": 4.1420639999999995,
+          "components_complete": false
+        }
+      ],
+      "oneapi_models": [],
+      "total_tokens": 5899820,
+      "total_cost": 4.1420639999999995,
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
+      "cursor_pricing_complete": true,
+      "cursor_pricing_provenance": "filtered-events-charged-cents"
     }
   ],
   "notes": {
