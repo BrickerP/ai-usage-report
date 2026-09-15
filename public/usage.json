@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-09-15T15:07:27+08:00",
-  "snapshot_id": "sha256:3cbbf8f523ba96d89435d3f42088b842e02ac599bdbda5a722313216087b0b92",
-  "generated_at": "2026-09-15T15:07:27+08:00",
+  "captured_at": "2026-09-16T00:52:31+08:00",
+  "snapshot_id": "sha256:b6d2767e0636127b194fcc17d1c974f3874aff9393041f0f75697900f2c9c4fb",
+  "generated_at": "2026-09-16T00:52:31+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -376,8 +376,8 @@
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-09-15",
-      "cost": 5335.213745290001,
-      "total_tokens": 5780356119,
+      "cost": 5346.626717890001,
+      "total_tokens": 5791395512,
       "models": [
         {
           "model": "Legacy unknown",
@@ -399,8 +399,8 @@
         },
         {
           "model": "cursor-grok-4.6-xhigh",
-          "tokens": 472232276,
-          "cost": 285.99727599999983,
+          "tokens": 478956330,
+          "cost": 290.8800159999998,
           "components_complete": false
         },
         {
@@ -429,8 +429,8 @@
         },
         {
           "model": "claude-fable-5-1-thinking-max",
-          "tokens": 58278757,
-          "cost": 49.0967485,
+          "tokens": 61695619,
+          "cost": 55.4561635,
           "components_complete": false
         },
         {
@@ -473,6 +473,12 @@
           "model": "cursor-grok-4.6-medium",
           "tokens": 3056290,
           "cost": 2.1510800000000003,
+          "components_complete": false
+        },
+        {
+          "model": "agent_review",
+          "tokens": 898477,
+          "cost": 0.17081759999999999,
           "components_complete": false
         }
       ]
@@ -799,40 +805,40 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-09-15T15:03:47+08:00",
-      "last_success_at": "2026-09-15T15:03:47+08:00",
-      "window_end": "2026-09-15",
+      "attempted_at": "2026-09-16T00:31:34+08:00",
+      "last_success_at": "2026-09-16T00:31:34+08:00",
+      "window_end": "2026-09-16",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-09-15T15:06:55+08:00",
+      "status": "stale",
+      "attempted_at": "2026-09-16T00:51:59+08:00",
       "last_success_at": "2026-09-15T15:06:55+08:00",
       "window_end": "2026-09-15",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_browser_unavailable"
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-09-15T15:06:55+08:00",
-      "last_success_at": "2026-09-15T15:06:55+08:00",
+      "status": "stale",
+      "attempted_at": "2026-09-16T00:51:59+08:00",
+      "last_success_at": "2026-09-16T00:51:59+08:00",
       "window_end": "2026-09-15",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "cursor_data_lagging"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-09-15T15:06:55+08:00",
+      "status": "stale",
+      "attempted_at": "2026-09-16T00:51:59+08:00",
       "last_success_at": "2026-09-15T15:06:55+08:00",
       "window_end": "2026-09-15",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_browser_unavailable"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-09-15T15:06:55.080736+08:00",
     "snapshot_id": "sha256:37222ee537747cc0a3a1b2cebd285b1a7783b229843358396b50889d36e4db9d",
@@ -5383,7 +5389,7 @@
       "records_after_deduplication": 3958,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
@@ -24932,12 +24938,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "cursor_tokens": 31415825,
-      "cursor_cost": 30.243054499999996,
-      "cursor_input": 2374214,
-      "cursor_cache_write": 818206,
-      "cursor_cache_read": 27980470,
-      "cursor_output": 242935,
+      "cursor_tokens": 42455218,
+      "cursor_cost": 41.656027099999996,
+      "cursor_input": 3240357,
+      "cursor_cache_write": 1270973,
+      "cursor_cache_read": 37644187,
+      "cursor_output": 299701,
       "oneapi_tokens": 284706074,
       "oneapi_cost": 2.8720305600000002,
       "oneapi_input": 3935485,
@@ -24966,14 +24972,20 @@
       "cursor_models": [
         {
           "model": "cursor-grok-4.6-xhigh",
-          "tokens": 26858392,
-          "cost": 18.232927999999994,
+          "tokens": 33582446,
+          "cost": 23.115667999999996,
           "components_complete": false
         },
         {
           "model": "claude-fable-5-1-thinking-max",
-          "tokens": 4557433,
-          "cost": 12.0101265,
+          "tokens": 7974295,
+          "cost": 18.3695415,
+          "components_complete": false
+        },
+        {
+          "model": "agent_review",
+          "tokens": 898477,
+          "cost": 0.17081759999999999,
           "components_complete": false
         }
       ],
@@ -24994,11 +25006,11 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 316131170,
-      "total_cost": 33.11701033999999,
+      "total_tokens": 327170563,
+      "total_cost": 44.52998294,
       "cursor_snapshot_complete": true,
-      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_provenance": "filtered-events-charged-cents",
       "codex_snapshot_complete": true,
       "codex_pricing_version": "oneapi",
