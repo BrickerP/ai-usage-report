@@ -1,24 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-09-17T15:09:40+08:00",
-  "snapshot_id": "sha256:08e1ff4a31dcdc911a2c48e27d3b83c5b658ca974bed55a5ae90c06679fc1226",
-  "generated_at": "2026-09-17T15:09:40+08:00",
+  "captured_at": "2026-09-18T00:40:06+08:00",
+  "snapshot_id": "sha256:1af57c03677bf3a2147e668d172019668d54d9940c4f77c757ea581562a97083",
+  "generated_at": "2026-09-18T00:40:06+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23"
-    ],
-    "regression_kept": 3,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -790,40 +782,40 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-09-17T15:03:50+08:00",
-      "last_success_at": "2026-09-17T15:03:50+08:00",
-      "window_end": "2026-09-17",
+      "attempted_at": "2026-09-18T00:38:39+08:00",
+      "last_success_at": "2026-09-18T00:38:39+08:00",
+      "window_end": "2026-09-18",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-09-17T15:09:05+08:00",
+      "status": "stale",
+      "attempted_at": "2026-09-18T00:40:06+08:00",
       "last_success_at": "2026-09-17T15:09:05+08:00",
       "window_end": "2026-09-17",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_network_unavailable"
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-09-17T15:09:05+08:00",
+      "attempted_at": "2026-09-18T00:40:06+08:00",
       "last_success_at": "2026-09-17T15:09:05+08:00",
       "window_end": "2026-09-16",
-      "lag_days": 1,
-      "error": "cursor_data_lagging"
+      "lag_days": 2,
+      "error": "cursor_incomplete"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-09-17T15:09:05+08:00",
+      "status": "stale",
+      "attempted_at": "2026-09-18T00:40:06+08:00",
       "last_success_at": "2026-09-17T15:09:05+08:00",
       "window_end": "2026-09-17",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_network_unavailable"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-09-17T15:09:05.486614+08:00",
     "snapshot_id": "sha256:b1116169f7e93b34a71a1b0ec6d595f2aff914fea8441087ab99d7c791344fad",
@@ -5454,7 +5446,7 @@
       "records_after_deduplication": 5179,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
