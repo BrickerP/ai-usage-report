@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-09-27T16:17:18+08:00",
-  "snapshot_id": "sha256:8e71baa89d49cdc899dab8326402234fcb9d05c1e1ce1a305fc61d75c252d1c3",
-  "generated_at": "2026-09-27T16:17:18+08:00",
+  "captured_at": "2026-09-28T00:37:32+08:00",
+  "snapshot_id": "sha256:6476cdc0a20fc4b9d8f672e9d55ab6a66594c128711e21160d6200beb399b33b",
+  "generated_at": "2026-09-28T00:37:32+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -895,40 +895,40 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-09-27T15:13:37+08:00",
-      "last_success_at": "2026-09-27T15:13:37+08:00",
-      "window_end": "2026-09-27",
+      "attempted_at": "2026-09-28T00:20:53+08:00",
+      "last_success_at": "2026-09-28T00:20:53+08:00",
+      "window_end": "2026-09-28",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-09-27T16:16:49+08:00",
+      "status": "stale",
+      "attempted_at": "2026-09-28T00:36:58+08:00",
       "last_success_at": "2026-09-27T16:16:49+08:00",
       "window_end": "2026-09-27",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_browser_unavailable"
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-09-27T16:16:49+08:00",
-      "last_success_at": "2026-09-27T16:16:49+08:00",
+      "attempted_at": "2026-09-28T00:36:58+08:00",
+      "last_success_at": "2026-09-28T00:36:58+08:00",
       "window_end": "2026-09-23",
-      "lag_days": 4,
+      "lag_days": 5,
       "error": "cursor_data_lagging"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-09-27T16:16:49+08:00",
+      "status": "stale",
+      "attempted_at": "2026-09-28T00:36:58+08:00",
       "last_success_at": "2026-09-27T16:16:49+08:00",
       "window_end": "2026-09-27",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_browser_unavailable"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-09-27T16:16:48.808211+08:00",
     "snapshot_id": "sha256:fcb3672ec27f6b3be7e565a99eff0a132837c8bad6e7b8c78bb310665eb8f24f",
@@ -6899,7 +6899,7 @@
       "records_after_deduplication": 8706,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
