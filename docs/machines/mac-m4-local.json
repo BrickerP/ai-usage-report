@@ -3,9 +3,9 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m4-local",
   "hostname": "yupengdeMacBook-Pro.local",
-  "collected_at": "2026-09-29T00:05:47+08:00",
-  "captured_at": "2026-09-29T00:05:47+08:00",
-  "snapshot_id": "mac-m4-local@2026-09-29T00:05:47+08:00",
+  "collected_at": "2026-09-29T15:03:49+08:00",
+  "captured_at": "2026-09-29T15:03:49+08:00",
+  "snapshot_id": "mac-m4-local@2026-09-29T15:03:49+08:00",
   "seeded_at": "2026-08-23T00:12:13+08:00",
   "seeded": true,
   "append_mode": true,
@@ -13,7 +13,7 @@
   "last_mode": "append",
   "last_append_stats": {
     "frozen_kept": 50,
-    "appended": 0,
+    "appended": 1,
     "refreshed": 9,
     "today_updated": 0,
     "skipped": 0,
@@ -26,16 +26,7 @@
       "2026-09-08:codex": "token_regression",
       "2026-09-09:codex": "token_regression"
     },
-    "pricing_changes": [
-      {
-        "date": "2026-09-28",
-        "tool": "codex",
-        "from": 0.235924,
-        "to": 18.2355526,
-        "pricing_version": "2026-07-31.v1",
-        "pricing_complete": false
-      }
-    ],
+    "pricing_changes": [],
     "pricing_regression_dates": []
   },
   "timezone": "Asia/Shanghai",
@@ -3235,6 +3226,48 @@
           "reasoning": 10438,
           "canonical_model": "gpt-5.5",
           "pricing_version": "2026-07-31.v1"
+        }
+      ],
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_complete": false,
+      "codex_pricing_provenance": "mixed-legacy"
+    },
+    {
+      "date": "2026-09-29",
+      "codex_tokens": 21512493,
+      "codex_cost": 7.823981000000001,
+      "codex_input": 792943,
+      "codex_cache_read": 20691840,
+      "codex_output": 27710,
+      "codex_reasoning": 12492,
+      "codex_models": [
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 11145148,
+          "cost": 7.823981000000001,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 451795,
+          "output": 7401,
+          "cache_read": 10685952,
+          "cache_create": 0,
+          "reasoning": 2664,
+          "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
+        },
+        {
+          "model": "gpt-6-astra",
+          "tokens": 10367345,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 341148,
+          "output": 20309,
+          "cache_read": 10005888,
+          "cache_create": 0,
+          "reasoning": 9828,
+          "pricing_version": "legacy"
         }
       ],
       "codex_snapshot_complete": true,
