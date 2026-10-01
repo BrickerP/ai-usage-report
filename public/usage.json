@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-01T01:27:59+08:00",
-  "snapshot_id": "sha256:5c6902b720eea3437a2ea4d21d29d197d2cad6844669bb7b369643d4eb8e9ad0",
-  "generated_at": "2026-10-01T01:27:59+08:00",
+  "captured_at": "2026-10-01T16:34:51+08:00",
+  "snapshot_id": "sha256:5c4091fefdac6de71f80b0d76546190343140e93eea523349a1ebc53392c3723",
+  "generated_at": "2026-10-01T16:34:51+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -74,8 +74,8 @@
     {
       "tool": "Codex",
       "history": "2026-01-08 to 2026-10-01",
-      "cost": 154169.09565781002,
-      "total_tokens": 244652281367,
+      "cost": 154169.09957053,
+      "total_tokens": 244654183616,
       "models": [
         {
           "model": "gpt-5.6-sol",
@@ -178,16 +178,16 @@
         },
         {
           "model": "gpt-6-astra",
-          "tokens": 2948810125,
-          "cost": 502.92126976000003,
+          "tokens": 2950712374,
+          "cost": 502.92518248000005,
           "components_complete": true,
           "raw_models": [
             "gpt-6-astra"
           ],
           "pricing_provenance": "unpriced",
-          "input": 263611152,
-          "output": 5045647,
-          "cache_read": 2680153326,
+          "input": 263613312,
+          "output": 5047427,
+          "cache_read": 2682051635,
           "cache_write": 0,
           "cache_create": 0,
           "reasoning": 1717520,
@@ -880,32 +880,32 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-10-01T00:25:08+08:00",
-      "last_success_at": "2026-10-01T00:25:08+08:00",
+      "attempted_at": "2026-10-01T15:07:20+08:00",
+      "last_success_at": "2026-10-01T15:07:20+08:00",
       "window_end": "2026-10-01",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
       "status": "fresh",
-      "attempted_at": "2026-10-01T01:27:20+08:00",
-      "last_success_at": "2026-10-01T01:27:20+08:00",
+      "attempted_at": "2026-10-01T16:28:53+08:00",
+      "last_success_at": "2026-10-01T16:28:53+08:00",
       "window_end": "2026-10-01",
       "lag_days": 0,
       "error": ""
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-10-01T01:27:20+08:00",
-      "last_success_at": "2026-10-01T01:27:20+08:00",
+      "attempted_at": "2026-10-01T16:28:53+08:00",
+      "last_success_at": "2026-10-01T16:28:53+08:00",
       "window_end": "2026-09-23",
       "lag_days": 8,
       "error": "cursor_data_lagging"
     },
     "oneapi": {
       "status": "fresh",
-      "attempted_at": "2026-10-01T01:27:20+08:00",
-      "last_success_at": "2026-10-01T01:27:20+08:00",
+      "attempted_at": "2026-10-01T16:28:53+08:00",
+      "last_success_at": "2026-10-01T16:28:53+08:00",
       "window_end": "2026-10-01",
       "lag_days": 0,
       "error": ""
@@ -915,8 +915,8 @@
     "available": true,
     "complete": true,
     "accounting_version": 2,
-    "captured_at": "2026-10-01T01:27:20.435766+08:00",
-    "snapshot_id": "sha256:98687607c87dec29a117212153bd3d93172fb0c5b2acda45cf3eb6f41a32df96",
+    "captured_at": "2026-10-01T16:28:53.097862+08:00",
+    "snapshot_id": "sha256:6951f4d09318e933da0071d673b36ca08e110e3e9c10690c130df1a8dff2c1ee",
     "scope": {
       "kind": "account",
       "scope_id": "oneapi:self",
@@ -927,8 +927,8 @@
     "ownership_rule": "codex_family_to_codex_claude_family_to_claude_remainder_to_oneapi",
     "ownership_rule_version": 3,
     "timezone": "Asia/Shanghai",
-    "request_count": 4614,
-    "included_request_count": 4614,
+    "request_count": 4617,
+    "included_request_count": 4617,
     "window": {
       "start": "2026-09-27",
       "end": "2026-10-01",
@@ -941,9 +941,9 @@
       "last": "2026-09-30"
     },
     "raw_totals": {
-      "total_tokens": 1241027346,
-      "quota": 125802934,
-      "requests": 4614
+      "total_tokens": 1242929595,
+      "quota": 125809921,
+      "requests": 4617
     },
     "excluded": {},
     "unclassified": {
@@ -5632,14 +5632,14 @@
         "last": "2026-10-01"
       },
       "totals": {
-        "input_tokens": 21379692,
-        "output_tokens": 459637,
-        "cache_read_tokens": 307341479,
-        "total_tokens": 329180808,
-        "quota": 38312258,
-        "cost_cny": 153.249032,
-        "cost_usd": 21.45486448,
-        "requests": 875
+        "input_tokens": 21381852,
+        "output_tokens": 461417,
+        "cache_read_tokens": 309239788,
+        "total_tokens": 331083057,
+        "quota": 38319245,
+        "cost_cny": 153.27698,
+        "cost_usd": 21.458777200000004,
+        "requests": 878
       },
       "daily_timeline": [
         {
@@ -7297,14 +7297,14 @@
         },
         {
           "date": "2026-10-01",
-          "tokens": 635004,
-          "input": 720,
-          "output": 1275,
-          "cache_read": 633009,
-          "requests": 1,
-          "quota": 2425,
-          "cost_cny": 0.0097,
-          "cost_usd": 0.0013580000000000003,
+          "tokens": 2537253,
+          "input": 2880,
+          "output": 3055,
+          "cache_read": 2531318,
+          "requests": 4,
+          "quota": 9412,
+          "cost_cny": 0.037648,
+          "cost_usd": 0.0052707200000000004,
           "model_breakdowns": [
             {
               "model": "gpt-6-astra",
@@ -7315,14 +7315,14 @@
               ],
               "ownership": "codex",
               "ownership_rule_version": 3,
-              "input_tokens": 720,
-              "output_tokens": 1275,
-              "cache_read_tokens": 633009,
+              "input_tokens": 2880,
+              "output_tokens": 3055,
+              "cache_read_tokens": 2531318,
               "cache_write_tokens": 0,
-              "total_tokens": 635004,
-              "count": 1,
-              "quota_total": 2425,
-              "cost_usd": 0.0013580000000000003
+              "total_tokens": 2537253,
+              "count": 4,
+              "quota_total": 9412,
+              "cost_usd": 0.0052707200000000004
             }
           ]
         }
@@ -7334,7 +7334,7 @@
       "complete": true,
       "pages": 231,
       "page_size": 20,
-      "records_after_deduplication": 4614,
+      "records_after_deduplication": 4617,
       "duplicates_removed": 0
     },
     "stale": false,
@@ -29008,11 +29008,11 @@
     },
     {
       "date": "2026-10-01",
-      "codex_tokens": 635004,
-      "codex_cost": 0.0013580000000000003,
-      "codex_input": 720,
-      "codex_cache_read": 633009,
-      "codex_output": 1275,
+      "codex_tokens": 2537253,
+      "codex_cost": 0.0052707200000000004,
+      "codex_input": 2880,
+      "codex_cache_read": 2531318,
+      "codex_output": 3055,
       "codex_reasoning": 0,
       "claude_tokens": 0,
       "claude_cost": 0.0,
@@ -29036,15 +29036,15 @@
       "codex_models": [
         {
           "model": "gpt-6-astra",
-          "tokens": 635004,
-          "cost": 0.0013580000000000003,
+          "tokens": 2537253,
+          "cost": 0.0052707200000000004,
           "components_complete": true,
           "raw_models": [
             "gpt-6-astra"
           ],
-          "input": 720,
-          "output": 1275,
-          "cache_read": 633009,
+          "input": 2880,
+          "output": 3055,
+          "cache_read": 2531318,
           "cache_write": 0,
           "canonical_model": "gpt-6-astra",
           "ownership_rule_version": "3"
@@ -29053,8 +29053,8 @@
       "claude_models": [],
       "cursor_models": [],
       "oneapi_models": [],
-      "total_tokens": 635004,
-      "total_cost": 0.0013580000000000003,
+      "total_tokens": 2537253,
+      "total_cost": 0.0052707200000000004,
       "codex_snapshot_complete": true,
       "codex_pricing_version": "oneapi",
       "codex_pricing_complete": true,
