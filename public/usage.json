@@ -1,23 +1,87 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-03T16:10:38+08:00",
-  "snapshot_id": "sha256:1c3de515ebc127e2bc609e1ba2d5f419f9769b005a8e1b5e1ad753ede25cbc74",
-  "generated_at": "2026-10-03T16:10:38+08:00",
+  "captured_at": "2026-10-04T00:42:34+08:00",
+  "snapshot_id": "sha256:56166a9f9f8bce6905a670638e734cec6c58b093167145888db4c5c3baf094e2",
+  "generated_at": "2026-10-04T00:42:34+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
     "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23"
+      "2026-07-23",
+      "2026-07-25",
+      "2026-07-26",
+      "2026-07-27",
+      "2026-07-28",
+      "2026-07-29",
+      "2026-07-30",
+      "2026-07-31",
+      "2026-08-01",
+      "2026-08-02",
+      "2026-08-03",
+      "2026-08-04",
+      "2026-08-05",
+      "2026-08-06",
+      "2026-08-07",
+      "2026-08-08",
+      "2026-08-09",
+      "2026-08-10",
+      "2026-08-11",
+      "2026-08-12",
+      "2026-08-13",
+      "2026-08-14",
+      "2026-08-15",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-12",
+      "2026-09-13",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-20",
+      "2026-09-21",
+      "2026-09-22",
+      "2026-09-23"
     ],
-    "regression_kept": 3,
+    "regression_kept": 35,
     "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression"
+      "2026-07-23": "incomplete_snapshot",
+      "2026-07-25": "incomplete_snapshot",
+      "2026-07-26": "incomplete_snapshot",
+      "2026-07-27": "incomplete_snapshot",
+      "2026-07-28": "incomplete_snapshot",
+      "2026-07-29": "incomplete_snapshot",
+      "2026-07-30": "incomplete_snapshot",
+      "2026-07-31": "incomplete_snapshot",
+      "2026-08-01": "incomplete_snapshot",
+      "2026-08-02": "incomplete_snapshot",
+      "2026-08-03": "incomplete_snapshot",
+      "2026-08-04": "incomplete_snapshot",
+      "2026-08-05": "incomplete_snapshot",
+      "2026-08-06": "incomplete_snapshot",
+      "2026-08-07": "incomplete_snapshot",
+      "2026-08-08": "incomplete_snapshot",
+      "2026-08-09": "incomplete_snapshot",
+      "2026-08-10": "incomplete_snapshot",
+      "2026-08-11": "incomplete_snapshot",
+      "2026-08-12": "incomplete_snapshot",
+      "2026-08-13": "incomplete_snapshot",
+      "2026-08-14": "incomplete_snapshot",
+      "2026-08-15": "incomplete_snapshot",
+      "2026-09-10": "incomplete_snapshot",
+      "2026-09-11": "incomplete_snapshot",
+      "2026-09-12": "incomplete_snapshot",
+      "2026-09-13": "incomplete_snapshot",
+      "2026-09-14": "incomplete_snapshot",
+      "2026-09-15": "incomplete_snapshot",
+      "2026-09-16": "incomplete_snapshot",
+      "2026-09-17": "incomplete_snapshot",
+      "2026-09-20": "incomplete_snapshot",
+      "2026-09-21": "incomplete_snapshot",
+      "2026-09-22": "incomplete_snapshot",
+      "2026-09-23": "incomplete_snapshot"
     },
     "model_backfilled_dates": [
       "2026-05-22",
@@ -337,8 +401,8 @@
       "models": [
         {
           "model": "Legacy unknown",
-          "tokens": 20850230983,
-          "cost": 35738.65058885001,
+          "tokens": 20850238166,
+          "cost": 35738.65973253001,
           "components_complete": false
         },
         {
@@ -354,21 +418,6 @@
           "cache_read": 0,
           "cache_write": 0,
           "canonical_model": "claude-opus-5-5",
-          "ownership_rule_version": "3"
-        },
-        {
-          "model": "claude-opus-5",
-          "tokens": 7183,
-          "cost": 0.00914368,
-          "components_complete": true,
-          "raw_models": [
-            "claude-opus-5"
-          ],
-          "input": 7035,
-          "output": 148,
-          "cache_read": 0,
-          "cache_write": 0,
-          "canonical_model": "claude-opus-5",
           "ownership_rule_version": "3"
         }
       ]
@@ -880,33 +929,33 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-10-03T15:03:48+08:00",
-      "last_success_at": "2026-10-03T15:03:48+08:00",
-      "window_end": "2026-10-03",
+      "attempted_at": "2026-10-04T00:30:34+08:00",
+      "last_success_at": "2026-10-04T00:30:34+08:00",
+      "window_end": "2026-10-04",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
       "status": "fresh",
-      "attempted_at": "2026-10-03T16:06:43+08:00",
-      "last_success_at": "2026-10-03T16:06:43+08:00",
-      "window_end": "2026-10-03",
+      "attempted_at": "2026-10-04T00:36:38+08:00",
+      "last_success_at": "2026-10-04T00:36:38+08:00",
+      "window_end": "2026-10-04",
       "lag_days": 0,
       "error": ""
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-10-03T16:06:43+08:00",
+      "attempted_at": "2026-10-04T00:36:38+08:00",
       "last_success_at": "2026-10-03T16:06:43+08:00",
       "window_end": "2026-09-23",
-      "lag_days": 10,
-      "error": "cursor_data_lagging"
+      "lag_days": 11,
+      "error": "cursor_incomplete"
     },
     "oneapi": {
       "status": "fresh",
-      "attempted_at": "2026-10-03T16:06:43+08:00",
-      "last_success_at": "2026-10-03T16:06:43+08:00",
-      "window_end": "2026-10-03",
+      "attempted_at": "2026-10-04T00:36:38+08:00",
+      "last_success_at": "2026-10-04T00:36:38+08:00",
+      "window_end": "2026-10-04",
       "lag_days": 0,
       "error": ""
     }
@@ -915,8 +964,8 @@
     "available": true,
     "complete": true,
     "accounting_version": 2,
-    "captured_at": "2026-10-03T16:06:42.850426+08:00",
-    "snapshot_id": "sha256:672debc33eb4fcd7b9037196093dc54abf392d267ea412870c2d1ae4c8071902",
+    "captured_at": "2026-10-04T00:36:38.821089+08:00",
+    "snapshot_id": "sha256:7d503397693d34ff23eb97f41fc0a2ee5e8d965388ce6cd8f97314dc66bb3703",
     "scope": {
       "kind": "account",
       "scope_id": "oneapi:self",
@@ -927,11 +976,11 @@
     "ownership_rule": "codex_family_to_codex_claude_family_to_claude_remainder_to_oneapi",
     "ownership_rule_version": 3,
     "timezone": "Asia/Shanghai",
-    "request_count": 2370,
-    "included_request_count": 2370,
+    "request_count": 955,
+    "included_request_count": 955,
     "window": {
-      "start": "2026-09-29",
-      "end": "2026-10-03",
+      "start": "2026-09-30",
+      "end": "2026-10-04",
       "timezone": "Asia/Shanghai",
       "calendar_days": 5,
       "complete": true
@@ -941,9 +990,9 @@
       "last": "2026-10-01"
     },
     "raw_totals": {
-      "total_tokens": 757468639,
-      "quota": 44978464,
-      "requests": 2370
+      "total_tokens": 303916821,
+      "quota": 28826288,
+      "requests": 955
     },
     "excluded": {},
     "unclassified": {
@@ -5511,60 +5560,28 @@
       "complete": true,
       "timezone": "Asia/Shanghai",
       "window": {
-        "start": "2026-09-29",
-        "end": "2026-10-03",
+        "start": "2026-09-30",
+        "end": "2026-10-04",
         "timezone": "Asia/Shanghai",
         "calendar_days": 5,
         "complete": true
       },
       "history": {
-        "first": "2026-09-29",
+        "first": "2026-09-30",
         "last": "2026-09-30"
       },
       "totals": {
-        "input_tokens": 15133167,
-        "output_tokens": 45782,
+        "input_tokens": 15126132,
+        "output_tokens": 45634,
         "cache_read_tokens": 0,
         "cache_create_tokens": 0,
-        "total_tokens": 15178949,
-        "quota": 25811613,
-        "cost_cny": 103.246452,
-        "cost_usd": 14.454503280000003,
-        "requests": 128
+        "total_tokens": 15171766,
+        "quota": 25795285,
+        "cost_cny": 103.18114,
+        "cost_usd": 14.445359600000002,
+        "requests": 127
       },
       "daily_timeline": [
-        {
-          "date": "2026-09-29",
-          "tokens": 7183,
-          "input": 7035,
-          "output": 148,
-          "cache_read": 0,
-          "cache_create": 0,
-          "requests": 1,
-          "quota": 16328,
-          "cost_cny": 0.065312,
-          "cost_usd": 0.00914368,
-          "model_breakdowns": [
-            {
-              "model": "claude-opus-5",
-              "canonical_model": "claude-opus-5",
-              "raw_model": "claude-opus-5",
-              "raw_models": [
-                "claude-opus-5"
-              ],
-              "ownership": "claude",
-              "ownership_rule_version": 3,
-              "input_tokens": 7035,
-              "output_tokens": 148,
-              "cache_read_tokens": 0,
-              "cache_write_tokens": 0,
-              "total_tokens": 7183,
-              "count": 1,
-              "quota_total": 16328,
-              "cost_usd": 0.00914368
-            }
-          ]
-        },
         {
           "date": "2026-09-30",
           "tokens": 15171766,
@@ -5604,25 +5621,25 @@
       "complete": true,
       "timezone": "Asia/Shanghai",
       "window": {
-        "start": "2026-09-29",
-        "end": "2026-10-03",
+        "start": "2026-09-30",
+        "end": "2026-10-04",
         "timezone": "Asia/Shanghai",
         "calendar_days": 5,
         "complete": true
       },
       "history": {
-        "first": "2026-09-29",
+        "first": "2026-09-30",
         "last": "2026-10-03"
       },
       "totals": {
-        "input_tokens": 17855904,
-        "output_tokens": 416167,
-        "cache_read_tokens": 264849011,
-        "total_tokens": 283121082,
-        "quota": 10736691,
-        "cost_cny": 42.946764,
-        "cost_usd": 6.012546960000001,
-        "requests": 741
+        "input_tokens": 16531781,
+        "output_tokens": 325760,
+        "cache_read_tokens": 243295411,
+        "total_tokens": 260152952,
+        "quota": 1956891,
+        "cost_cny": 7.827564,
+        "cost_usd": 1.0958589600000002,
+        "requests": 622
       },
       "daily_timeline": [
         {
@@ -7409,13 +7426,13 @@
         }
       ]
     },
-    "pages": 119,
+    "pages": 48,
     "rate_limit_retries": 0,
     "pagination": {
       "complete": true,
-      "pages": 119,
+      "pages": 48,
       "page_size": 20,
-      "records_after_deduplication": 2370,
+      "records_after_deduplication": 955,
       "duplicates_removed": 0
     },
     "stale": false,
@@ -28846,19 +28863,10 @@
       ],
       "claude_models": [
         {
-          "model": "claude-opus-5",
+          "model": "Legacy unknown",
           "tokens": 7183,
           "cost": 0.00914368,
-          "components_complete": true,
-          "raw_models": [
-            "claude-opus-5"
-          ],
-          "input": 7035,
-          "output": 148,
-          "cache_read": 0,
-          "cache_write": 0,
-          "canonical_model": "claude-opus-5",
-          "ownership_rule_version": "3"
+          "components_complete": false
         }
       ],
       "cursor_models": [],
@@ -28933,11 +28941,7 @@
       "cursor_snapshot_complete": true,
       "cursor_pricing_complete": true,
       "cursor_pricing_version": "cursor-billed",
-      "cursor_pricing_provenance": "billed-dashboard",
-      "claude_snapshot_complete": true,
-      "claude_pricing_version": "oneapi",
-      "claude_pricing_complete": true,
-      "claude_pricing_provenance": "oneapi"
+      "cursor_pricing_provenance": "billed-dashboard"
     },
     {
       "date": "2026-09-30",
