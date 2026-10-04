@@ -1,79 +1,23 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-04T15:43:57+08:00",
-  "snapshot_id": "sha256:ec3b16d02977b285f8cec8519fd1332e18b3287652f64043ab5d4ffd1b09ff3a",
-  "generated_at": "2026-10-04T15:43:57+08:00",
+  "captured_at": "2026-10-05T00:56:23+08:00",
+  "snapshot_id": "sha256:4b03b02bac5d6f3807c76f4e6d6cd62837e61f984fa9bc50da03cbd57afb07e7",
+  "generated_at": "2026-10-05T00:56:23+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
     "regression_dates": [
-      "2026-07-28",
-      "2026-07-29",
-      "2026-07-30",
-      "2026-07-31",
-      "2026-08-01",
-      "2026-08-02",
-      "2026-08-03",
-      "2026-08-04",
-      "2026-08-05",
-      "2026-08-06",
-      "2026-08-07",
-      "2026-08-08",
-      "2026-08-09",
-      "2026-08-10",
-      "2026-08-11",
-      "2026-08-12",
-      "2026-08-13",
-      "2026-08-14",
-      "2026-08-15",
-      "2026-09-10",
-      "2026-09-11",
-      "2026-09-12",
-      "2026-09-13",
-      "2026-09-14",
-      "2026-09-15",
-      "2026-09-16",
-      "2026-09-17",
-      "2026-09-20",
-      "2026-09-21",
-      "2026-09-22",
-      "2026-09-23"
+      "2026-07-18",
+      "2026-07-22",
+      "2026-07-23"
     ],
-    "regression_kept": 31,
+    "regression_kept": 3,
     "regression_reasons": {
-      "2026-07-28": "incomplete_snapshot",
-      "2026-07-29": "incomplete_snapshot",
-      "2026-07-30": "incomplete_snapshot",
-      "2026-07-31": "incomplete_snapshot",
-      "2026-08-01": "incomplete_snapshot",
-      "2026-08-02": "incomplete_snapshot",
-      "2026-08-03": "incomplete_snapshot",
-      "2026-08-04": "incomplete_snapshot",
-      "2026-08-05": "incomplete_snapshot",
-      "2026-08-06": "incomplete_snapshot",
-      "2026-08-07": "incomplete_snapshot",
-      "2026-08-08": "incomplete_snapshot",
-      "2026-08-09": "incomplete_snapshot",
-      "2026-08-10": "incomplete_snapshot",
-      "2026-08-11": "incomplete_snapshot",
-      "2026-08-12": "incomplete_snapshot",
-      "2026-08-13": "incomplete_snapshot",
-      "2026-08-14": "incomplete_snapshot",
-      "2026-08-15": "incomplete_snapshot",
-      "2026-09-10": "incomplete_snapshot",
-      "2026-09-11": "incomplete_snapshot",
-      "2026-09-12": "incomplete_snapshot",
-      "2026-09-13": "incomplete_snapshot",
-      "2026-09-14": "incomplete_snapshot",
-      "2026-09-15": "incomplete_snapshot",
-      "2026-09-16": "incomplete_snapshot",
-      "2026-09-17": "incomplete_snapshot",
-      "2026-09-20": "incomplete_snapshot",
-      "2026-09-21": "incomplete_snapshot",
-      "2026-09-22": "incomplete_snapshot",
-      "2026-09-23": "incomplete_snapshot"
+      "2026-07-18": "token_regression",
+      "2026-07-22": "token_regression",
+      "2026-07-23": "token_regression"
     },
     "model_backfilled_dates": [
       "2026-05-22",
@@ -393,24 +337,9 @@
       "models": [
         {
           "model": "Legacy unknown",
-          "tokens": 20850238166,
-          "cost": 35738.65973253001,
+          "tokens": 20865409932,
+          "cost": 35753.10509213001,
           "components_complete": false
-        },
-        {
-          "model": "claude-opus-5-5",
-          "tokens": 15171766,
-          "cost": 14.445359600000002,
-          "components_complete": true,
-          "raw_models": [
-            "claude-opus-5-5"
-          ],
-          "input": 15126132,
-          "output": 45634,
-          "cache_read": 0,
-          "cache_write": 0,
-          "canonical_model": "claude-opus-5-5",
-          "ownership_rule_version": "3"
         }
       ]
     },
@@ -921,33 +850,33 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-10-04T15:11:06+08:00",
-      "last_success_at": "2026-10-04T15:11:06+08:00",
-      "window_end": "2026-10-04",
+      "attempted_at": "2026-10-05T00:21:01+08:00",
+      "last_success_at": "2026-10-05T00:21:01+08:00",
+      "window_end": "2026-10-05",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
       "status": "fresh",
-      "attempted_at": "2026-10-04T15:27:36+08:00",
-      "last_success_at": "2026-10-04T15:27:36+08:00",
-      "window_end": "2026-10-04",
+      "attempted_at": "2026-10-05T00:55:53+08:00",
+      "last_success_at": "2026-10-05T00:55:53+08:00",
+      "window_end": "2026-10-05",
       "lag_days": 0,
       "error": ""
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-10-04T15:27:36+08:00",
-      "last_success_at": "2026-10-03T16:06:43+08:00",
+      "attempted_at": "2026-10-05T00:55:53+08:00",
+      "last_success_at": "2026-10-05T00:55:53+08:00",
       "window_end": "2026-09-23",
-      "lag_days": 11,
-      "error": "cursor_incomplete"
+      "lag_days": 12,
+      "error": "cursor_data_lagging"
     },
     "oneapi": {
       "status": "fresh",
-      "attempted_at": "2026-10-04T15:27:36+08:00",
-      "last_success_at": "2026-10-04T15:27:36+08:00",
-      "window_end": "2026-10-04",
+      "attempted_at": "2026-10-05T00:55:53+08:00",
+      "last_success_at": "2026-10-05T00:55:53+08:00",
+      "window_end": "2026-10-05",
       "lag_days": 0,
       "error": ""
     }
@@ -956,8 +885,8 @@
     "available": true,
     "complete": true,
     "accounting_version": 2,
-    "captured_at": "2026-10-04T15:27:36.652650+08:00",
-    "snapshot_id": "sha256:c993b1246437ba4fffb235bf00ea72dd36d4f1896d45fdc5562859f98f0bc33d",
+    "captured_at": "2026-10-05T00:55:53.291323+08:00",
+    "snapshot_id": "sha256:6a44cedb2ff73175e55543cafde9047a5bb53eb8d5769bb6e64f5a95674f7aa0",
     "scope": {
       "kind": "account",
       "scope_id": "oneapi:self",
@@ -968,11 +897,11 @@
     "ownership_rule": "codex_family_to_codex_claude_family_to_claude_remainder_to_oneapi",
     "ownership_rule_version": 3,
     "timezone": "Asia/Shanghai",
-    "request_count": 972,
-    "included_request_count": 972,
+    "request_count": 44,
+    "included_request_count": 44,
     "window": {
-      "start": "2026-09-30",
-      "end": "2026-10-04",
+      "start": "2026-10-01",
+      "end": "2026-10-05",
       "timezone": "Asia/Shanghai",
       "calendar_days": 5,
       "complete": true
@@ -982,9 +911,9 @@
       "last": "2026-10-01"
     },
     "raw_totals": {
-      "total_tokens": 304212573,
-      "quota": 29074014,
-      "requests": 972
+      "total_tokens": 3170618,
+      "quota": 543974,
+      "requests": 44
     },
     "excluded": {},
     "unclassified": {
@@ -5552,86 +5481,53 @@
       "complete": true,
       "timezone": "Asia/Shanghai",
       "window": {
-        "start": "2026-09-30",
-        "end": "2026-10-04",
+        "start": "2026-10-01",
+        "end": "2026-10-05",
         "timezone": "Asia/Shanghai",
         "calendar_days": 5,
         "complete": true
       },
       "history": {
-        "first": "2026-09-30",
-        "last": "2026-09-30"
+        "first": "",
+        "last": ""
       },
       "totals": {
-        "input_tokens": 15126132,
-        "output_tokens": 45634,
+        "input_tokens": 0,
+        "output_tokens": 0,
         "cache_read_tokens": 0,
         "cache_create_tokens": 0,
-        "total_tokens": 15171766,
-        "quota": 25795285,
-        "cost_cny": 103.18114,
-        "cost_usd": 14.445359600000002,
-        "requests": 127
+        "total_tokens": 0,
+        "quota": 0,
+        "cost_cny": 0.0,
+        "cost_usd": 0.0,
+        "requests": 0
       },
-      "daily_timeline": [
-        {
-          "date": "2026-09-30",
-          "tokens": 15171766,
-          "input": 15126132,
-          "output": 45634,
-          "cache_read": 0,
-          "cache_create": 0,
-          "requests": 127,
-          "quota": 25795285,
-          "cost_cny": 103.18114,
-          "cost_usd": 14.445359600000002,
-          "model_breakdowns": [
-            {
-              "model": "claude-opus-5-5",
-              "canonical_model": "claude-opus-5-5",
-              "raw_model": "claude-opus-5-5",
-              "raw_models": [
-                "claude-opus-5-5"
-              ],
-              "ownership": "claude",
-              "ownership_rule_version": 3,
-              "input_tokens": 15126132,
-              "output_tokens": 45634,
-              "cache_read_tokens": 0,
-              "cache_write_tokens": 0,
-              "total_tokens": 15171766,
-              "count": 127,
-              "quota_total": 25795285,
-              "cost_usd": 14.445359600000002
-            }
-          ]
-        }
-      ]
+      "daily_timeline": []
     },
     "codex": {
       "available": true,
       "complete": true,
       "timezone": "Asia/Shanghai",
       "window": {
-        "start": "2026-09-30",
-        "end": "2026-10-04",
+        "start": "2026-10-01",
+        "end": "2026-10-05",
         "timezone": "Asia/Shanghai",
         "calendar_days": 5,
         "complete": true
       },
       "history": {
-        "first": "2026-09-30",
+        "first": "2026-10-01",
         "last": "2026-10-04"
       },
       "totals": {
-        "input_tokens": 16822341,
-        "output_tokens": 330952,
-        "cache_read_tokens": 243295411,
-        "total_tokens": 260448704,
-        "quota": 2204617,
-        "cost_cny": 8.818468,
-        "cost_usd": 1.23458552,
-        "requests": 639
+        "input_tokens": 621506,
+        "output_tokens": 16443,
+        "cache_read_tokens": 2531318,
+        "total_tokens": 3169267,
+        "quota": 543914,
+        "cost_cny": 2.175656,
+        "cost_usd": 0.30459184000000006,
+        "requests": 43
       },
       "daily_timeline": [
         {
@@ -7449,13 +7345,13 @@
         }
       ]
     },
-    "pages": 49,
+    "pages": 3,
     "rate_limit_retries": 0,
     "pagination": {
       "complete": true,
-      "pages": 49,
+      "pages": 3,
       "page_size": 20,
-      "records_after_deduplication": 972,
+      "records_after_deduplication": 44,
       "duplicates_removed": 0
     },
     "stale": false,
@@ -29027,19 +28923,10 @@
       ],
       "claude_models": [
         {
-          "model": "claude-opus-5-5",
+          "model": "Legacy unknown",
           "tokens": 15171766,
           "cost": 14.445359600000002,
-          "components_complete": true,
-          "raw_models": [
-            "claude-opus-5-5"
-          ],
-          "input": 15126132,
-          "output": 45634,
-          "cache_read": 0,
-          "cache_write": 0,
-          "canonical_model": "claude-opus-5-5",
-          "ownership_rule_version": "3"
+          "components_complete": false
         }
       ],
       "cursor_models": [],
@@ -29077,10 +28964,6 @@
       ],
       "total_tokens": 301041955,
       "total_cost": 15.976822400000001,
-      "claude_snapshot_complete": true,
-      "claude_pricing_version": "oneapi",
-      "claude_pricing_complete": true,
-      "claude_pricing_provenance": "oneapi",
       "codex_snapshot_complete": true,
       "codex_pricing_version": "oneapi",
       "codex_pricing_complete": true,
