@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-08T15:06:00+08:00",
-  "snapshot_id": "sha256:8e0bc626e3b6ecacf84905adde63211ad5a7434c7ab50768b94da03593430a36",
-  "generated_at": "2026-10-08T15:06:00+08:00",
+  "captured_at": "2026-10-09T00:08:38+08:00",
+  "snapshot_id": "sha256:7ce9234e19ce239ec86abc18ee28ebfddb1e84f8360b2aced017e26c8ff1f3f1",
+  "generated_at": "2026-10-09T00:08:38+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -73,25 +73,25 @@
   "tools": [
     {
       "tool": "Codex",
-      "history": "2026-01-08 to 2026-10-08",
-      "cost": 154185.30684121,
-      "total_tokens": 245051556772,
+      "history": "2026-01-08 to 2026-10-09",
+      "cost": 154317.12527629,
+      "total_tokens": 245737104596,
       "models": [
         {
           "model": "gpt-5.6-sol",
-          "tokens": 173166290277,
-          "cost": 110911.27796120006,
+          "tokens": 173174399749,
+          "cost": 110916.84026820006,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-sol"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 3439804801,
-          "output": 324255588,
-          "cache_read": 169402229888,
+          "input": 3440028038,
+          "output": 324272639,
+          "cache_read": 169410099072,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 133671552,
+          "reasoning": 133680035,
           "canonical_model": "gpt-5.6-sol",
           "pricing_version": "2026-07-31.v1",
           "ownership_rule_version": "3"
@@ -117,19 +117,19 @@
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 13873123572,
-          "cost": 1975.1885658800002,
+          "tokens": 14063625762,
+          "cost": 1999.9398902800003,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-luna"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 411842461,
-          "output": 36882007,
-          "cache_read": 13424399104,
+          "input": 416339107,
+          "output": 37162367,
+          "cache_read": 13610124288,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 15297274,
+          "reasoning": 15426917,
           "canonical_model": "gpt-5.6-luna",
           "pricing_version": "2026-07-31.v1",
           "ownership_rule_version": "3"
@@ -149,6 +149,25 @@
           "pricing_version": "2026-07-31.v1"
         },
         {
+          "model": "gpt-6-astra",
+          "tokens": 3580220187,
+          "cost": 604.9993376,
+          "components_complete": true,
+          "raw_models": [
+            "gpt-6-astra"
+          ],
+          "pricing_provenance": "unpriced",
+          "input": 306405093,
+          "output": 6155401,
+          "cache_read": 3267659693,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 1895340,
+          "canonical_model": "gpt-6-astra",
+          "pricing_version": "legacy",
+          "ownership_rule_version": "3"
+        },
+        {
           "model": "gpt-5.3-codex",
           "tokens": 3508464383,
           "cost": 1127.95639425,
@@ -161,25 +180,6 @@
           "cache_create": 0,
           "reasoning": 11470573,
           "pricing_version": "2026-07-31.v1"
-        },
-        {
-          "model": "gpt-6-astra",
-          "tokens": 3151365499,
-          "cost": 503.49453392000004,
-          "components_complete": true,
-          "raw_models": [
-            "gpt-6-astra"
-          ],
-          "pricing_provenance": "unpriced",
-          "input": 275655349,
-          "output": 5346262,
-          "cache_read": 2870363888,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 1725889,
-          "canonical_model": "gpt-6-astra",
-          "pricing_version": "legacy",
-          "ownership_rule_version": "3"
         },
         {
           "model": "gpt-5.2-codex",
@@ -244,16 +244,16 @@
         },
         {
           "model": "gpt-6.1-sol",
-          "tokens": 86993616,
+          "tokens": 145075090,
           "cost": 0.0,
           "components_complete": true,
           "pricing_provenance": "unpriced",
-          "input": 2011463,
-          "output": 184329,
-          "cache_read": 84797824,
+          "input": 2733338,
+          "output": 357752,
+          "cache_read": 141984000,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 107684,
+          "reasoning": 241288,
           "pricing_version": "legacy"
         },
         {
@@ -346,8 +346,8 @@
     {
       "tool": "Claude Code",
       "history": "2026-04-08 to 2026-10-08",
-      "cost": 35873.20368389,
-      "total_tokens": 20991659157,
+      "cost": 35972.53256949,
+      "total_tokens": 21096527846,
       "models": [
         {
           "model": "Legacy unknown",
@@ -357,17 +357,47 @@
         },
         {
           "model": "claude-opus-5-5",
-          "tokens": 126249225,
-          "cost": 120.09859176,
+          "tokens": 230757258,
+          "cost": 219.33543184,
           "components_complete": true,
           "raw_models": [
             "claude-opus-5-5"
           ],
-          "input": 125897615,
-          "output": 351610,
+          "input": 230162344,
+          "output": 594914,
           "cache_read": 0,
           "cache_write": 0,
           "canonical_model": "claude-opus-5-5",
+          "ownership_rule_version": "3"
+        },
+        {
+          "model": "claude-sonnet-5",
+          "tokens": 338802,
+          "cost": 0.09118032000000001,
+          "components_complete": true,
+          "raw_models": [
+            "claude-sonnet-5"
+          ],
+          "input": 335396,
+          "output": 3406,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-sonnet-5",
+          "ownership_rule_version": "3"
+        },
+        {
+          "model": "claude-opus-4-8",
+          "tokens": 21854,
+          "cost": 0.0008652,
+          "components_complete": true,
+          "raw_models": [
+            "claude-opus-4-8"
+          ],
+          "input": 21803,
+          "output": 51,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-opus-4-8",
           "ownership_rule_version": "3"
         }
       ]
@@ -375,8 +405,8 @@
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-10-08",
-      "cost": 6432.966107499999,
-      "total_tokens": 6672807548,
+      "cost": 6737.9075003,
+      "total_tokens": 6957708903,
       "models": [
         {
           "model": "Legacy unknown",
@@ -391,15 +421,15 @@
           "components_complete": false
         },
         {
-          "model": "cursor-grok-4.6-xhigh-fast",
-          "tokens": 610749573,
-          "cost": 446.83320530000003,
+          "model": "grok-4.7-xhigh-fast",
+          "tokens": 734047323,
+          "cost": 1041.3841838999997,
           "components_complete": false
         },
         {
-          "model": "grok-4.7-xhigh-fast",
-          "tokens": 593586606,
-          "cost": 831.2122198999998,
+          "model": "cursor-grok-4.6-xhigh-fast",
+          "tokens": 610749573,
+          "cost": 446.83320530000003,
           "components_complete": false
         },
         {
@@ -421,15 +451,15 @@
           "components_complete": false
         },
         {
-          "model": "claude-sonnet-5-thinking-high",
-          "tokens": 165033401,
-          "cost": 46.30376204,
+          "model": "grok-bot-default",
+          "tokens": 213873528,
+          "cost": 139.5221539999998,
           "components_complete": false
         },
         {
-          "model": "grok-bot-default",
-          "tokens": 77402320,
-          "cost": 60.832770000000025,
+          "model": "claude-sonnet-5-thinking-high",
+          "tokens": 165033401,
+          "cost": 46.30376204,
           "components_complete": false
         },
         {
@@ -440,8 +470,8 @@
         },
         {
           "model": "claude-fable-5-1-thinking-max",
-          "tokens": 61695619,
-          "cost": 55.4561635,
+          "tokens": 63573558,
+          "cost": 66.25617875,
           "components_complete": false
         },
         {
@@ -451,15 +481,15 @@
           "components_complete": false
         },
         {
-          "model": "default",
-          "tokens": 38081191,
-          "cost": 20.3536914,
+          "model": "grok-bot-automation",
+          "tokens": 41907454,
+          "cost": 29.216746499999992,
           "components_complete": false
         },
         {
-          "model": "grok-bot-automation",
-          "tokens": 35880680,
-          "cost": 23.942509499999996,
+          "model": "default",
+          "tokens": 38081191,
+          "cost": 20.3536914,
           "components_complete": false
         },
         {
@@ -506,8 +536,8 @@
         },
         {
           "model": "grok-bot-cua",
-          "tokens": 997786,
-          "cost": 0.07380346,
+          "tokens": 1062503,
+          "cost": 0.07959601,
           "components_complete": false
         },
         {
@@ -538,10 +568,10 @@
     },
     {
       "tool": "One API",
-      "history": "2026-07-13 to 2026-10-08",
-      "cost": 347.93095848,
-      "total_tokens": 20851479734,
-      "requests": 78662,
+      "history": "2026-07-13 to 2026-10-09",
+      "cost": 348.97436784,
+      "total_tokens": 20929791482,
+      "requests": 79190,
       "models": [
         {
           "model": "deepseek-v4-flash",
@@ -564,15 +594,15 @@
         },
         {
           "model": "deepseek-v4.1-flash",
-          "tokens": 7558620082,
-          "cost": 75.7667008,
+          "tokens": 7564144490,
+          "cost": 75.8631496,
           "components_complete": true,
           "raw_models": [
             "deepseek-v4.1-flash"
           ],
-          "input": 151716485,
-          "output": 16594989,
-          "cache_read": 7390308608,
+          "input": 152268734,
+          "output": 16604332,
+          "cache_read": 7395271424,
           "cache_write": 0,
           "canonical_model": "deepseek-v4.1-flash",
           "ownership_rule_version": "3"
@@ -616,30 +646,30 @@
         },
         {
           "model": "deepseek-v4-flash-vision-exp-internal",
-          "tokens": 382588796,
-          "cost": 7.810486320000001,
+          "tokens": 426058116,
+          "cost": 8.399023920000001,
           "components_complete": true,
           "raw_models": [
             "deepseek-v4-flash-vision-exp-internal"
           ],
-          "input": 13615324,
-          "output": 1453984,
-          "cache_read": 367519488,
+          "input": 14440203,
+          "output": 1641337,
+          "cache_read": 409976576,
           "cache_write": 0,
           "canonical_model": "deepseek-v4-flash-vision-exp-internal",
           "ownership_rule_version": "3"
         },
         {
           "model": "grok-4.7",
-          "tokens": 380674197,
-          "cost": 5.741537200000001,
+          "tokens": 409992217,
+          "cost": 6.099960160000001,
           "components_complete": true,
           "raw_models": [
             "grok-4.7"
           ],
-          "input": 24420516,
-          "output": 924881,
-          "cache_read": 355328768,
+          "input": 26422501,
+          "output": 986004,
+          "cache_read": 382583680,
           "cache_write": 32,
           "canonical_model": "grok-4.7",
           "ownership_rule_version": "3"
@@ -916,38 +946,38 @@
     }
   ],
   "timeline_meta": {
-    "span": "2026-01-08 to 2026-10-08"
+    "span": "2026-01-08 to 2026-10-09"
   },
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-10-08T15:03:57+08:00",
-      "last_success_at": "2026-10-08T15:03:57+08:00",
-      "window_end": "2026-10-08",
+      "attempted_at": "2026-10-09T00:05:54+08:00",
+      "last_success_at": "2026-10-09T00:05:54+08:00",
+      "window_end": "2026-10-09",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
       "status": "fresh",
-      "attempted_at": "2026-10-08T15:04:57+08:00",
-      "last_success_at": "2026-10-08T15:04:57+08:00",
-      "window_end": "2026-10-08",
+      "attempted_at": "2026-10-09T00:07:39+08:00",
+      "last_success_at": "2026-10-09T00:07:39+08:00",
+      "window_end": "2026-10-09",
       "lag_days": 0,
       "error": ""
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-10-08T15:04:57+08:00",
-      "last_success_at": "2026-10-08T15:04:57+08:00",
+      "status": "stale",
+      "attempted_at": "2026-10-09T00:07:39+08:00",
+      "last_success_at": "2026-10-09T00:07:39+08:00",
       "window_end": "2026-10-08",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "cursor_data_lagging"
     },
     "oneapi": {
       "status": "fresh",
-      "attempted_at": "2026-10-08T15:04:57+08:00",
-      "last_success_at": "2026-10-08T15:04:57+08:00",
-      "window_end": "2026-10-08",
+      "attempted_at": "2026-10-09T00:07:39+08:00",
+      "last_success_at": "2026-10-09T00:07:39+08:00",
+      "window_end": "2026-10-09",
       "lag_days": 0,
       "error": ""
     }
@@ -956,8 +986,8 @@
     "available": true,
     "complete": true,
     "accounting_version": 2,
-    "captured_at": "2026-10-08T15:04:57.500324+08:00",
-    "snapshot_id": "sha256:956882e2126ffc24bfb6a737504f4312a38253b83ef7bf52ca505af7ccf2a763",
+    "captured_at": "2026-10-09T00:07:39.467007+08:00",
+    "snapshot_id": "sha256:f52fd6e9ea59e36beb4d72e440f8587a95b3f0067f59c1a0bc2220096e30fb91",
     "scope": {
       "kind": "account",
       "scope_id": "oneapi:self",
@@ -968,23 +998,23 @@
     "ownership_rule": "codex_family_to_codex_claude_family_to_claude_remainder_to_oneapi",
     "ownership_rule_version": 3,
     "timezone": "Asia/Shanghai",
-    "request_count": 993,
-    "included_request_count": 993,
+    "request_count": 2346,
+    "included_request_count": 2346,
     "window": {
-      "start": "2026-10-04",
-      "end": "2026-10-08",
+      "start": "2026-10-05",
+      "end": "2026-10-09",
       "timezone": "Asia/Shanghai",
       "calendar_days": 5,
       "complete": true
     },
     "history": {
       "first": "2026-07-13",
-      "last": "2026-10-08"
+      "last": "2026-10-09"
     },
     "raw_totals": {
-      "total_tokens": 323818251,
-      "quota": 217450103,
-      "requests": 993
+      "total_tokens": 772000927,
+      "quota": 577697196,
+      "requests": 2346
     },
     "excluded": {},
     "unclassified": {
@@ -993,15 +1023,15 @@
       "quota": 0
     },
     "totals": {
-      "input_tokens": 662076721,
-      "output_tokens": 45404523,
-      "cache_read_tokens": 20143998458,
+      "input_tokens": 665455834,
+      "output_tokens": 45662342,
+      "cache_read_tokens": 20218673274,
       "cache_write_tokens": 32,
-      "total_tokens": 20851479734,
-      "quota": 621305283,
-      "cost_cny": 2485.221132,
-      "cost_usd": 347.93095848,
-      "requests": 78662
+      "total_tokens": 20929791482,
+      "quota": 623168514,
+      "cost_cny": 2492.674056,
+      "cost_usd": 348.97436784,
+      "requests": 79190
     },
     "daily_timeline": [
       {
@@ -5548,33 +5578,33 @@
       },
       {
         "date": "2026-10-08",
-        "tokens": 10875024,
-        "input": 2119062,
-        "output": 33018,
-        "cache_read": 8722944,
+        "tokens": 84397815,
+        "input": 5463095,
+        "output": 273472,
+        "cache_read": 78661248,
         "cache_write": 0,
-        "requests": 46,
-        "quota": 1106680,
-        "cost_cny": 4.42672,
-        "cost_usd": 0.6197408000000001,
+        "requests": 549,
+        "quota": 2878002,
+        "cost_cny": 11.512008,
+        "cost_usd": 1.61168112,
         "model_breakdowns": [
           {
-            "model": "deepseek-v4.1-flash",
-            "canonical_model": "deepseek-v4.1-flash",
-            "raw_model": "deepseek-v4.1-flash",
+            "model": "deepseek-v4-flash-vision-exp-internal",
+            "canonical_model": "deepseek-v4-flash-vision-exp-internal",
+            "raw_model": "deepseek-v4-flash-vision-exp-internal",
             "raw_models": [
-              "deepseek-v4.1-flash"
+              "deepseek-v4-flash-vision-exp-internal"
             ],
             "ownership": "oneapi",
             "ownership_rule_version": 3,
-            "input_tokens": 1819702,
-            "output_tokens": 16724,
-            "cache_read_tokens": 6585344,
+            "input_tokens": 789799,
+            "output_tokens": 169988,
+            "cache_read_tokens": 37720576,
             "cache_write_tokens": 0,
-            "total_tokens": 8421770,
-            "count": 11,
-            "quota_total": 1009157,
-            "cost_usd": 0.5651279200000001
+            "total_tokens": 38680363,
+            "count": 269,
+            "quota_total": 959051,
+            "cost_usd": 0.53706856
           },
           {
             "model": "grok-4.7",
@@ -5585,14 +5615,65 @@
             ],
             "ownership": "oneapi",
             "ownership_rule_version": 3,
-            "input_tokens": 299360,
-            "output_tokens": 16294,
-            "cache_read_tokens": 2137600,
+            "input_tokens": 2301345,
+            "output_tokens": 77417,
+            "cache_read_tokens": 29392512,
             "cache_write_tokens": 0,
-            "total_tokens": 2453254,
-            "count": 35,
-            "quota_total": 97523,
-            "cost_usd": 0.05461288
+            "total_tokens": 31771274,
+            "count": 247,
+            "quota_total": 737564,
+            "cost_usd": 0.41303584000000004
+          },
+          {
+            "model": "deepseek-v4.1-flash",
+            "canonical_model": "deepseek-v4.1-flash",
+            "raw_model": "deepseek-v4.1-flash",
+            "raw_models": [
+              "deepseek-v4.1-flash"
+            ],
+            "ownership": "oneapi",
+            "ownership_rule_version": 3,
+            "input_tokens": 2371951,
+            "output_tokens": 26067,
+            "cache_read_tokens": 11548160,
+            "cache_write_tokens": 0,
+            "total_tokens": 13946178,
+            "count": 33,
+            "quota_total": 1181387,
+            "cost_usd": 0.66157672
+          }
+        ],
+        "source": "oneapi"
+      },
+      {
+        "date": "2026-10-09",
+        "tokens": 4788957,
+        "input": 35080,
+        "output": 17365,
+        "cache_read": 4736512,
+        "cache_write": 0,
+        "requests": 25,
+        "quota": 91909,
+        "cost_cny": 0.367636,
+        "cost_usd": 0.05146904000000001,
+        "model_breakdowns": [
+          {
+            "model": "deepseek-v4-flash-vision-exp-internal",
+            "canonical_model": "deepseek-v4-flash-vision-exp-internal",
+            "raw_model": "deepseek-v4-flash-vision-exp-internal",
+            "raw_models": [
+              "deepseek-v4-flash-vision-exp-internal"
+            ],
+            "ownership": "oneapi",
+            "ownership_rule_version": 3,
+            "input_tokens": 35080,
+            "output_tokens": 17365,
+            "cache_read_tokens": 4736512,
+            "cache_write_tokens": 0,
+            "total_tokens": 4788957,
+            "count": 25,
+            "quota_total": 91909,
+            "cost_usd": 0.05146904000000001
           }
         ],
         "source": "oneapi"
@@ -5603,8 +5684,8 @@
       "complete": true,
       "timezone": "Asia/Shanghai",
       "window": {
-        "start": "2026-10-04",
-        "end": "2026-10-08",
+        "start": "2026-10-05",
+        "end": "2026-10-09",
         "timezone": "Asia/Shanghai",
         "calendar_days": 5,
         "complete": true
@@ -5614,28 +5695,28 @@
         "last": "2026-10-08"
       },
       "totals": {
-        "input_tokens": 125897615,
-        "output_tokens": 351610,
+        "input_tokens": 230519543,
+        "output_tokens": 598371,
         "cache_read_tokens": 0,
         "cache_create_tokens": 0,
-        "total_tokens": 126249225,
-        "quota": 214461771,
-        "cost_cny": 857.847084,
-        "cost_usd": 120.09859176,
-        "requests": 537
+        "total_tokens": 231117914,
+        "quota": 391834781,
+        "cost_cny": 1567.339124,
+        "cost_usd": 219.42747736000004,
+        "requests": 832
       },
       "daily_timeline": [
         {
           "date": "2026-10-08",
-          "tokens": 126249225,
-          "input": 125897615,
-          "output": 351610,
+          "tokens": 231117914,
+          "input": 230519543,
+          "output": 598371,
           "cache_read": 0,
           "cache_create": 0,
-          "requests": 537,
-          "quota": 214461771,
-          "cost_cny": 857.847084,
-          "cost_usd": 120.09859176,
+          "requests": 832,
+          "quota": 391834781,
+          "cost_cny": 1567.339124,
+          "cost_usd": 219.42747736000004,
           "model_breakdowns": [
             {
               "model": "claude-opus-5-5",
@@ -5646,14 +5727,50 @@
               ],
               "ownership": "claude",
               "ownership_rule_version": 3,
-              "input_tokens": 125897615,
-              "output_tokens": 351610,
+              "input_tokens": 230162344,
+              "output_tokens": 594914,
               "cache_read_tokens": 0,
               "cache_write_tokens": 0,
-              "total_tokens": 126249225,
-              "count": 537,
-              "quota_total": 214461771,
-              "cost_usd": 120.09859176
+              "total_tokens": 230757258,
+              "count": 827,
+              "quota_total": 391670414,
+              "cost_usd": 219.33543184
+            },
+            {
+              "model": "claude-sonnet-5",
+              "canonical_model": "claude-sonnet-5",
+              "raw_model": "claude-sonnet-5",
+              "raw_models": [
+                "claude-sonnet-5"
+              ],
+              "ownership": "claude",
+              "ownership_rule_version": 3,
+              "input_tokens": 335396,
+              "output_tokens": 3406,
+              "cache_read_tokens": 0,
+              "cache_write_tokens": 0,
+              "total_tokens": 338802,
+              "count": 2,
+              "quota_total": 162822,
+              "cost_usd": 0.09118032000000001
+            },
+            {
+              "model": "claude-opus-4-8",
+              "canonical_model": "claude-opus-4-8",
+              "raw_model": "claude-opus-4-8",
+              "raw_models": [
+                "claude-opus-4-8"
+              ],
+              "ownership": "claude",
+              "ownership_rule_version": 3,
+              "input_tokens": 21803,
+              "output_tokens": 51,
+              "cache_read_tokens": 0,
+              "cache_write_tokens": 0,
+              "total_tokens": 21854,
+              "count": 3,
+              "quota_total": 1545,
+              "cost_usd": 0.0008652
             }
           ]
         }
@@ -5664,25 +5781,25 @@
       "complete": true,
       "timezone": "Asia/Shanghai",
       "window": {
-        "start": "2026-10-04",
-        "end": "2026-10-08",
+        "start": "2026-10-05",
+        "end": "2026-10-09",
         "timezone": "Asia/Shanghai",
         "calendar_days": 5,
         "complete": true
       },
       "history": {
-        "first": "2026-10-04",
-        "last": "2026-10-08"
+        "first": "2026-10-05",
+        "last": "2026-10-09"
       },
       "totals": {
-        "input_tokens": 12573509,
-        "output_tokens": 287984,
-        "cache_read_tokens": 173832509,
-        "total_tokens": 186694002,
-        "quota": 1881652,
-        "cost_cny": 7.526608,
-        "cost_usd": 1.0537251200000002,
-        "requests": 410
+        "input_tokens": 39866004,
+        "output_tokens": 762851,
+        "cache_read_tokens": 411067386,
+        "total_tokens": 451696241,
+        "quota": 182892504,
+        "cost_cny": 731.570016,
+        "cost_usd": 102.41980224000001,
+        "requests": 940
       },
       "daily_timeline": [
         {
@@ -7629,14 +7746,14 @@
         },
         {
           "date": "2026-10-08",
-          "tokens": 185530679,
-          "input": 11812878,
-          "output": 269804,
-          "cache_read": 173447997,
-          "requests": 360,
-          "quota": 1144936,
-          "cost_cny": 4.579744,
-          "cost_usd": 0.64116416,
+          "tokens": 443565188,
+          "input": 35897473,
+          "output": 744226,
+          "cache_read": 406923489,
+          "requests": 895,
+          "quota": 168768125,
+          "cost_cny": 675.0725,
+          "cost_usd": 94.51015000000001,
           "model_breakdowns": [
             {
               "model": "gpt-6-astra",
@@ -7647,14 +7764,14 @@
               ],
               "ownership": "codex",
               "ownership_rule_version": 3,
-              "input_tokens": 11665349,
-              "output_tokens": 266636,
-              "cache_read_tokens": 173447997,
+              "input_tokens": 35749944,
+              "output_tokens": 741058,
+              "cache_read_tokens": 406923489,
               "cache_write_tokens": 0,
-              "total_tokens": 185379982,
-              "count": 351,
-              "quota_total": 1016699,
-              "cost_usd": 0.56935144
+              "total_tokens": 443414491,
+              "count": 886,
+              "quota_total": 168639888,
+              "cost_usd": 94.43833728000001
             },
             {
               "model": "gpt-5.6-sol",
@@ -7675,16 +7792,47 @@
               "cost_usd": 0.07181272
             }
           ]
+        },
+        {
+          "date": "2026-10-09",
+          "tokens": 7263482,
+          "input": 3498460,
+          "output": 5637,
+          "cache_read": 3759385,
+          "requests": 12,
+          "quota": 13635389,
+          "cost_cny": 54.541556,
+          "cost_usd": 7.6358178400000005,
+          "model_breakdowns": [
+            {
+              "model": "gpt-6-astra",
+              "canonical_model": "gpt-6-astra",
+              "raw_model": "gpt-6-astra",
+              "raw_models": [
+                "gpt-6-astra"
+              ],
+              "ownership": "codex",
+              "ownership_rule_version": 3,
+              "input_tokens": 3498460,
+              "output_tokens": 5637,
+              "cache_read_tokens": 3759385,
+              "cache_write_tokens": 0,
+              "total_tokens": 7263482,
+              "count": 12,
+              "quota_total": 13635389,
+              "cost_usd": 7.6358178400000005
+            }
+          ]
         }
       ]
     },
-    "pages": 50,
+    "pages": 118,
     "rate_limit_retries": 0,
     "pagination": {
       "complete": true,
-      "pages": 50,
+      "pages": 118,
       "page_size": 20,
-      "records_after_deduplication": 993,
+      "records_after_deduplication": 2346,
       "duplicates_removed": 0
     },
     "stale": false,
@@ -29863,178 +30011,309 @@
     },
     {
       "date": "2026-10-08",
-      "codex_tokens": 395873571,
-      "codex_cost": 15.63411516,
-      "codex_input": 17764480,
-      "codex_cache_read": 377456957,
-      "codex_output": 652134,
-      "codex_reasoning": 201542,
-      "claude_tokens": 126249225,
-      "claude_cost": 120.09859176,
-      "claude_input": 125897615,
+      "codex_tokens": 1074157913,
+      "codex_cost": 139.8167324,
+      "codex_input": 50457522,
+      "codex_cache_read": 1021773921,
+      "codex_output": 1926470,
+      "codex_reasoning": 642723,
+      "claude_tokens": 231117914,
+      "claude_cost": 219.42747736000004,
+      "claude_input": 230519543,
       "claude_cache_create": 0,
       "claude_cache_read": 0,
-      "claude_output": 351610,
-      "cursor_tokens": 152237103,
-      "cursor_cost": 169.6488739999999,
-      "cursor_input": 2462643,
-      "cursor_cache_write": 4720935,
-      "cursor_cache_read": 144586126,
-      "cursor_output": 467399,
-      "oneapi_tokens": 10875024,
-      "oneapi_cost": 0.6197408000000001,
-      "oneapi_input": 2119062,
-      "oneapi_cache_read": 8722944,
+      "claude_output": 598371,
+      "cursor_tokens": 437138458,
+      "cursor_cost": 474.59026679999954,
+      "cursor_input": 6460422,
+      "cursor_cache_write": 11575964,
+      "cursor_cache_read": 417548971,
+      "cursor_output": 1553101,
+      "oneapi_tokens": 84397815,
+      "oneapi_cost": 1.61168112,
+      "oneapi_input": 5463095,
+      "oneapi_cache_read": 78661248,
       "oneapi_cache_write": 0,
-      "oneapi_output": 33018,
-      "oneapi_requests": 46,
+      "oneapi_output": 273472,
+      "oneapi_requests": 549,
       "codex_models": [
         {
           "model": "gpt-6-astra",
-          "tokens": 200653125,
-          "cost": 0.56935144,
+          "tokens": 622244331,
+          "cost": 94.43833728000001,
           "components_complete": true,
           "raw_models": [
             "gpt-6-astra"
           ],
           "pricing_provenance": "unpriced",
-          "input": 12042037,
-          "output": 298835,
-          "cache_read": 188312253,
+          "input": 39293321,
+          "output": 1102337,
+          "cache_read": 581848673,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 8369,
+          "reasoning": 177820,
           "canonical_model": "gpt-6-astra",
           "pricing_version": "legacy",
           "ownership_rule_version": "3"
         },
         {
           "model": "gpt-5.6-luna",
-          "tokens": 108076133,
-          "cost": 14.992951,
+          "tokens": 298578323,
+          "cost": 39.74427539999999,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 3563451,
-          "output": 165802,
-          "cache_read": 104346880,
+          "input": 8060097,
+          "output": 446162,
+          "cache_read": 290072064,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 85489,
+          "reasoning": 215132,
           "pricing_version": "2026-07-31.v1"
         },
         {
           "model": "gpt-6.1-sol",
-          "tokens": 86993616,
+          "tokens": 145075090,
           "cost": 0.0,
           "components_complete": true,
           "pricing_provenance": "unpriced",
-          "input": 2011463,
-          "output": 184329,
-          "cache_read": 84797824,
+          "input": 2733338,
+          "output": 357752,
+          "cache_read": 141984000,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 107684,
+          "reasoning": 241288,
           "pricing_version": "legacy"
         },
         {
           "model": "gpt-5.6-sol",
-          "tokens": 150697,
-          "cost": 0.07181272,
+          "tokens": 8260169,
+          "cost": 5.634119719999999,
           "components_complete": true,
           "raw_models": [
             "gpt-5.6-sol"
           ],
-          "input": 147529,
-          "output": 3168,
-          "cache_read": 0,
+          "pricing_provenance": "pinned-ledger",
+          "input": 370766,
+          "output": 20219,
+          "cache_read": 7869184,
           "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 8483,
           "canonical_model": "gpt-5.6-sol",
+          "pricing_version": "2026-07-31.v1",
           "ownership_rule_version": "3"
         }
       ],
       "claude_models": [
         {
           "model": "claude-opus-5-5",
-          "tokens": 126249225,
-          "cost": 120.09859176,
+          "tokens": 230757258,
+          "cost": 219.33543184,
           "components_complete": true,
           "raw_models": [
             "claude-opus-5-5"
           ],
-          "input": 125897615,
-          "output": 351610,
+          "input": 230162344,
+          "output": 594914,
           "cache_read": 0,
           "cache_write": 0,
           "canonical_model": "claude-opus-5-5",
+          "ownership_rule_version": "3"
+        },
+        {
+          "model": "claude-sonnet-5",
+          "tokens": 338802,
+          "cost": 0.09118032000000001,
+          "components_complete": true,
+          "raw_models": [
+            "claude-sonnet-5"
+          ],
+          "input": 335396,
+          "output": 3406,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-sonnet-5",
+          "ownership_rule_version": "3"
+        },
+        {
+          "model": "claude-opus-4-8",
+          "tokens": 21854,
+          "cost": 0.0008652,
+          "components_complete": true,
+          "raw_models": [
+            "claude-opus-4-8"
+          ],
+          "input": 21803,
+          "output": 51,
+          "cache_read": 0,
+          "cache_write": 0,
+          "canonical_model": "claude-opus-4-8",
           "ownership_rule_version": "3"
         }
       ],
       "cursor_models": [
         {
           "model": "grok-4.7-xhigh-fast",
-          "tokens": 85401747,
-          "cost": 131.35286399999998,
+          "tokens": 225862464,
+          "cost": 341.52482799999984,
           "components_complete": false
         },
         {
           "model": "grok-bot-default",
-          "tokens": 54151435,
-          "cost": 32.071524000000004,
+          "tokens": 190622643,
+          "cost": 110.76090799999979,
           "components_complete": false
         },
         {
           "model": "grok-bot-automation",
-          "tokens": 12683921,
-          "cost": 6.224486,
+          "tokens": 18710695,
+          "cost": 11.498722999999996,
+          "components_complete": false
+        },
+        {
+          "model": "claude-fable-5-1-thinking-max",
+          "tokens": 1877939,
+          "cost": 10.800015250000001,
+          "components_complete": false
+        },
+        {
+          "model": "grok-bot-cua",
+          "tokens": 64717,
+          "cost": 0.0057925500000000005,
           "components_complete": false
         }
       ],
       "oneapi_models": [
         {
-          "model": "deepseek-v4.1-flash",
-          "tokens": 8421770,
-          "cost": 0.5651279200000001,
+          "model": "deepseek-v4-flash-vision-exp-internal",
+          "tokens": 38680363,
+          "cost": 0.53706856,
           "components_complete": true,
           "raw_models": [
-            "deepseek-v4.1-flash"
+            "deepseek-v4-flash-vision-exp-internal"
           ],
-          "input": 1819702,
-          "output": 16724,
-          "cache_read": 6585344,
+          "input": 789799,
+          "output": 169988,
+          "cache_read": 37720576,
           "cache_write": 0,
-          "canonical_model": "deepseek-v4.1-flash",
+          "canonical_model": "deepseek-v4-flash-vision-exp-internal",
           "ownership_rule_version": "3"
         },
         {
           "model": "grok-4.7",
-          "tokens": 2453254,
-          "cost": 0.05461288,
+          "tokens": 31771274,
+          "cost": 0.41303584000000004,
           "components_complete": true,
           "raw_models": [
             "grok-4.7"
           ],
-          "input": 299360,
-          "output": 16294,
-          "cache_read": 2137600,
+          "input": 2301345,
+          "output": 77417,
+          "cache_read": 29392512,
           "cache_write": 0,
           "canonical_model": "grok-4.7",
           "ownership_rule_version": "3"
+        },
+        {
+          "model": "deepseek-v4.1-flash",
+          "tokens": 13946178,
+          "cost": 0.66157672,
+          "components_complete": true,
+          "raw_models": [
+            "deepseek-v4.1-flash"
+          ],
+          "input": 2371951,
+          "output": 26067,
+          "cache_read": 11548160,
+          "cache_write": 0,
+          "canonical_model": "deepseek-v4.1-flash",
+          "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 685234923,
-      "total_cost": 306.0013217199999,
+      "total_tokens": 1826812100,
+      "total_cost": 835.4461576799996,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_provenance": "mixed-legacy",
       "cursor_snapshot_complete": true,
-      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_provenance": "filtered-events-charged-cents",
       "claude_snapshot_complete": true,
       "claude_pricing_version": "oneapi",
       "claude_pricing_complete": true,
       "claude_pricing_provenance": "oneapi"
+    },
+    {
+      "date": "2026-10-09",
+      "codex_tokens": 7263482,
+      "codex_cost": 7.6358178400000005,
+      "codex_input": 3498460,
+      "codex_cache_read": 3759385,
+      "codex_output": 5637,
+      "codex_reasoning": 0,
+      "claude_tokens": 0,
+      "claude_cost": 0.0,
+      "claude_input": 0,
+      "claude_cache_create": 0,
+      "claude_cache_read": 0,
+      "claude_output": 0,
+      "cursor_tokens": 0,
+      "cursor_cost": 0.0,
+      "cursor_input": 0,
+      "cursor_cache_write": 0,
+      "cursor_cache_read": 0,
+      "cursor_output": 0,
+      "oneapi_tokens": 4788957,
+      "oneapi_cost": 0.05146904000000001,
+      "oneapi_input": 35080,
+      "oneapi_cache_read": 4736512,
+      "oneapi_cache_write": 0,
+      "oneapi_output": 17365,
+      "oneapi_requests": 25,
+      "codex_models": [
+        {
+          "model": "gpt-6-astra",
+          "tokens": 7263482,
+          "cost": 7.6358178400000005,
+          "components_complete": true,
+          "raw_models": [
+            "gpt-6-astra"
+          ],
+          "input": 3498460,
+          "output": 5637,
+          "cache_read": 3759385,
+          "cache_write": 0,
+          "canonical_model": "gpt-6-astra",
+          "ownership_rule_version": "3"
+        }
+      ],
+      "claude_models": [],
+      "cursor_models": [],
+      "oneapi_models": [
+        {
+          "model": "deepseek-v4-flash-vision-exp-internal",
+          "tokens": 4788957,
+          "cost": 0.05146904000000001,
+          "components_complete": true,
+          "raw_models": [
+            "deepseek-v4-flash-vision-exp-internal"
+          ],
+          "input": 35080,
+          "output": 17365,
+          "cache_read": 4736512,
+          "cache_write": 0,
+          "canonical_model": "deepseek-v4-flash-vision-exp-internal",
+          "ownership_rule_version": "3"
+        }
+      ],
+      "total_tokens": 12052439,
+      "total_cost": 7.68728688,
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "oneapi",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "oneapi"
     }
   ],
   "notes": {
