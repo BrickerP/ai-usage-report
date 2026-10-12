@@ -292,3 +292,7 @@ Optional env:
 - `CHROME_USE_BIN` (optional explicit path to the `chrome-use` executable)
 - `AI_USAGE_RETRY_ATTEMPTS` / `AI_USAGE_RETRY_DELAY_SECONDS`
 - `AI_USAGE_JOB_RETRY_ATTEMPTS` / `AI_USAGE_JOB_RETRY_DELAY_SECONDS`
+
+## License
+
+[MIT](LICENSE) © 2026 Yupeng Lu (BrickerP)
