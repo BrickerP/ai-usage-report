@@ -12,7 +12,11 @@ permissions:
 
 jobs:
   collector:
+    # macOS is required: tests/test_daily_reconciliation.py exercises
+    # scripts/launchd-run, which depends on /usr/bin/shlock (absent on Linux),
+    # and macOS-specific publish/git behavior; 7 tests fail on Linux.
     runs-on: macos-latest
+    timeout-minutes: 30
     env:
       GIT_AUTHOR_NAME: CI
       GIT_AUTHOR_EMAIL: ci@users.noreply.github.com
@@ -69,13 +73,21 @@ jobs:
           path: ./docs
 
   rerun-on-cancel:
-    if: always() && needs.frontend.result == 'cancelled' && github.event_name == 'push' && github.run_attempt < 3
-    needs: frontend
+    # Collector cancellation leaves frontend 'skipped' (not 'cancelled'), so
+    # the collector clause is what recovers a cancelled macos-latest wait.
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.run_attempt < 3 && (needs.collector.result == 'cancelled' || needs.frontend.result == 'cancelled')
+    needs: [collector, frontend]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Rerun cancelled frontend job
-        run: gh run rerun ${{ github.run_id }}
+      - name: Rerun cancelled run unless superseded
+        run: |
+          current=$(gh api repos/${{ github.repository }}/commits/main --jq .sha)
+          if [ "$current" != "${{ github.sha }}" ]; then
+            echo "Newer commit $current superseded this run (${{ github.sha }}); not rerunning."
+            exit 0
+          fi
+          gh run rerun ${{ github.run_id }} --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
