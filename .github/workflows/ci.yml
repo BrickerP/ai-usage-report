@@ -8,11 +8,14 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   collector:
+    # macOS is required: tests/test_daily_reconciliation.py exercises
+    # scripts/launchd-run, which depends on /usr/bin/shlock (absent on Linux),
+    # and macOS-specific publish/git behavior; 7 tests fail on Linux.
     runs-on: macos-latest
+    timeout-minutes: 30
     env:
       GIT_AUTHOR_NAME: CI
       GIT_AUTHOR_EMAIL: ci@users.noreply.github.com
@@ -67,17 +70,6 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: ./docs
-
-  rerun-on-cancel:
-    if: always() && needs.frontend.result == 'cancelled' && github.event_name == 'push' && github.run_attempt < 3
-    needs: frontend
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Rerun cancelled frontend job
-        run: gh run rerun ${{ github.run_id }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

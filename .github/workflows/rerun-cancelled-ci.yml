@@ -1,0 +1,51 @@
+# Recovery for cancelled CI runs lives in a separate workflow_run workflow:
+# a job inside a run cannot rerun its own still-running run -- GitHub rejects
+# `gh run rerun <own run_id>` with "This workflow is already running" (gh
+# surfaces it as "cannot be rerun; its workflow file may be broken"; see
+# cli/cli#9221), so the old in-run rerun-on-cancel job never executed.
+#
+# When the collector is cancelled (e.g. macOS hosted-runner starvation, CI run
+# 38428091600), frontend and deploy are skipped and the run concludes
+# 'cancelled'; only a full rerun (not --failed) recreates those jobs.
+#
+# Loop bound: rerun only while run_attempt < 3 of the triggering run, so a
+# persistently cancelling collector cannot loop forever.
+
+name: Rerun cancelled CI
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: rerun-cancelled-ci-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  rerun:
+    if: github.event.workflow_run.conclusion == 'cancelled' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.run_attempt < 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Rerun cancelled CI run unless superseded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/$REPO/commits/main" --jq .sha)
+          if [ "$current" != "$HEAD_SHA" ]; then
+            echo "Newer commit $current superseded $HEAD_SHA on main; not rerunning."
+            exit 0
+          fi
+          # Full rerun: --failed does not cover cancelled jobs.
+          gh run rerun "$RUN_ID" --repo "$REPO"
+          echo "::notice::Reran cancelled CI run $RUN_ID (attempt $((RUN_ATTEMPT + 1)))."
