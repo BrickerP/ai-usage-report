@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   collector:
@@ -71,25 +70,6 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: ./docs
-
-  rerun-on-cancel:
-    # Collector cancellation leaves frontend 'skipped' (not 'cancelled'), so
-    # the collector clause is what recovers a cancelled macos-latest wait.
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.run_attempt < 3 && (needs.collector.result == 'cancelled' || needs.frontend.result == 'cancelled')
-    needs: [collector, frontend]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Rerun cancelled run unless superseded
-        run: |
-          current=$(gh api repos/${{ github.repository }}/commits/main --jq .sha)
-          if [ "$current" != "${{ github.sha }}" ]; then
-            echo "Newer commit $current superseded this run (${{ github.sha }}); not rerunning."
-            exit 0
-          fi
-          gh run rerun ${{ github.run_id }} --repo ${{ github.repository }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
