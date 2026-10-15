@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-16T00:23:49+08:00",
-  "snapshot_id": "sha256:9ce0c669f05986300f37d9bc2e037df94fcd1432282c5deace23cc7facbd7184",
-  "generated_at": "2026-10-16T00:23:49+08:00",
+  "captured_at": "2026-10-16T00:44:53+08:00",
+  "snapshot_id": "sha256:bf11409cebf4f4c14d7532bbf4989488226a5693d2062453920792c1a2a88b0d",
+  "generated_at": "2026-10-16T00:44:53+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -76,7 +76,7 @@
       "tool": "Codex",
       "history": "2026-01-08 to 2026-10-16",
       "cost": 154430.55996067,
-      "total_tokens": 246623712676,
+      "total_tokens": 246624760378,
       "models": [
         {
           "model": "gpt-5.6-sol",
@@ -231,16 +231,16 @@
         },
         {
           "model": "gpt-6.1-sol",
-          "tokens": 211446623,
+          "tokens": 212494325,
           "cost": 0.0,
           "components_complete": true,
           "pricing_provenance": "unpriced",
-          "input": 4016652,
-          "output": 535507,
-          "cache_read": 206894464,
+          "input": 4020268,
+          "output": 538825,
+          "cache_read": 207935232,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 283302,
+          "reasoning": 284873,
           "pricing_version": "legacy"
         },
         {
@@ -1050,7 +1050,7 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-10-16T00:09:33+08:00",
+      "attempted_at": "2026-10-16T00:35:10+08:00",
       "last_success_at": "2026-10-10T00:10:06+08:00",
       "window_end": "2026-10-10",
       "lag_days": 6,
@@ -1058,15 +1058,15 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-10-16T00:09:33+08:00",
-      "last_success_at": "2026-10-16T00:09:33+08:00",
+      "attempted_at": "2026-10-16T00:35:10+08:00",
+      "last_success_at": "2026-10-16T00:35:10+08:00",
       "window_end": "2026-10-15",
       "lag_days": 1,
       "error": "cursor_data_lagging"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-10-16T00:09:33+08:00",
+      "attempted_at": "2026-10-16T00:35:10+08:00",
       "last_success_at": "2026-10-10T00:10:06+08:00",
       "window_end": "2026-10-10",
       "lag_days": 6,
@@ -31909,12 +31909,12 @@
     },
     {
       "date": "2026-10-16",
-      "codex_tokens": 3997240,
+      "codex_tokens": 5044942,
       "codex_cost": 0.0,
-      "codex_input": 23800,
-      "codex_cache_read": 3956224,
-      "codex_output": 17216,
-      "codex_reasoning": 11385,
+      "codex_input": 27416,
+      "codex_cache_read": 4996992,
+      "codex_output": 20534,
+      "codex_reasoning": 12956,
       "claude_tokens": 0,
       "claude_cost": 0.0,
       "claude_input": 0,
@@ -31937,28 +31937,32 @@
       "codex_models": [
         {
           "model": "gpt-6.1-sol",
-          "tokens": 3997240,
+          "tokens": 5044942,
           "cost": 0.0,
           "components_complete": true,
           "pricing_provenance": "unpriced",
-          "input": 23800,
-          "output": 17216,
-          "cache_read": 3956224,
+          "input": 27416,
+          "output": 20534,
+          "cache_read": 4996992,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 11385,
+          "reasoning": 12956,
           "pricing_version": "legacy"
         }
       ],
       "claude_models": [],
       "cursor_models": [],
       "oneapi_models": [],
-      "total_tokens": 3997240,
+      "total_tokens": 5044942,
       "total_cost": 0.0,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_provenance": "unpriced"
+      "codex_pricing_provenance": "unpriced",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard"
     }
   ],
   "notes": {
