@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-16T15:07:01+08:00",
-  "snapshot_id": "sha256:52b2e7d18d7dd3df37a76cb0c372caac4995af9bb48d7ce8d37e43012d834e0f",
-  "generated_at": "2026-10-16T15:07:01+08:00",
+  "captured_at": "2026-10-17T00:08:43+08:00",
+  "snapshot_id": "sha256:517ce24846e7cf9576a89668d24661137df234b8698b0d75cfd824074fdf30d1",
+  "generated_at": "2026-10-17T00:08:43+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -466,8 +466,8 @@
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-10-16",
-      "cost": 10422.881622890003,
-      "total_tokens": 10966225217,
+      "cost": 10497.663435690003,
+      "total_tokens": 11076815328,
       "models": [
         {
           "model": "Legacy unknown",
@@ -489,20 +489,20 @@
         },
         {
           "model": "grok-bot-default",
-          "tokens": 1496752030,
-          "cost": 998.2202914999992,
+          "tokens": 1569853355,
+          "cost": 1046.1826394999991,
+          "components_complete": false
+        },
+        {
+          "model": "grok-bot-automation",
+          "tokens": 616488078,
+          "cost": 438.238419,
           "components_complete": false
         },
         {
           "model": "cursor-grok-4.6-xhigh-fast",
           "tokens": 613364870,
           "cost": 450.8855533,
-          "components_complete": false
-        },
-        {
-          "model": "grok-bot-automation",
-          "tokens": 579315217,
-          "cost": 411.5058905000002,
           "components_complete": false
         },
         {
@@ -591,14 +591,14 @@
         },
         {
           "model": "grok-bot-cua",
-          "tokens": 11669694,
-          "cost": 0.7675002999999999,
+          "tokens": 11779857,
+          "cost": 0.7771275999999999,
           "components_complete": false
         },
         {
           "model": "gemini-2.5-flash",
-          "tokens": 11213083,
-          "cost": 5.55845025,
+          "tokens": 11418845,
+          "cost": 5.6357592499999996,
           "components_complete": false
         },
         {
@@ -1041,35 +1041,35 @@
   },
   "source_status": {
     "codex": {
-      "status": "fresh",
+      "status": "stale",
       "attempted_at": "2026-10-16T00:35:02+08:00",
       "last_success_at": "2026-10-16T00:35:02+08:00",
       "window_end": "2026-10-16",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "local_fragments_stale"
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-10-16T15:03:23+08:00",
+      "attempted_at": "2026-10-17T00:05:22+08:00",
       "last_success_at": "2026-10-10T00:10:06+08:00",
       "window_end": "2026-10-10",
-      "lag_days": 6,
+      "lag_days": 7,
       "error": "oneapi_reauth_required"
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-10-16T15:03:23+08:00",
-      "last_success_at": "2026-10-16T15:03:23+08:00",
+      "status": "stale",
+      "attempted_at": "2026-10-17T00:05:22+08:00",
+      "last_success_at": "2026-10-17T00:05:22+08:00",
       "window_end": "2026-10-16",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "cursor_data_lagging"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-10-16T15:03:23+08:00",
+      "attempted_at": "2026-10-17T00:05:22+08:00",
       "last_success_at": "2026-10-10T00:10:06+08:00",
       "window_end": "2026-10-10",
-      "lag_days": 6,
+      "lag_days": 7,
       "error": "oneapi_reauth_required"
     }
   },
@@ -31921,12 +31921,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "cursor_tokens": 61456441,
-      "cursor_cost": 42.58632799999997,
-      "cursor_input": 2300778,
-      "cursor_cache_write": 4221938,
-      "cursor_cache_read": 54556628,
-      "cursor_output": 377097,
+      "cursor_tokens": 172046552,
+      "cursor_cost": 117.36814080000018,
+      "cursor_input": 4980756,
+      "cursor_cache_write": 12681673,
+      "cursor_cache_read": 153420014,
+      "cursor_output": 964109,
       "oneapi_tokens": 0,
       "oneapi_cost": 0.0,
       "oneapi_input": 0,
@@ -31954,20 +31954,32 @@
       "cursor_models": [
         {
           "model": "grok-bot-automation",
-          "tokens": 58903095,
-          "cost": 38.782048500000016,
+          "tokens": 96075956,
+          "cost": 65.51457699999986,
           "components_complete": false
         },
         {
           "model": "grok-bot-default",
-          "tokens": 2553346,
-          "cost": 3.8042795,
+          "tokens": 75654671,
+          "cost": 51.76662749999997,
+          "components_complete": false
+        },
+        {
+          "model": "gemini-2.5-flash",
+          "tokens": 205762,
+          "cost": 0.077309,
+          "components_complete": false
+        },
+        {
+          "model": "grok-bot-cua",
+          "tokens": 110163,
+          "cost": 0.009627299999999998,
           "components_complete": false
         }
       ],
       "oneapi_models": [],
-      "total_tokens": 66501383,
-      "total_cost": 42.58632799999997,
+      "total_tokens": 177091494,
+      "total_cost": 117.36814080000018,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
