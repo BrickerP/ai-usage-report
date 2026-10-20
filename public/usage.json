@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-20T00:09:09+08:00",
-  "snapshot_id": "sha256:ecd335c64da301c2c5922141a2ec094155d71b3633b5ed2bc50157bcc3cea949",
-  "generated_at": "2026-10-20T00:09:09+08:00",
+  "captured_at": "2026-10-20T15:07:42+08:00",
+  "snapshot_id": "sha256:79454c56c27daad07d82a9a52fe72516e06b96ad462173362fb49464aec37a59",
+  "generated_at": "2026-10-20T15:07:42+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -11,13 +11,15 @@
     "regression_dates": [
       "2026-07-18",
       "2026-07-22",
-      "2026-07-23"
+      "2026-07-23",
+      "2026-10-18"
     ],
-    "regression_kept": 3,
+    "regression_kept": 4,
     "regression_reasons": {
       "2026-07-18": "token_regression",
       "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression"
+      "2026-07-23": "token_regression",
+      "2026-10-18": "token_regression"
     },
     "model_backfilled_dates": [
       "2026-05-22",
@@ -411,8 +413,8 @@
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-10-20",
-      "cost": 10703.467723040003,
-      "total_tokens": 11337692688,
+      "cost": 10745.338169920002,
+      "total_tokens": 11394350015,
       "models": [
         {
           "model": "Legacy unknown",
@@ -434,14 +436,14 @@
         },
         {
           "model": "grok-bot-default",
-          "tokens": 1626442740,
-          "cost": 1090.2173519999992,
+          "tokens": 1634605296,
+          "cost": 1096.5429784999992,
           "components_complete": false
         },
         {
           "model": "grok-bot-automation",
-          "tokens": 796400770,
-          "cost": 569.4976339999998,
+          "tokens": 844622403,
+          "cost": 605.0284304999998,
           "components_complete": false
         },
         {
@@ -536,8 +538,8 @@
         },
         {
           "model": "grok-bot-cua",
-          "tokens": 11779857,
-          "cost": 0.7771275999999999,
+          "tokens": 12052995,
+          "cost": 0.7911514799999999,
           "components_complete": false
         },
         {
@@ -1010,7 +1012,7 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-10-20T00:05:16+08:00",
+      "attempted_at": "2026-10-20T15:03:22+08:00",
       "last_success_at": "2026-10-18T15:54:54+08:00",
       "window_end": "2026-10-18",
       "lag_days": 2,
@@ -1018,15 +1020,15 @@
     },
     "cursor": {
       "status": "fresh",
-      "attempted_at": "2026-10-20T00:05:16+08:00",
-      "last_success_at": "2026-10-20T00:05:16+08:00",
+      "attempted_at": "2026-10-20T15:03:22+08:00",
+      "last_success_at": "2026-10-20T15:03:22+08:00",
       "window_end": "2026-10-20",
       "lag_days": 0,
       "error": ""
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-10-20T00:05:16+08:00",
+      "attempted_at": "2026-10-20T15:03:22+08:00",
       "last_success_at": "2026-10-18T15:54:54+08:00",
       "window_end": "2026-10-18",
       "lag_days": 2,
@@ -33656,12 +33658,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 0,
-      "cursor_tokens": 452486,
-      "cursor_cost": 0.2739795,
-      "cursor_input": 10,
-      "cursor_cache_write": 18486,
-      "cursor_cache_read": 430355,
-      "cursor_output": 3635,
+      "cursor_tokens": 57109813,
+      "cursor_cost": 42.14442638000002,
+      "cursor_input": 4164217,
+      "cursor_cache_write": 2900073,
+      "cursor_cache_read": 49469839,
+      "cursor_output": 575684,
       "oneapi_tokens": 0,
       "oneapi_cost": 0.0,
       "oneapi_input": 0,
@@ -33674,17 +33676,29 @@
       "cursor_models": [
         {
           "model": "grok-bot-automation",
-          "tokens": 452486,
-          "cost": 0.2739795,
+          "tokens": 48674119,
+          "cost": 35.804776000000004,
+          "components_complete": false
+        },
+        {
+          "model": "grok-bot-default",
+          "tokens": 8162556,
+          "cost": 6.3256264999999985,
+          "components_complete": false
+        },
+        {
+          "model": "grok-bot-cua",
+          "tokens": 273138,
+          "cost": 0.014023880000000002,
           "components_complete": false
         }
       ],
       "oneapi_models": [],
-      "total_tokens": 452486,
-      "total_cost": 0.2739795,
+      "total_tokens": 57109813,
+      "total_cost": 42.14442638000002,
       "cursor_snapshot_complete": true,
-      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_provenance": "filtered-events-charged-cents"
     }
   ],
