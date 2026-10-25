@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-25T16:07:26+08:00",
-  "snapshot_id": "sha256:640412b21193a2835c4701cf6f1f5de327d92885e0553cdea0e42c2bba3b4d0f",
-  "generated_at": "2026-10-25T16:07:26+08:00",
+  "captured_at": "2026-10-26T00:10:13+08:00",
+  "snapshot_id": "sha256:669ef17297b8c542377b3a5d544a56e91b20e28c82461f5b1bc4281f4644b4f5",
+  "generated_at": "2026-10-26T00:10:13+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -67,7 +67,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m4-local",
   "machines": [
     "mac-m3-local",
     "mac-m4-local",
@@ -413,8 +413,8 @@
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-10-25",
-      "cost": 11242.733179970002,
-      "total_tokens": 12087716153,
+      "cost": 11287.996655970002,
+      "total_tokens": 12146517332,
       "models": [
         {
           "model": "Legacy unknown",
@@ -430,8 +430,8 @@
         },
         {
           "model": "grok-bot-default",
-          "tokens": 1888305524,
-          "cost": 1268.8929084999993,
+          "tokens": 1907210778,
+          "cost": 1281.5501004999994,
           "components_complete": false
         },
         {
@@ -442,8 +442,8 @@
         },
         {
           "model": "grok-bot-automation",
-          "tokens": 1282642412,
-          "cost": 929.1592814999998,
+          "tokens": 1319495798,
+          "cost": 957.9015614999998,
           "components_complete": false
         },
         {
@@ -466,8 +466,8 @@
         },
         {
           "model": "grok-4.7-high-fast",
-          "tokens": 440478817,
-          "cost": 317.43481950000006,
+          "tokens": 443521356,
+          "cost": 321.2988235000001,
           "components_complete": false
         },
         {
@@ -1018,41 +1018,41 @@
   },
   "source_status": {
     "codex": {
-      "status": "fresh",
-      "attempted_at": "2026-10-25T15:03:01+08:00",
-      "last_success_at": "2026-10-25T15:03:01+08:00",
+      "status": "stale",
+      "attempted_at": "2026-10-25T15:33:22+08:00",
+      "last_success_at": "2026-10-25T15:33:22+08:00",
       "window_end": "2026-10-25",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "local_fragments_stale"
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-10-25T15:58:57+08:00",
+      "status": "stale",
+      "attempted_at": "2026-10-26T00:05:16+08:00",
       "last_success_at": "2026-10-25T15:58:57+08:00",
       "window_end": "2026-10-25",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_reauth_required"
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-10-25T15:58:57+08:00",
-      "last_success_at": "2026-10-25T15:58:57+08:00",
+      "status": "stale",
+      "attempted_at": "2026-10-26T00:05:16+08:00",
+      "last_success_at": "2026-10-26T00:05:16+08:00",
       "window_end": "2026-10-25",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "cursor_data_lagging"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-10-25T15:58:57+08:00",
+      "status": "stale",
+      "attempted_at": "2026-10-26T00:05:16+08:00",
       "last_success_at": "2026-10-25T15:58:57+08:00",
       "window_end": "2026-10-25",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-10-25T15:58:56.291406+08:00",
     "snapshot_id": "sha256:d0f25acb3d7004f7f634143726268a680f4a08d00a694d33ae348ed6bb5d6d69",
@@ -9875,15 +9875,15 @@
       "records_after_deduplication": 29477,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
@@ -35172,12 +35172,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 663577,
-      "cursor_tokens": 114234648,
-      "cursor_cost": 77.26640868,
-      "cursor_input": 9978802,
+      "cursor_tokens": 173035827,
+      "cursor_cost": 122.52988468000032,
+      "cursor_input": 16110822,
       "cursor_cache_write": 0,
-      "cursor_cache_read": 103225856,
-      "cursor_output": 1029990,
+      "cursor_cache_read": 155034496,
+      "cursor_output": 1890509,
       "oneapi_tokens": 2665368610,
       "oneapi_cost": 7.15530032,
       "oneapi_input": 22616983,
@@ -35273,15 +35273,21 @@
       ],
       "cursor_models": [
         {
-          "model": "grok-bot-default",
-          "tokens": 62340099,
-          "cost": 37.56726200000003,
+          "model": "grok-bot-automation",
+          "tokens": 87422523,
+          "cost": 67.54551800000007,
           "components_complete": false
         },
         {
-          "model": "grok-bot-automation",
-          "tokens": 50569137,
-          "cost": 38.80323799999997,
+          "model": "grok-bot-default",
+          "tokens": 81245353,
+          "cost": 50.22445400000006,
+          "components_complete": false
+        },
+        {
+          "model": "grok-4.7-high-fast",
+          "tokens": 3042539,
+          "cost": 3.864004,
           "components_complete": false
         },
         {
@@ -35329,8 +35335,8 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 3125176510,
-      "total_cost": 210.86434916000002,
+      "total_tokens": 3183977689,
+      "total_cost": 256.1278251600003,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
