@@ -1,0 +1,119 @@
+{
+  "schema_version": 4,
+  "pricing_version": "2026-07-31.v1",
+  "machine_id": "mac-m1-local",
+  "hostname": "yupengs-MacBook-Pro.local",
+  "collected_at": "2026-10-27T11:09:27+08:00",
+  "captured_at": "2026-10-27T11:09:27+08:00",
+  "snapshot_id": "mac-m1-local@2026-10-27T11:09:27+08:00",
+  "seeded_at": "2026-10-27T11:09:27+08:00",
+  "seeded": true,
+  "append_mode": true,
+  "mutable_from": "2026-10-26",
+  "last_mode": "seed",
+  "last_append_stats": {
+    "frozen_kept": 0,
+    "appended": 0,
+    "refreshed": 0,
+    "today_updated": 0,
+    "skipped": 0,
+    "regression_kept": 0,
+    "regression_dates": [],
+    "regression_reasons": {},
+    "pricing_changes": [],
+    "pricing_regression_dates": []
+  },
+  "timezone": "Asia/Shanghai",
+  "scope": "machine-local",
+  "tools": [
+    "codex"
+  ],
+  "policy": "Durable ledger: dates before mutable_from are finalized; every run re-collects mutable_from through today and always keeps yesterday + today open. Lower source snapshots remain at their previous high-water.",
+  "daily": [],
+  "model_breakdown_version": 5,
+  "legacy_comate": {
+    "available": true,
+    "session_files": 17,
+    "sessions_with_usage": 5,
+    "message_count": 74,
+    "total_tokens": 2756710,
+    "cost": 0.0,
+    "history": {
+      "first": "2026-07-13",
+      "last": "2026-07-15"
+    },
+    "daily_timeline": [
+      {
+        "date": "2026-07-13",
+        "tokens": 1521236,
+        "cost": 0.0,
+        "input": 1521236,
+        "output": 0,
+        "sessions": 3,
+        "messages": 34,
+        "model_breakdowns": [
+          {
+            "model": "grok-4.5",
+            "total_tokens": 1426714,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          },
+          {
+            "model": "GLM-5",
+            "total_tokens": 94522,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          }
+        ]
+      },
+      {
+        "date": "2026-07-14",
+        "tokens": 114360,
+        "cost": 0.0,
+        "input": 114360,
+        "output": 0,
+        "sessions": 1,
+        "messages": 28,
+        "model_breakdowns": [
+          {
+            "model": "Auto",
+            "total_tokens": 107852,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          },
+          {
+            "model": "GLM-5",
+            "total_tokens": 6508,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          }
+        ]
+      },
+      {
+        "date": "2026-07-15",
+        "tokens": 1121114,
+        "cost": 0.0,
+        "input": 1121114,
+        "output": 0,
+        "sessions": 1,
+        "messages": 12,
+        "model_breakdowns": [
+          {
+            "model": "grok-4.5",
+            "total_tokens": 1121114,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          }
+        ]
+      }
+    ],
+    "accounting_version": 1,
+    "note": "Comate tokens are positive contextUsed deltas from local chat sessions; not billable API tokens. Cost is always 0."
+  },
+  "scan_complete": true,
+  "scan_errors": {
+    "unreadable_files": 0,
+    "invalid_json_lines": 0,
+    "invalid_timestamps": 0
+  }
+}

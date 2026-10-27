@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-27T01:13:28+08:00",
-  "snapshot_id": "sha256:07d641eb14a6351d94cf1703772c15a6a48f12858b3d6d8ccdd1a141472f5dbc",
-  "generated_at": "2026-10-27T01:13:28+08:00",
+  "captured_at": "2026-10-27T11:16:10+08:00",
+  "snapshot_id": "sha256:5c60c3ae3bcaa290d5970d307ba6b6b02b9b476b3c0477d52cc004d2e1578380",
+  "generated_at": "2026-10-27T11:16:10+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -67,8 +67,9 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
+    "mac-m1-local",
     "mac-m3-local",
     "mac-m4-local",
     "mac-wpd"
@@ -412,9 +413,9 @@
     },
     {
       "tool": "Cursor",
-      "history": "2026-05-22 to 2026-10-26",
-      "cost": 11360.060449970002,
-      "total_tokens": 12242650847,
+      "history": "2026-05-22 to 2026-10-27",
+      "cost": 11380.940781970003,
+      "total_tokens": 12270044587,
       "models": [
         {
           "model": "Legacy unknown",
@@ -430,8 +431,8 @@
         },
         {
           "model": "grok-bot-default",
-          "tokens": 1914102439,
-          "cost": 1287.3603384999994,
+          "tokens": 1918194191,
+          "cost": 1290.8757624999994,
           "components_complete": false
         },
         {
@@ -442,8 +443,8 @@
         },
         {
           "model": "grok-bot-automation",
-          "tokens": 1407916944,
-          "cost": 1022.7829414999998,
+          "tokens": 1431218932,
+          "cost": 1040.1478494999997,
           "components_complete": false
         },
         {
@@ -1041,33 +1042,33 @@
       "error": ""
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-10-27T00:56:36+08:00",
+      "status": "stale",
+      "attempted_at": "2026-10-27T11:09:48+08:00",
       "last_success_at": "2026-10-27T00:56:36+08:00",
       "window_end": "2026-10-27",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     },
     "cursor": {
-      "status": "stale",
-      "attempted_at": "2026-10-27T00:56:36+08:00",
-      "last_success_at": "2026-10-27T00:56:36+08:00",
-      "window_end": "2026-10-26",
-      "lag_days": 1,
-      "error": "cursor_data_lagging"
-    },
-    "oneapi": {
       "status": "fresh",
-      "attempted_at": "2026-10-27T00:56:36+08:00",
-      "last_success_at": "2026-10-27T00:56:36+08:00",
+      "attempted_at": "2026-10-27T11:09:48+08:00",
+      "last_success_at": "2026-10-27T11:09:48+08:00",
       "window_end": "2026-10-27",
       "lag_days": 0,
       "error": ""
+    },
+    "oneapi": {
+      "status": "stale",
+      "attempted_at": "2026-10-27T11:09:48+08:00",
+      "last_success_at": "2026-10-27T00:56:36+08:00",
+      "window_end": "2026-10-27",
+      "lag_days": 0,
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-10-27T00:56:34.342810+08:00",
     "snapshot_id": "sha256:8999512a3275d3c482f622dca79337a6d0339134f9cb15cbd1c29a2248237d59",
@@ -10044,15 +10045,15 @@
       "records_after_deduplication": 24831,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
@@ -35740,12 +35741,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 171678,
-      "cursor_tokens": 0,
-      "cursor_cost": 0.0,
-      "cursor_input": 0,
+      "cursor_tokens": 27393740,
+      "cursor_cost": 20.880331999999992,
+      "cursor_input": 3531373,
       "cursor_cache_write": 0,
-      "cursor_cache_read": 0,
-      "cursor_output": 0,
+      "cursor_cache_read": 23507200,
+      "cursor_output": 355167,
       "oneapi_tokens": 0,
       "oneapi_cost": 0.0,
       "oneapi_input": 0,
@@ -35786,10 +35787,27 @@
           "ownership_rule_version": "3"
         }
       ],
-      "cursor_models": [],
+      "cursor_models": [
+        {
+          "model": "grok-bot-automation",
+          "tokens": 23301988,
+          "cost": 17.36490799999999,
+          "components_complete": false
+        },
+        {
+          "model": "grok-bot-default",
+          "tokens": 4091752,
+          "cost": 3.5154240000000003,
+          "components_complete": false
+        }
+      ],
       "oneapi_models": [],
-      "total_tokens": 66443631,
-      "total_cost": 30.19316776,
+      "total_tokens": 93837371,
+      "total_cost": 51.07349975999999,
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
+      "cursor_pricing_complete": true,
+      "cursor_pricing_provenance": "filtered-events-charged-cents",
       "claude_snapshot_complete": true,
       "claude_pricing_version": "oneapi",
       "claude_pricing_complete": true,
@@ -35799,6 +35817,6 @@
   "notes": {
     "token_breakdown": "Cards and tooltips show input, cache, and output tokens per tool. Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read. Claude Code is collected from the One API gateway's Claude model family. Codex totals are the local ~/.codex rollout jsonl summed across public/machines/*.json plus the One API gateway's Codex model family (gateway-routed Codex traffic). Codex runs started with `codex exec --ephemeral` persist no session file and therefore cannot be recorded. One API includes only non-GPT/Codex and non-Claude model families from the gateway, such as Grok and DeepSeek. Historical local Comate context deltas are retained under One API only on dates without gateway coverage.",
     "cost": "Codex estimates use the checked-in versioned price ledger 2026-07-31.v1; known models are deterministically repriced from persisted per-model token components. Models without a pinned rate retain their collector value with explicit legacy provenance and cannot silently replace a higher durable estimate; Claude Code costs come from the One API gateway quota (250,000 units/CNY, ~0.14 USD/CNY); Cursor costs come from the authenticated Dashboard API; One API quota uses 250,000 units/CNY and is estimated at ~0.14 USD/CNY. Codex daily totals are SUMMED across public/machines/*.json plus the One API gateway's Codex model family; Claude Code and One API are account-level and rebuilt from the One API gateway on each publish; Cursor is account-level and replaced from the API on each publish (if API unavailable, prior usage.json Cursor series is kept); One API is account-level, excludes no owned model families, and keeps its prior series when authentication or pagination fails.",
-    "merge": "Merged machine fragments: mac-m3-local, mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected."
+    "merge": "Merged machine fragments: mac-m1-local, mac-m3-local, mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected."
   }
 }
