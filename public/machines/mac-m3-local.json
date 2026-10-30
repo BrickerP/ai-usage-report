@@ -3,9 +3,9 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m3-local",
   "hostname": "wpdeMacBook-Pro.local",
-  "collected_at": "2026-10-30T00:35:37+08:00",
-  "captured_at": "2026-10-30T00:35:37+08:00",
-  "snapshot_id": "mac-m3-local@2026-10-30T00:35:37+08:00",
+  "collected_at": "2026-10-30T15:33:45+08:00",
+  "captured_at": "2026-10-30T15:33:45+08:00",
+  "snapshot_id": "mac-m3-local@2026-10-30T15:33:45+08:00",
   "seeded_at": "2026-10-16T00:09:24+08:00",
   "seeded": true,
   "append_mode": true,
@@ -13,9 +13,9 @@
   "last_mode": "append",
   "last_append_stats": {
     "frozen_kept": 9,
-    "appended": 1,
+    "appended": 0,
     "refreshed": 5,
-    "today_updated": 0,
+    "today_updated": 1,
     "skipped": 0,
     "regression_kept": 1,
     "regression_dates": [
@@ -26,10 +26,10 @@
     },
     "pricing_changes": [
       {
-        "date": "2026-10-29",
+        "date": "2026-10-30",
         "tool": "codex",
-        "from": 46.702214999999995,
-        "to": 73.958168,
+        "from": 41.356939,
+        "to": 76.838107,
         "pricing_version": "2026-07-31.v1",
         "pricing_complete": false
       }
@@ -881,31 +881,45 @@
     },
     {
       "date": "2026-10-30",
-      "codex_tokens": 18014338,
-      "codex_cost": 0.0,
-      "codex_input": 222283,
-      "codex_cache_read": 17736960,
-      "codex_output": 55095,
-      "codex_reasoning": 38589,
+      "codex_tokens": 1147327328,
+      "codex_cost": 76.838107,
+      "codex_input": 15057557,
+      "codex_cache_read": 1129355264,
+      "codex_output": 2914507,
+      "codex_reasoning": 1268819,
       "codex_models": [
         {
           "model": "gpt-6.1-sol",
-          "tokens": 18014338,
+          "tokens": 1031200549,
           "cost": 0.0,
           "components_complete": true,
           "pricing_provenance": "unpriced",
-          "input": 222283,
-          "output": 55095,
-          "cache_read": 17736960,
+          "input": 12451310,
+          "output": 2675639,
+          "cache_read": 1016073600,
           "cache_create": 0,
-          "reasoning": 38589,
+          "reasoning": 1151949,
           "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 116126779,
+          "cost": 76.838107,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 2606247,
+          "output": 238868,
+          "cache_read": 113281664,
+          "cache_create": 0,
+          "reasoning": 116870,
+          "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
         }
       ],
       "codex_snapshot_complete": true,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_complete": false,
-      "codex_pricing_provenance": "unpriced"
+      "codex_pricing_provenance": "mixed-legacy"
     }
   ],
   "model_breakdown_version": 5,
