@@ -1,16 +1,26 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-10-30T16:05:13+08:00",
-  "snapshot_id": "sha256:d78a9152424f8db99e656e508f0ff7ed01f2b78eae2743bc9b020fd02d13439b",
-  "generated_at": "2026-10-30T16:05:13+08:00",
+  "captured_at": "2026-10-30T16:22:22+08:00",
+  "snapshot_id": "sha256:267980d649ee4f14bcc6c084fb01b411919cfc697c77316df25feb5611aaa2ab",
+  "generated_at": "2026-10-30T16:22:22+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [],
-    "regression_kept": 0,
-    "regression_reasons": {},
+    "regression_dates": [
+      "2026-07-18",
+      "2026-07-22",
+      "2026-07-23",
+      "2026-10-18"
+    ],
+    "regression_kept": 4,
+    "regression_reasons": {
+      "2026-07-18": "token_regression",
+      "2026-07-22": "token_regression",
+      "2026-07-23": "token_regression",
+      "2026-10-18": "token_regression"
+    },
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -57,7 +67,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -538,8 +548,8 @@
     {
       "tool": "Cursor",
       "history": "2026-05-22 to 2026-10-30",
-      "cost": 11707.459005670002,
-      "total_tokens": 12666545669,
+      "cost": 11714.775681670002,
+      "total_tokens": 12675727567,
       "models": [
         {
           "model": "Legacy unknown",
@@ -549,8 +559,8 @@
         },
         {
           "model": "grok-bot-default",
-          "tokens": 2004225646,
-          "cost": 1346.4743704999994,
+          "tokens": 2006362716,
+          "cost": 1348.1734584999992,
           "components_complete": false
         },
         {
@@ -561,8 +571,8 @@
         },
         {
           "model": "grok-bot-automation",
-          "tokens": 1701983918,
-          "cost": 1244.7262654999997,
+          "tokens": 1709028746,
+          "cost": 1250.3438534999998,
           "components_complete": false
         },
         {
@@ -1174,40 +1184,40 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-10-30T01:05:03+08:00",
-      "last_success_at": "2026-10-30T01:05:03+08:00",
+      "attempted_at": "2026-10-30T15:03:02+08:00",
+      "last_success_at": "2026-10-30T15:03:02+08:00",
       "window_end": "2026-10-30",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-10-30T16:05:09+08:00",
+      "status": "stale",
+      "attempted_at": "2026-10-30T16:15:48+08:00",
       "last_success_at": "2026-10-30T16:05:09+08:00",
       "window_end": "2026-10-30",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     },
     "cursor": {
-      "status": "stale",
-      "attempted_at": "2026-10-30T16:05:09+08:00",
-      "last_success_at": "2026-10-30T15:03:31+08:00",
-      "window_end": "2026-10-30",
-      "lag_days": 0,
-      "error": "cursor_incomplete"
-    },
-    "oneapi": {
       "status": "fresh",
-      "attempted_at": "2026-10-30T16:05:09+08:00",
-      "last_success_at": "2026-10-30T16:05:09+08:00",
+      "attempted_at": "2026-10-30T16:15:48+08:00",
+      "last_success_at": "2026-10-30T16:15:48+08:00",
       "window_end": "2026-10-30",
       "lag_days": 0,
       "error": ""
+    },
+    "oneapi": {
+      "status": "stale",
+      "attempted_at": "2026-10-30T16:15:48+08:00",
+      "last_success_at": "2026-10-30T16:05:09+08:00",
+      "window_end": "2026-10-30",
+      "lag_days": 0,
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-10-30T16:05:07.543762+08:00",
     "snapshot_id": "sha256:7add99a2afa71059ba85c0264ca4e98ed7ef8b08b8bf9d012143e5b07d82e166",
@@ -11462,15 +11472,15 @@
       "records_after_deduplication": 34476,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
@@ -38191,12 +38201,12 @@
       "claude_cache_create": 0,
       "claude_cache_read": 0,
       "claude_output": 1765602,
-      "cursor_tokens": 91762594,
-      "cursor_cost": 105.79343929999976,
-      "cursor_input": 8611737,
+      "cursor_tokens": 100944492,
+      "cursor_cost": 113.11011529999942,
+      "cursor_input": 9952647,
       "cursor_cache_write": 0,
-      "cursor_cache_read": 82334464,
-      "cursor_output": 816393,
+      "cursor_cache_read": 90045568,
+      "cursor_output": 946277,
       "oneapi_tokens": 66510915,
       "oneapi_cost": 3.5269449600000007,
       "oneapi_input": 4812949,
@@ -38364,8 +38374,8 @@
       "cursor_models": [
         {
           "model": "grok-bot-automation",
-          "tokens": 45655168,
-          "cost": 34.239764000000015,
+          "tokens": 52699996,
+          "cost": 39.85735200000004,
           "components_complete": false
         },
         {
@@ -38376,8 +38386,8 @@
         },
         {
           "model": "grok-bot-default",
-          "tokens": 9245872,
-          "cost": 7.568229999999996,
+          "tokens": 11382942,
+          "cost": 9.267317999999996,
           "components_complete": false
         },
         {
@@ -38479,8 +38489,8 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 2253845050,
-      "total_cost": 263.17155045999976,
+      "total_tokens": 2263026948,
+      "total_cost": 270.4882264599994,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
