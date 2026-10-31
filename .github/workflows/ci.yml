@@ -57,18 +57,24 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        id: dependencies
         run: npm ci
 
       - name: Run frontend tests
         run: npm run test:frontend
 
       - name: Build production site
+        id: build
+        if: ${{ !cancelled() && steps.dependencies.conclusion == 'success' }}
         run: npm run build
 
       - name: Install Playwright Chromium
+        id: browser
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
         run: npx playwright install --with-deps chromium
 
       - name: Run editorial browser tests
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.browser.conclusion == 'success' }}
         run: node tests/editorial.browser.mjs
 
       - name: Upload browser failure evidence

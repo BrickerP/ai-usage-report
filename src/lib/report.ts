@@ -1,13 +1,13 @@
 import {
   buildReportViewSearch as buildLegacyReportViewSearch,
   parseReportView as parseLegacyReportView,
-} from './interaction'
+} from './interaction.ts'
 import {
   analyseEditorialPattern,
   dateOrdinal,
   isoDate,
   type EditorialPattern,
-} from './pattern'
+} from './pattern.ts'
 import {
   degradedSourceNotices,
   indexForPreset,
@@ -16,14 +16,14 @@ import {
   selectModelSeries,
   summarizeRange,
   TOOLS,
-} from './usage'
+} from './usage.ts'
 import type {
   DailyRow,
   ModelSeriesSpec,
   SourceStatus,
   ToolId,
   UsagePayload,
-} from './usage'
+} from './usage.ts'
 
 export type ReportPreset = '7' | '30' | '90' | 'all' | 'custom'
 
