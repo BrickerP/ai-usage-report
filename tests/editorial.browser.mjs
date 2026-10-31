@@ -155,7 +155,11 @@ async function expectUnavailable(locator, message) {
   await locator.waitFor({ state: 'visible' })
   const raw = await locator.getAttribute('data-value')
   assert.ok(raw === null || raw === '' || raw === 'null', `${message}: expected absent raw value, got ${raw}`)
-  assert.match(await locator.innerText(), /—|unavailable/i, `${message}: expected unavailable display`)
+  assert.match(
+    await locator.innerText(),
+    /—|unavailable|no recorded (?:data|cost|tokens?)/i,
+    `${message}: expected unavailable display`,
+  )
 }
 
 async function gotoClean(page, origin, query = '') {
@@ -386,19 +390,25 @@ await context.tracing.start({ screenshots: true, snapshots: true, sources: true 
 
 let failed = false
 try {
-  for (const entry of tests) {
+  for (const [index, entry] of tests.entries()) {
     runtimeErrors.length = 0
     process.stdout.write(`browser: ${entry.name} ... `)
-    await entry.run({ page, origin })
-    assert.deepEqual(runtimeErrors, [], `${entry.name}: browser runtime errors`)
-    console.log('ok')
+    try {
+      await entry.run({ page, origin })
+      assert.deepEqual(runtimeErrors, [], `${entry.name}: browser runtime errors`)
+      console.log('ok')
+    } catch (error) {
+      failed = true
+      console.log('failed')
+      await page.screenshot({
+        path: join(resultDir, `failure-${index + 1}.png`),
+        fullPage: true,
+      }).catch(() => {})
+      console.error(error)
+    }
   }
-  await context.tracing.stop()
-} catch (error) {
-  failed = true
-  await page.screenshot({ path: join(resultDir, 'failure.png'), fullPage: true }).catch(() => {})
-  await context.tracing.stop({ path: join(resultDir, 'trace.zip') }).catch(() => {})
-  console.error(error)
+  if (failed) await context.tracing.stop({ path: join(resultDir, 'trace.zip') })
+  else await context.tracing.stop()
 } finally {
   await browser.close()
   await new Promise((resolvePromise) => server.close(resolvePromise))
