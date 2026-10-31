@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 // Relative base works for GitHub Pages project sites and local static servers.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [svelte()],
   base: './',
   build: {
     outDir: 'docs',

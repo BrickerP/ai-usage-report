@@ -1185,7 +1185,7 @@ with Path(os.environ["TEST_EVENTS"]).open("a", encoding="utf-8") as handle:
             bash_env = sandbox / "bash-env.sh"
             bash_env.write_text(
                 """npm() {
-  [[ "${1:-} ${2:-}" == "run build" ]]
+  [[ "${1:-}" == "ci" || "${1:-} ${2:-}" == "run build" ]]
 }
 """,
                 encoding="utf-8",
@@ -1548,6 +1548,9 @@ done
             bash_env = sandbox / "bash-env.sh"
             bash_env.write_text(
                 """npm() {
+  if [[ "${1:-}" == "ci" ]]; then
+    return 0
+  fi
   if [[ "${1:-} ${2:-}" == "run build" ]]; then
     mkdir -p docs
     printf 'built\\n' > docs/index.html
@@ -1671,7 +1674,7 @@ done
             bash_env = sandbox / "bash-env.sh"
             bash_env.write_text(
                 """npm() {
-  [[ "${1:-} ${2:-}" == "run build" ]]
+  [[ "${1:-}" == "ci" || "${1:-} ${2:-}" == "run build" ]]
 }
 """,
                 encoding="utf-8",

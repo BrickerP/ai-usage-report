@@ -120,11 +120,12 @@ git -C "$repo" push -q origin main
 work="$TMP/origin-work"
 git clone -q -b main "$origin" "$work"
 printf '{"generated_at":"2026-08-24T00:00:00+08:00","from":"remote"}\n' > "$work/public/usage.json"
-git -C "$work" add public/usage.json
+printf '{"v":1,"collected_at":"2026-08-23T00:00:00+00:00"}\n' > "$work/public/machines/mac.json"
+git -C "$work" add public/usage.json public/machines/mac.json
 git -C "$work" -c user.name=ai-usage-test -c user.email=ai-usage-test@example.com commit -qm "remote usage"
 git -C "$work" push -q origin main
 
-printf '{"v":42,"local":true}\n' > "$repo/public/machines/mac.json"
+printf '{"v":42,"local":true,"collected_at":"2026-08-24T01:00:00+00:00"}\n' > "$repo/public/machines/mac.json"
 git -C "$repo" fetch -q origin
 (
   cd "$repo"
@@ -139,9 +140,33 @@ python3 - "$repo/public/machines/mac.json" "$repo/public/usage.json" <<'PY' || f
 import json, sys
 machine=json.load(open(sys.argv[1]))
 usage=json.load(open(sys.argv[2]))
-assert machine=={"v":42,"local":True}, machine
+assert machine=={
+    "v":42,
+    "local":True,
+    "collected_at":"2026-08-24T01:00:00+00:00",
+}, machine
 assert usage["from"]=="remote", usage
 PY
 pass "pull_latest restores local machine fragment after remote pull"
+
+# --- build_site replaces stale dependencies even when node_modules exists ---
+repo="$TMP/build-dependencies"
+mkdir -p "$repo/node_modules" "$repo/docs"
+printf 'stale-react-tree\n' > "$repo/node_modules/.framework"
+events="$repo/npm-events.log"
+(
+  cd "$repo"
+  source_publish_lib
+  ROOT="$repo"
+  npm() {
+    printf '%s\n' "$*" >> "$events"
+    [[ "$*" == "ci" || "$*" == "run build" ]]
+  }
+  build_site
+)
+[[ "$(sed -n '1p' "$events")" == "ci" ]] || fail "build_site did not install locked dependencies first"
+[[ "$(sed -n '2p' "$events")" == "run build" ]] || fail "build_site did not build after npm ci"
+[[ "$(wc -l < "$events" | tr -d ' ')" == "2" ]] || fail "build_site invoked unexpected npm commands"
+pass "build_site runs npm ci before every editorial Svelte build"
 
 printf 'All publish git recovery tests passed.\n'

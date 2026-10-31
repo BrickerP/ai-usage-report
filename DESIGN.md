@@ -1,134 +1,137 @@
-# AI Usage: The Endless Run
+# The Compute Ledger
 
-## Source of truth
+Status: implementation candidate, remote verification and publication pending.
+Updated: 2026-10-31. Art direction and complete interaction design approved by the owner.
 
-- Status: **Active design; implementation and pipeline verification pending**
-- Last refreshed: 2026-08-05
-- Product: **AI Usage: The Endless Run**
-- Primary surfaces: the GitHub Pages report and its deterministic light/dark README SVG cards.
-- Creative record: `docs/creative/endless-run/01-brainstorm.md` through `06-dogfood.md`.
-- This file supersedes the deleted Pixel Night Run prototype and MVP prompt. There is no compatibility path for that obsolete concept.
+## Product and art direction
 
-## Product intent
+A truthful personal yearbook of recorded AI usage: warm paper, ink, vermilion,
+serif display typography, asymmetric editorial columns and an instrument register.
+The page reports token traffic and estimated costs, never productivity, quality,
+contribution or a game score.
 
-The product is a truthful personal record of AI token traffic presented as an original, generic pixel 2D data world. It is a report with an optional guided journey, not a game and not a measurement of output, productivity, quality, or contribution.
+The earlier pixel terminal, standalone skyline and runner-world interface are
+replaced. Their data exploration capabilities survive as date indices, bookmarks,
+model folios, pattern notes and exact records. There is one production UI, without
+a legacy mode, fallback theme or migration page.
 
-The normal report remains immediately available as **Free Roam**. A visitor who wants orientation can follow one non-modal loop:
+## Runtime architecture
 
-`Free Roam → Loadout → Model Focus → Reveal real Run Record → Run Complete → Replay`
+- Svelte 5 and TypeScript handle state and semantic native controls.
+- SVG charts use D3 scales and line geometry; no canvas/chart engine or game runtime.
+- `src/lib/report.ts` derives the view directly from the existing `UsagePayload`.
+- `src/lib/pattern.ts` retains the original evidence-based Signature v1 rules without
+  terrain, avatar or camera geometry.
+- `loadUsage()` reads the current relative `usage.json`, revalidating the response.
+  Production never embeds the prototype dataset or snapshot numbers.
+- Vite emits `docs/`; those files are generated build output, not UI source.
 
-The loop helps visitors understand the relationship between the all-time history, tools, models, and the real record. It never gates data, traps focus, or creates fictional progress.
+The React/Astryx/ECharts frontend and its obsolete modules and source-string style
+contracts are removed. The separate Python offline report renderer remains called by
+the collector's `--out` / `--png` flow and is outside this frontend replacement.
 
-## Experience contract
+## Reading and interaction contract
 
-### Free Roam
+### Current scope and calendar window
 
-- The complete report is usable without starting or completing the guide.
-- All time remains the default range and retains the existing default-URL semantics.
-- Direct links to supported tool, model, focus, and range states continue to open in their canonical state.
+The headline labels its scope and displays its exact recorded tokens, estimated
+cost and cache share. Tool/model selection changes the headline with the scope
+label; the instrument register retains all-tool and per-tool window totals.
+Model cache and categories remain explicitly tool-level where the source lacks
+model components.
 
-### Guided loop
+All remains the no-parameter default. The interface supports 7/30/90 calendar days,
+custom From/To dates, Earlier/Later windows and Reset. Calendar days and published
+record days are separate counts. Custom dates are applied atomically and preserve
+unpublished dates at either edge, including windows containing only missing rows.
 
-| State | Meaning | Contract |
-| --- | --- | --- |
-| Free Roam | Normal report browsing | Guide is optional and inline |
-| Loadout | Select Codex, Claude Code, Cursor, or One API | Existing tool selection is authoritative |
-| Model Focus | Inspect and focus a real model | Chart, URL, visible state, keyboard focus, and ARIA status synchronize |
-| Reveal real Run Record | Emphasize the exact peak record from published usage | Show real date, value, and units; never call it a score |
-| Run Complete | Acknowledge that the route was traversed | No XP, level, reward, achievement, rank, or generated value |
-| Replay | Begin another guided traversal | Reset guide-only progress without replacing canonical filter/URL rules |
+### Tool and model folios
 
-Guide progress should be derived from the existing selection and focus state wherever possible. Do not create a second source of truth for tool or model state.
+One instrument register selects All tools or one of the four mutually exclusive
+tools. Selecting a tool clears a previous model/day selection. Models retain the
+existing top-four, conserving Other group and complete index. The complete index
+shows exact tokens, share and cost; identified models can be focused, legacy
+unattributed rows cannot. A focused model outside the top four remains visible.
 
-## Data invariants
+All tools stacks tool series. One tool stacks its model groups. An exact model
+uses the same chart and date index with its own token and cost values. There is
+no replacement world or separate model dashboard.
 
-- The existing `public/usage.json` remains the presentation data source. The Python collection and merge pipeline remains authoritative.
-- Never hardcode current totals, cache values or ratios, dates, recorded-day count, record day, per-tool values, model values, costs, or chart geometry.
-- Recorded tokens remain the sum of the four existing mutually exclusive tool series: Codex, Claude Code, Cursor, and One API.
-- Collection ownership remains unchanged:
-  - Codex uses durable per-machine fragments summed across machines (from `~/.codex` rollout JSONL).
-  - Claude Code is an account-level series rebuilt from the One API gateway's Claude model family for the last two calendar days; older dates keep prior local collector values.
-  - Cursor remains an account-level series and is never summed across machines.
-  - One API remains the residual gateway series, retaining prior history when a refresh window is incomplete.
-  - Historical local Comate data remains under One API only where gateway coverage is absent.
-- Cached context, cost estimates, source freshness, dates, and token-part methodology retain their existing meanings and disclosures.
-- Explore range controls affect only their existing visible-range surfaces; they do not rewrite lifetime facts.
-- Usage language must remain factual: “recorded tokens”, “recorded token traffic”, “usage activity”, and “Run Record”.
+### Charts and date index
 
-## Information architecture
+Daily token columns have a continuous, zero-based linear scale. Estimated costs
+use an aligned, separately labelled USD subplot. Series retain text labels and
+stable colors. Real record days have factual labels; no split coordinate bands,
+decorative bars or transformed totals are used.
 
-### All-time record
+Mouse hover previews exact values. A deliberate pointer selection, the date slider,
+previous/next date controls and First/Record/Last bookmarks select an exact day.
+Vertical touch scrolling must not commit a new date. Keyboard arrows and Home/End
+remain usable. The inspector exposes the date, state, exact token/cost values,
+source/model breakdown and available tool-level token parts.
 
-- Owner/product identity and one dynamic lifetime recorded-token headline.
-- Dynamic date span, recorded-day count, cached-context amount/share, and non-productivity disclosure.
-- A data-derived all-time pixel route showing the four tools in stable order.
-- Updated time and quiet degraded-source state linked to complete report details.
+Pattern notes preserve Signature v1 precedence, minimum history/coverage rules and
+evidence. No new qualitative claims are inferred from decoration.
 
-### Explore and guided states
+### Exact records and publication notes
 
-- Existing range summary, four tool controls, model inspection/focus, token and spend charts, exact table, and report details remain available.
-- Loadout and Model Focus rename the journey stage, not the underlying data or controls.
-- The real Run Record remains accessible outside the guide; “Reveal” is narrative emphasis, not an access gate.
-- Report details retain timezone, full span, machines, source-freshness reasons, token methodology, and cost-estimate methodology.
+The exact ledger contains the entire dense calendar, paged in batches of 50 to keep
+mobile and long-history browsing manageable. Every date remains reachable.
 
-### README cards
+One publication-notes section contains generated time, timezone, machine list,
+full span, tool coverage, source status/window/lag/attempt/success details and
+token/cost/merge methodology. Loading, retryable errors, empty windows, unpublished
+dates and stale/failed sources have explicit states.
 
-- Continue generating deterministic `ai-usage-card-light.svg` and `ai-usage-card-dark.svg` assets from `public/usage.json`.
-- Preserve their fixed 560×160 viewport, accessible title/description, recorded-token total, date span, cache disclosure, and weekly stacked history.
-- README cards do not implement the guided loop, interactive controls, game mechanics, or a dynamic card service.
+## Data semantics
 
-## Visual language
+- The existing collector, reconciliation, retention, frozen history, pricing and
+  publication mechanisms remain authoritative and unchanged by the UI.
+- Four-tool fields are summed for all-tool totals; stale `row.total_*` values do
+  not override those mutually exclusive fields.
+- Unpublished dates and missing model arrays remain null/unavailable. A published
+  empty model array is a covered zero, not a missing record.
+- A wholly unavailable scope has unavailable aggregate tokens/cost/cache, not a
+  synthetic zero. Partial windows sum known records and disclose coverage.
+- Model groups conserve tool tokens and costs; positive real attribution gaps are
+  disclosed. Cost residuals at or below 1e-9 are floating-point noise, not separate
+  consumption or fake Unclassified rows.
+- Codex reasoning is part of output. Displayed non-reasoning output subtracts it
+  before categories are combined. Cache read/write/create retain source meanings.
+- Headline money uses two decimals, or four for nonzero amounts below one cent;
+  precise records retain up to eight decimals. Calculations use unrounded values.
+- README light/dark SVG cards remain deterministic 560×160 outputs of their
+  independent existing generator.
 
-- Subject: an **original generic pixel 2D data world**, with no identifiable real-world route.
-- Signature element: one continuous pixel route shaped by real usage and current selection.
-- Palette: night navy `#0B1320`, slate `#1D2A38`, paper `#E7EDF3`, signal gold `#F2BD4B`, focus cyan `#48C7C1`, and alert coral `#E0645A`.
-- Use readable interface type for explanation and monospace/tabular numerals for dates, tokens, and route labels.
-- Pixel treatment belongs to edges, route marks, small environmental shapes, and headings. Exact data remains crisp, labelled, and readable.
-- Color never carries state alone.
-- Do not use Beijing Second Ring Road, a recognizable skyline, copied game characters or worlds, console hardware, borrowed sprites, sounds, palettes, or trade dress.
+## URLs and accessibility
 
-## States, accessibility, and responsive behavior
+Existing `tool/model/range/from/to/day` deep links remain canonical. Custom dates
+take precedence over presets. The selected date can be inspected in every scope;
+only an identified model's explicitly committed date is written as `day`. An
+internal default date must not leak into the URL. Unknown/invalid state is cleared
+without redirecting to a second interface. Direct links do not force a scroll.
 
-- The guide is inline and non-modal: no overlay, focus trap, automatic focus theft, or required auto-scroll.
-- Preserve visible keyboard focus, arrow-key model navigation, focus restoration, and Escape unwind behavior.
-- Preserve supported URL/deep-link state and the existing live-region announcements. Announce meaningful state changes once, without narrating decoration.
-- Selected tools and focused models retain visible text plus programmatic pressed/selected state.
-- Loading uses a stable layout and polite busy status; full-load error retains an assertive alert and retry; empty and degraded states remain explicit.
-- Respect `prefers-reduced-motion`; remove travel animation without removing state, order, or content.
-- At 390px the experience is one readable vertical route with no horizontal overflow or drag requirement.
-- Target WCAG 2.1 AA contrast.
+Escape closes the model index, clears model focus, then returns to All tools.
+The complete model index supports arrow/Home/End navigation and focus restoration.
+The date slider exposes the actual date, value and state to assistive technology;
+one polite status announces meaningful scope/date changes.
 
-## Implementation boundaries
+At 390px the edition flows vertically, controls wrap, and tables scroll only inside
+their bounded wrappers. Essential text is at least 11px; primary touch targets are
+44px. Reduced motion and forced colors retain data and interaction semantics.
 
-- Use the existing Astryx, React, TypeScript, CSS, and chart stack.
-- Do not add Canvas, a game engine, physics, collision, a custom rendering runtime, or a speculative dependency.
-- Do not change collection, reconciliation, history retention, caching, pricing, publication, or README-card ownership for the narrative layer.
-- Remove obsolete Pixel Night Run paths rather than retaining fallbacks, aliases, migration behavior, or duplicate copy.
-- Prefer the smallest vertical slice that completes the six-state loop with real data.
+## Verification and deployment
 
-## Verification and pipeline contract
+No local application build, test suite, lint or preview compilation is run for this
+implementation. Code is pushed to a CR and compiled in GitHub Actions.
 
-No local build, test, lint, formatting, visual QA, or Git verification was run for this documentation update. The following are required remote-pipeline evidence, not current pass claims:
+Remote gates are collector regressions, frontend semantic tests, Svelte/TypeScript
+checks, production build and Playwright against the built static site. Browser
+checks independently calculate totals from published tool fields and cover all
+presets, custom dates, tools/models, exact records, default/committed day deep links,
+keyboard actions, missing-only windows, pagination and 1280px/390px overflow.
 
-- `npm run test:frontend`
-- `npm run lint`
-- `npm run build`, which runs README-card generation, `tsc -b`, and the Vite production build
-- the repository diff/whitespace gate used by the pipeline
-- desktop and 390px visual review of Free Roam and the complete guided loop
-- keyboard-only, reduced-motion, loading, error, empty, degraded-source, URL, and ARIA review
-- data comparison proving totals, cache, costs, dates, tool/model ownership, and Run Record still derive from the published ledger
-- generated light/dark SVG XML parsing and presence in the published `docs/` output
-
-The evaluation plan and actual result ledger live in `docs/creative/endless-run/06-dogfood.md`. Do not mark the feature complete until pending evidence is replaced by observed results.
-
-## Non-goals
-
-- XP, levels, rewards, achievements, ranks, streaks, badges, milestones, or scores
-- Productivity, contribution, impact, or quality claims
-- A playable platformer, avatar, combat, physics, collision, or game simulation
-- Beijing Second Ring Road or any identifiable city journey
-- Canvas or a game engine
-- Budgets, forecasting, billing reconciliation, or provider-efficiency comparison
-- Team or multi-user dashboards
-- Changes to usage collection or token-accounting semantics
-- Multiple guided routes, alternate game themes, or decorative mechanics without dogfood evidence
+Build artifacts and failure evidence are retained for seven days. After the CR's
+checks pass, merge to main and let the same pipeline publish GitHub Pages. Finally
+verify the deployed page and its core interactions against the deployed ledger.
+Deployment success must be observed before reporting publication complete.

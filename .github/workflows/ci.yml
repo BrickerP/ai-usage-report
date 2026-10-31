@@ -36,8 +36,12 @@ jobs:
       - name: Run collector tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+      - name: Run publisher dependency and Git recovery tests
+        run: bash tests/test_publish_git_recovery.sh
+
   frontend:
-    needs: collector
+    # Frontend consumes the checked-in ledger; both independent gates must pass
+    # before deployment, without delaying compiler feedback on collector tests.
     runs-on: ubuntu-latest
     concurrency:
       group: ci-frontend-${{ github.ref }}
@@ -53,13 +57,54 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        id: dependencies
         run: npm ci
 
       - name: Run frontend tests
         run: npm run test:frontend
 
       - name: Build production site
+        id: build
+        if: ${{ !cancelled() && steps.dependencies.conclusion == 'success' }}
         run: npm run build
+
+      - name: Record build identity
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs'
+          writeFileSync('docs/build.json', JSON.stringify({
+            commit: process.env.GITHUB_SHA,
+            builtAt: new Date().toISOString(),
+          }) + '\n')
+          NODE
+
+      - name: Install Playwright Chromium
+        id: browser
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Run editorial browser tests
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' && steps.browser.conclusion == 'success' }}
+        run: node tests/editorial.browser.mjs
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editorial-browser-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: test-results/editorial
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload production build artifact
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-${{ github.sha }}-${{ github.run_attempt }}
+          path: docs
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Configure GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -73,7 +118,7 @@ jobs:
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: frontend
+    needs: [collector, frontend]
     runs-on: ubuntu-latest
     permissions:
       pages: write

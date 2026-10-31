@@ -560,7 +560,7 @@ export function indexForPreset(
 
 export async function loadUsage(): Promise<UsagePayload> {
   const url = `${import.meta.env.BASE_URL}usage.json`
-  const res = await fetch(url)
+  const res = await fetch(url, { cache: 'no-cache' })
   if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`)
   const data = (await res.json()) as UsagePayload
   if (!Array.isArray(data.daily)) {
