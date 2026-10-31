@@ -61,6 +61,30 @@ jobs:
       - name: Build production site
         run: npm run build
 
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run editorial browser tests
+        run: node tests/editorial.browser.mjs
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editorial-browser-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: test-results/editorial
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload production build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-${{ github.sha }}-${{ github.run_attempt }}
+          path: docs
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Configure GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v6

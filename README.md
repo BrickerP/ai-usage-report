@@ -1,4 +1,4 @@
-# AI Usage Chronicle
+# The Compute Ledger
 
 <a href="https://brickerp.github.io/ai-usage-report/">
   <picture>
@@ -7,7 +7,9 @@
   </picture>
 </a>
 
-A personal, all-time token timeline for **Codex / Claude Code / Cursor / One API**, backed by the existing multi-Mac collector. The headline, cache disclosure, Skyline, and README cards are derived from `public/usage.json` on every build.
+A personal AI usage yearbook for **Codex / Claude Code / Cursor / One API**, backed by the existing multi-Mac collector. The Svelte 5 + TypeScript interface uses native SVG and D3 scales/shapes, with an editorial paper-and-ink layout. It loads the complete published `usage.json` at runtime; no date range or usage snapshot is baked into the page.
+
+Explore All, 7/30/90 calendar days, or custom dates; select tools and exact models; inspect dates with the chart, keyboard or date index. Token categories, estimated costs, model details, source freshness and the paginated exact ledger remain available. Missing records remain unavailable rather than zero. See [DESIGN.md](DESIGN.md) for the UI contract.
 
 Live site: https://brickerp.github.io/ai-usage-report/
 
@@ -90,9 +92,12 @@ What happens:
 but the page shows the affected source as stale or failed instead of implying that
 every source was refreshed successfully.
 
-The GitHub Actions pipeline runs the collector regression suite separately from the
-frontend build, so changes to JSONL parsing and source reconciliation are checked
-before a report update is deployed.
+The GitHub Actions pipeline runs the collector regression suite, frontend data tests,
+Svelte/TypeScript checks, production build and Playwright browser checks before
+deploying the main branch to GitHub Pages. Browser checks cover desktop and mobile,
+scope totals, date ranges, models, deep links and exact records. Production build
+artifacts and failed-browser evidence are retained for seven days. Agent code changes
+are pushed through a CR for remote compilation; no local build is required.
 
 Same launchd schedule on both Macs is fine; a push collision just triggers re-merge.
 
@@ -172,6 +177,10 @@ Do not use `--force-reseed` for this migration.
 |------|------|
 | `src/` | Astryx + React report UI |
 | `public/usage.json` | Merged daily series for the UI |
+| `src/App.svelte` | Editorial interface, selection state and canonical URLs |
+| `src/components/UsageChart.svelte` | Responsive SVG token/cost charts with D3 scales |
+| `src/lib/report.ts` | Calendar ranges, tool/model scopes, token parts and exact records |
+| `src/lib/pattern.ts` | Data-derived usage patterns and first/record/last bookmarks |
 | `public/ai-usage-card-{light,dark}.svg` | Generated static GitHub README cards |
 | `public/machines/<id>.json` | Per-Mac Codex fragment plus one-time local Comate history |
 | `scripts/generate_readme_cards.mjs` | Dynamic summary + weekly Skyline SVG generator |
@@ -233,11 +242,11 @@ remote data. Set `CHROME_USE_BIN`
 when the executable is outside the LaunchAgent `PATH`; otherwise the collector
 also checks `~/.local/bin/chrome-use`.
 
-Each published daily row also carries compact model breakdowns. The Explore
-section aggregates those rows for the selected date range; selecting a tool
-reveals its model series, and focusing a model updates the chart, URL, keyboard
-state, and accessible status together. No separate model dashboard is
-introduced.
+Each published daily row carries model breakdowns. The yearbook aggregates the
+selected calendar window; tool and model selection updates the chart, precise totals,
+URL and accessible status together. The complete model index retains exact tokens,
+share and cost. Model token parts are not fabricated: classification remains at tool
+level, with Codex reasoning explicitly treated as a subset of output.
 
 ## launchd
 

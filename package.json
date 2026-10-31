@@ -5,31 +5,31 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run generate:readme-cards && tsc -b && vite build",
+    "build": "npm run generate:readme-cards && npm run check && vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc --project tsconfig.node.json",
     "generate:readme-cards": "node scripts/generate_readme_cards.mjs",
     "lint": "oxlint",
     "test:frontend": "node --test tests/*.test.mjs",
+    "test:browser": "node tests/editorial.browser.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "collect": "python3 scripts/usage_pipeline.py --json-out public/usage.json --machines-dir public/machines",
     "collect:backfill-codex-cache": "python3 scripts/usage_pipeline.py --json-out public/usage.json --machines-dir public/machines --backfill-codex-cache",
     "collect:merge-only": "python3 scripts/usage_pipeline.py --json-out public/usage.json --machines-dir public/machines --merge-only",
-    "publish:pages": "bash scripts/publish.sh",
-    "astryx": "node node_modules/@astryxdesign/cli/bin/astryx.mjs"
+    "publish:pages": "bash scripts/publish.sh"
   },
   "dependencies": {
-    "@astryxdesign/core": "^0.1.4",
-    "@astryxdesign/theme-neutral": "^0.1.4",
-    "echarts": "^6.1.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "d3-scale": "^4.0.2",
+    "d3-shape": "^3.2.0",
+    "svelte": "^5.57.3"
   },
   "devDependencies": {
-    "@astryxdesign/cli": "^0.1.4",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-shape": "^3.2.0",
     "@types/node": "^24.13.2",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
+    "playwright": "^1.64.1",
+    "svelte-check": "^4.7.7",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
   }

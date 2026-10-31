@@ -9,9 +9,28 @@ export function fmtCompact(value: number): string {
 
 export function fmtUsd(value: number): string {
   const n = Number(value) || 0
+  const digits = Math.abs(n) > 0 && Math.abs(n) < 0.01 ? 4 : 2
   return n.toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
-    maximumFractionDigits: n >= 100 ? 0 : 2,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   })
+}
+
+export function fmtExactTokens(value: number | null): string {
+  return value === null
+    ? '—'
+    : value.toLocaleString('en-US', { maximumFractionDigits: 0 })
+}
+
+export function fmtExactUsd(value: number | null): string {
+  return value === null
+    ? '—'
+    : value.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 8,
+      })
 }
