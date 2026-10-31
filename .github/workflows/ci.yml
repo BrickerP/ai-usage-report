@@ -68,6 +68,17 @@ jobs:
         if: ${{ !cancelled() && steps.dependencies.conclusion == 'success' }}
         run: npm run build
 
+      - name: Record build identity
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs'
+          writeFileSync('docs/build.json', JSON.stringify({
+            commit: process.env.GITHUB_SHA,
+            builtAt: new Date().toISOString(),
+          }) + '\n')
+          NODE
+
       - name: Install Playwright Chromium
         id: browser
         if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
@@ -87,7 +98,7 @@ jobs:
           retention-days: 7
 
       - name: Upload production build artifact
-        if: always()
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build-${{ github.sha }}-${{ github.run_attempt }}
