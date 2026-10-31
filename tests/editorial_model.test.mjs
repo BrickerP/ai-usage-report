@@ -182,7 +182,7 @@ test('invalid custom dates and an empty ledger collapse safely', () => {
   assert.equal(empty.range.start, null)
   assert.equal(empty.range.end, null)
   assert.equal(empty.daily.length, 0)
-  assert.equal(empty.scope.tokens, 0)
+  assert.equal(empty.scope.tokens, null)
   assert.equal(empty.pattern, null)
 })
 

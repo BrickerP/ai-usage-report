@@ -807,7 +807,7 @@ function denseDaily(
     const toolCost = num(row, tool.costKey)
     const hasUnclassified = series.some((item) => item.id === 'model:unclassified')
     if (!Array.isArray(rawModels)) {
-      const values = groups.map(() => null)
+      const values: Array<number | null> = groups.map(() => null)
       if (hasUnclassified) values.push(toolTokens)
       return {
         date,

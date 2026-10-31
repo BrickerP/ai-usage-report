@@ -14,15 +14,16 @@
   import { loadUsage, type ToolId, type UsagePayload } from './lib/usage'
 
   const initialSearch = typeof window === 'undefined' ? '' : window.location.search
+  const initialView = parseReportView(initialSearch)
   const PRESETS: Array<Exclude<ReportPreset, 'custom'>> = ['7', '30', '90', 'all']
 
   let payload = $state<UsagePayload | null>(null)
-  let view = $state<ReportView>(parseReportView(initialSearch))
+  let view = $state<ReportView>(initialView)
   let status = $state<'loading' | 'ready' | 'error'>('loading')
   let loadError = $state('')
   let requestId = 0
-  let customFrom = $state(view.from ?? '')
-  let customTo = $state(view.to ?? '')
+  let customFrom = $state(initialView.from ?? '')
+  let customTo = $state(initialView.to ?? '')
   let modelIndexOpen = $state(false)
   let ledgerPage = $state(0)
   let reportDetailsOpen = $state(false)
@@ -230,7 +231,7 @@
     if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
       return
     }
-    const button = event.target as HTMLButtonElement
+    const button = event.currentTarget as HTMLButtonElement
     const region = button.closest('[data-model-index-region]')
     const buttons = Array.from(
       region?.querySelectorAll<HTMLButtonElement>('button[data-model]:not(:disabled)') ?? [],
@@ -494,9 +495,7 @@
             id="model-index-region"
             class="model-index"
             data-model-index-region
-            role="region"
             aria-label="Model index"
-            onkeydown={handleModelIndexKeydown}
           >
             {#each report.models.full as model}
               <button
@@ -505,6 +504,7 @@
                 aria-pressed={model.selected}
                 disabled={!model.selectable}
                 onclick={() => selectModel(model)}
+                onkeydown={handleModelIndexKeydown}
               >
                 <span class="model-name">{model.name}{model.selected ? ' · Selected' : ''}</span>
                 <span>{exact(model.tokens)} · {usd(model.cost, true)}</span>
