@@ -744,7 +744,7 @@ class CliContractTests(unittest.TestCase):
                 (repo / "node_modules").mkdir()
                 bash_env = root / "bash-env.sh"
                 bash_env.write_text(
-                    "npm() { [[ \"${1:-}\" == run && \"${2:-}\" == build ]]; }\n",
+                    "npm() { [[ \"${1:-}\" == ci || (\"${1:-}\" == run && \"${2:-}\" == build) ]]; }\n",
                     encoding="utf-8",
                 )
                 env = os.environ.copy()

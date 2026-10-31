@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Collect local AI usage → public/machines/<id>.json → merge public/usage.json
-# → build Astryx site → publish to GitHub Pages (docs/).
+# → build editorial Svelte site → publish to GitHub Pages (docs/).
 #
 # Usage (from repo root):
 #   export AI_USAGE_MACHINE_ID=mac-home   # unique per Mac
@@ -810,10 +810,11 @@ remerge_usage() {
 }
 
 build_site() {
-  if [ ! -d "$ROOT/node_modules" ]; then
-    log "npm install"
-    npm install
-  fi
+  # Every publisher may carry node_modules from a different application revision.
+  # Install exactly from package-lock.json before building so a framework or
+  # dependency change cannot reuse a stale tree from another Mac.
+  log "npm ci"
+  npm ci
   log "building site → docs/"
   npm run build
 }

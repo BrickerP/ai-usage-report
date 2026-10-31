@@ -144,4 +144,24 @@ assert usage["from"]=="remote", usage
 PY
 pass "pull_latest restores local machine fragment after remote pull"
 
+# --- build_site replaces stale dependencies even when node_modules exists ---
+repo="$TMP/build-dependencies"
+mkdir -p "$repo/node_modules" "$repo/docs"
+printf 'stale-react-tree\n' > "$repo/node_modules/.framework"
+events="$repo/npm-events.log"
+(
+  cd "$repo"
+  source_publish_lib
+  ROOT="$repo"
+  npm() {
+    printf '%s\n' "$*" >> "$events"
+    [[ "$*" == "ci" || "$*" == "run build" ]]
+  }
+  build_site
+)
+[[ "$(sed -n '1p' "$events")" == "ci" ]] || fail "build_site did not install locked dependencies first"
+[[ "$(sed -n '2p' "$events")" == "run build" ]] || fail "build_site did not build after npm ci"
+[[ "$(wc -l < "$events" | tr -d ' ')" == "2" ]] || fail "build_site invoked unexpected npm commands"
+pass "build_site runs npm ci before every editorial Svelte build"
+
 printf 'All publish git recovery tests passed.\n'

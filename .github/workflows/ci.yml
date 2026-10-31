@@ -36,8 +36,12 @@ jobs:
       - name: Run collector tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+      - name: Run publisher dependency and Git recovery tests
+        run: bash tests/test_publish_git_recovery.sh
+
   frontend:
-    needs: collector
+    # Frontend consumes the checked-in ledger; both independent gates must pass
+    # before deployment, without delaying compiler feedback on collector tests.
     runs-on: ubuntu-latest
     concurrency:
       group: ci-frontend-${{ github.ref }}
@@ -97,7 +101,7 @@ jobs:
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: frontend
+    needs: [collector, frontend]
     runs-on: ubuntu-latest
     permissions:
       pages: write
