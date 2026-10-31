@@ -126,6 +126,11 @@
 </script>
 
 <figure class="usage-chart" bind:clientWidth={width}>
+  <ul class="series-legend" aria-label="Plotted series">
+    {#each series as item (item.id)}
+      <li><i style:background={item.color} aria-hidden="true"></i>{item.label}</li>
+    {/each}
+  </ul>
   {#if daily.length}
     <div class="chart-canvas">
       <svg
@@ -213,6 +218,9 @@
 
 <style>
   .usage-chart { width: 100%; min-width: 0; margin: 0; }
+  .series-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 14px; margin: 0 0 14px; padding: 0; list-style: none; font: 12px/1.4 Arial, sans-serif; }
+  .series-legend li { display: inline-flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+  .series-legend i { width: 8px; height: 8px; flex: 0 0 8px; }
   .chart-canvas { position: relative; min-width: 0; }
   svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
   svg text { fill: #6e6b61; font: 11px/1 Arial, sans-serif; }
@@ -234,5 +242,6 @@
   .tooltip-total { padding-top: 6px; margin-top: 6px; border-top: 1px solid #d8d1c2; font-variant-numeric: tabular-nums; }
   figcaption { padding-top: 10px; color: #6e6b61; font: 11px/1.5 Arial, sans-serif; }
   .chart-empty { min-height: 180px; display: grid; place-items: center; }
+  @media (max-width: 500px) { .series-legend { justify-content: flex-start; } }
   @media (forced-colors: active) { .grid-line, .cost-grid, .cost-line, .date-guide { stroke: CanvasText; } svg text { fill: CanvasText; } .chart-tooltip { border-color: CanvasText; background: Canvas; color: CanvasText; } }
 </style>

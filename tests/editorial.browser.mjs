@@ -233,6 +233,12 @@ test('all-time and calendar presets match the published ledger', async ({ page, 
     await expectRaw(heroCost, expected.cost, `${button} cost`)
   }
   await page.getByRole('img', { name: /usage chart/i }).waitFor({ state: 'visible' })
+  const legend = page.getByRole('list', { name: 'Plotted series', exact: true })
+  assert.equal(await legend.getByRole('listitem').count(), TOOLS.length)
+  for (const label of TOOL_LABELS) {
+    await legend.getByText(label, { exact: true }).waitFor({ state: 'visible' })
+  }
+  assert.doesNotMatch(await page.locator('.pattern-note').textContent(), /No active dates/i)
 })
 
 test('tool and exact model scopes preserve token and cost totals', async ({ page, origin }) => {
@@ -287,6 +293,7 @@ test('custom dates apply atomically and match the selected calendar span', async
   const rows = payload.daily.filter((row) => row.date >= from && row.date <= to)
   const expected = summarize(rows)
   await gotoClean(page, origin, '?range=7')
+  await page.getByRole('button', { name: 'Custom', exact: true }).click()
   await page.getByLabel('From', { exact: true }).fill(from)
   await page.getByLabel('To', { exact: true }).fill(to)
   await page.getByRole('button', { name: /apply custom range/i }).click()
@@ -298,6 +305,7 @@ test('custom dates apply atomically and match the selected calendar span', async
 test('a gap-only custom range remains unavailable instead of becoming zero or all-time', async ({ page, origin }) => {
   const { from, to } = findConsecutiveGap(2)
   await gotoClean(page, origin)
+  await page.getByRole('button', { name: 'Custom', exact: true }).click()
   await page.getByLabel('From', { exact: true }).fill(from)
   await page.getByLabel('To', { exact: true }).fill(to)
   await page.getByRole('button', { name: /apply custom range/i }).click()

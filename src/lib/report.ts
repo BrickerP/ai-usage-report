@@ -966,7 +966,7 @@ export function buildReport(payload: UsagePayload, requested: ReportView): Repor
     availableDays,
     activeDays,
   }
-  const pattern = model
+  const pattern = daily.length
     ? analyseEditorialPattern(
         daily.map((day) => ({ date: day.date, tokens: day.tokens, cost: day.cost })),
       )

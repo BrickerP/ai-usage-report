@@ -87,6 +87,7 @@ test('a 90-day calendar keeps an unpublished day null and reports 89 recorded ro
   assert.equal(report.range.calendarDays, 90)
   assert.equal(report.range.recordedDays, 89)
   assert.equal(report.daily.length, 90)
+  assert.equal(report.pattern.coverage.activeDates, 89)
   assert.deepEqual(
     report.daily.find((day) => day.date === missingDate),
     {

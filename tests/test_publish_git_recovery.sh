@@ -120,11 +120,12 @@ git -C "$repo" push -q origin main
 work="$TMP/origin-work"
 git clone -q -b main "$origin" "$work"
 printf '{"generated_at":"2026-08-24T00:00:00+08:00","from":"remote"}\n' > "$work/public/usage.json"
-git -C "$work" add public/usage.json
+printf '{"v":1,"collected_at":"2026-08-23T00:00:00+00:00"}\n' > "$work/public/machines/mac.json"
+git -C "$work" add public/usage.json public/machines/mac.json
 git -C "$work" -c user.name=ai-usage-test -c user.email=ai-usage-test@example.com commit -qm "remote usage"
 git -C "$work" push -q origin main
 
-printf '{"v":42,"local":true}\n' > "$repo/public/machines/mac.json"
+printf '{"v":42,"local":true,"collected_at":"2026-08-24T01:00:00+00:00"}\n' > "$repo/public/machines/mac.json"
 git -C "$repo" fetch -q origin
 (
   cd "$repo"
@@ -139,7 +140,11 @@ python3 - "$repo/public/machines/mac.json" "$repo/public/usage.json" <<'PY' || f
 import json, sys
 machine=json.load(open(sys.argv[1]))
 usage=json.load(open(sys.argv[2]))
-assert machine=={"v":42,"local":True}, machine
+assert machine=={
+    "v":42,
+    "local":True,
+    "collected_at":"2026-08-24T01:00:00+00:00",
+}, machine
 assert usage["from"]=="remote", usage
 PY
 pass "pull_latest restores local machine fragment after remote pull"

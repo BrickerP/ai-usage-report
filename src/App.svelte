@@ -24,6 +24,7 @@
   let requestId = 0
   let customFrom = $state(initialView.from ?? '')
   let customTo = $state(initialView.to ?? '')
+  let customPanelOpen = $state(initialView.preset === 'custom')
   let modelIndexOpen = $state(false)
   let ledgerPage = $state(0)
   let reportDetailsOpen = $state(false)
@@ -130,6 +131,7 @@
     view = parseReportView(window.location.search)
     customFrom = view.from ?? ''
     customTo = view.to ?? ''
+    customPanelOpen = view.preset === 'custom'
     ledgerPage = 0
   }
 
@@ -143,6 +145,7 @@
       anchor: null,
       day: null,
     }
+    customPanelOpen = false
   }
 
   function applyCustomRange() {
@@ -155,6 +158,7 @@
       anchor: null,
       day: null,
     }
+    customPanelOpen = false
   }
 
   function shiftRange(direction: -1 | 1) {
@@ -172,6 +176,7 @@
       to: report.view.preset === 'custom' ? null : report.view.to,
       preset: report.view.preset === 'custom' ? 'all' : report.view.preset,
     }
+    customPanelOpen = false
   }
 
   function selectTool(tool: ToolId | null) {
@@ -389,7 +394,9 @@
           <button
             type="button"
             aria-pressed={report.range.preset === 'custom'}
-            onclick={applyCustomRange}
+            aria-expanded={customPanelOpen}
+            aria-controls="custom-range-panel"
+            onclick={() => (customPanelOpen = !customPanelOpen)}
           >Custom</button>
         </div>
         <p class="range-meta">
@@ -401,29 +408,31 @@
           <button type="button" disabled={!report.range.canShiftLater} onclick={() => shiftRange(1)}>Later →</button>
           <button type="button" onclick={resetWindow}>Reset window</button>
         </div>
-        <div class="custom-range">
-          <label>
-            From
-            <input
-              aria-label="From"
-              type="date"
-              min={payload.daily[0]?.date}
-              max={payload.daily.at(-1)?.date}
-              bind:value={customFrom}
-            />
-          </label>
-          <label>
-            To
-            <input
-              aria-label="To"
-              type="date"
-              min={payload.daily[0]?.date}
-              max={payload.daily.at(-1)?.date}
-              bind:value={customTo}
-            />
-          </label>
-          <button type="button" class="ink-button" onclick={applyCustomRange}>Apply custom range</button>
-        </div>
+        {#if customPanelOpen}
+          <div class="custom-range" id="custom-range-panel">
+            <label>
+              From
+              <input
+                aria-label="From"
+                type="date"
+                min={payload.daily[0]?.date}
+                max={payload.daily.at(-1)?.date}
+                bind:value={customFrom}
+              />
+            </label>
+            <label>
+              To
+              <input
+                aria-label="To"
+                type="date"
+                min={payload.daily[0]?.date}
+                max={payload.daily.at(-1)?.date}
+                bind:value={customTo}
+              />
+            </label>
+            <button type="button" class="ink-button" onclick={applyCustomRange}>Apply custom range</button>
+          </div>
+        {/if}
       </div>
     </section>
 
