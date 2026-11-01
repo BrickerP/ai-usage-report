@@ -3,9 +3,9 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m3-local",
   "hostname": "wpdeMacBook-Pro.local",
-  "collected_at": "2026-11-01T01:05:41+08:00",
-  "captured_at": "2026-11-01T01:05:41+08:00",
-  "snapshot_id": "mac-m3-local@2026-11-01T01:05:41+08:00",
+  "collected_at": "2026-11-01T15:33:44+08:00",
+  "captured_at": "2026-11-01T15:33:44+08:00",
+  "snapshot_id": "mac-m3-local@2026-11-01T15:33:44+08:00",
   "seeded_at": "2026-10-16T00:09:24+08:00",
   "seeded": true,
   "append_mode": true,
@@ -13,7 +13,7 @@
   "last_mode": "append",
   "last_append_stats": {
     "frozen_kept": 9,
-    "appended": 0,
+    "appended": 1,
     "refreshed": 7,
     "today_updated": 0,
     "skipped": 0,
@@ -945,6 +945,48 @@
           "cache_read": 16450176,
           "cache_create": 0,
           "reasoning": 4857,
+          "canonical_model": "gpt-5.5",
+          "pricing_version": "2026-07-31.v1"
+        }
+      ],
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_complete": false,
+      "codex_pricing_provenance": "mixed-legacy"
+    },
+    {
+      "date": "2026-11-01",
+      "codex_tokens": 87078785,
+      "codex_cost": 16.720635,
+      "codex_input": 1646650,
+      "codex_cache_read": 85149568,
+      "codex_output": 282567,
+      "codex_reasoning": 133920,
+      "codex_models": [
+        {
+          "model": "gpt-6.1-sol",
+          "tokens": 63575274,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 984299,
+          "output": 215167,
+          "cache_read": 62375808,
+          "cache_create": 0,
+          "reasoning": 96190,
+          "pricing_version": "legacy"
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "tokens": 23503511,
+          "cost": 16.720635,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 662351,
+          "output": 67400,
+          "cache_read": 22773760,
+          "cache_create": 0,
+          "reasoning": 37730,
           "canonical_model": "gpt-5.5",
           "pricing_version": "2026-07-31.v1"
         }
