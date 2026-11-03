@@ -1,16 +1,24 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-04T00:46:34+08:00",
-  "snapshot_id": "sha256:4d738153ba8151eb75d9727857b8a9db7a29a15f9252ff336bbd07f8c8b1cffb",
-  "generated_at": "2026-11-04T00:46:34+08:00",
+  "captured_at": "2026-11-04T01:09:32+08:00",
+  "snapshot_id": "sha256:44059a16adef0fbd98835af7c24a86a1da234c9a9caf6e272398d1575537af60",
+  "generated_at": "2026-11-04T01:09:32+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [],
-    "regression_kept": 0,
-    "regression_reasons": {},
+    "regression_dates": [
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03"
+    ],
+    "regression_kept": 3,
+    "regression_reasons": {
+      "2026-11-01": "incomplete_snapshot",
+      "2026-11-02": "incomplete_snapshot",
+      "2026-11-03": "incomplete_snapshot"
+    },
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -57,7 +65,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1161,41 +1169,41 @@
   },
   "source_status": {
     "codex": {
-      "status": "stale",
-      "attempted_at": "2026-11-03T16:03:02+08:00",
-      "last_success_at": "2026-11-03T16:03:02+08:00",
-      "window_end": "2026-11-03",
-      "lag_days": 1,
-      "error": "local_fragments_stale"
-    },
-    "claude": {
       "status": "fresh",
-      "attempted_at": "2026-11-04T00:46:29+08:00",
-      "last_success_at": "2026-11-04T00:46:29+08:00",
+      "attempted_at": "2026-11-04T00:05:03+08:00",
+      "last_success_at": "2026-11-04T00:05:03+08:00",
       "window_end": "2026-11-04",
       "lag_days": 0,
       "error": ""
     },
+    "claude": {
+      "status": "stale",
+      "attempted_at": "2026-11-04T01:07:58+08:00",
+      "last_success_at": "2026-11-04T00:46:29+08:00",
+      "window_end": "2026-11-04",
+      "lag_days": 0,
+      "error": "oneapi_reauth_required"
+    },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-04T00:46:29+08:00",
+      "attempted_at": "2026-11-04T01:07:58+08:00",
       "last_success_at": "2026-11-04T00:05:18+08:00",
       "window_end": "2026-11-03",
       "lag_days": 1,
       "error": "cursor_incomplete"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-11-04T00:46:29+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-04T01:07:58+08:00",
       "last_success_at": "2026-11-04T00:46:29+08:00",
       "window_end": "2026-11-04",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-11-04T00:46:27.474990+08:00",
     "snapshot_id": "sha256:c829a448482e3258ec099a25d59a6a18b6471c2efd01d1f9fa360446f579c61e",
@@ -12016,15 +12024,15 @@
       "records_after_deduplication": 13215,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
@@ -39901,7 +39909,11 @@
       "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_provenance": "mixed-legacy"
+      "codex_pricing_provenance": "mixed-legacy",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard"
     }
   ],
   "notes": {
