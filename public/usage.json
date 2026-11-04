@@ -1,16 +1,64 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-04T15:45:48+08:00",
-  "snapshot_id": "sha256:5e9bf139a65c910e3f7fe2f5a1ade7221d60fa14fbaefde5eb2f42509931ea01",
-  "generated_at": "2026-11-04T15:45:48+08:00",
+  "captured_at": "2026-11-04T16:09:35+08:00",
+  "snapshot_id": "sha256:488454807e04c224342a31bfe8cbcdcfcd70a0b64ea64f2d28fb106d133a6a6e",
+  "generated_at": "2026-11-04T16:09:35+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [],
-    "regression_kept": 0,
-    "regression_reasons": {},
+    "regression_dates": [
+      "2026-10-13",
+      "2026-10-14",
+      "2026-10-15",
+      "2026-10-16",
+      "2026-10-17",
+      "2026-10-18",
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+      "2026-10-25",
+      "2026-10-26",
+      "2026-10-27",
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03",
+      "2026-11-04"
+    ],
+    "regression_kept": 23,
+    "regression_reasons": {
+      "2026-10-13": "incomplete_snapshot",
+      "2026-10-14": "incomplete_snapshot",
+      "2026-10-15": "incomplete_snapshot",
+      "2026-10-16": "incomplete_snapshot",
+      "2026-10-17": "incomplete_snapshot",
+      "2026-10-18": "incomplete_snapshot",
+      "2026-10-19": "incomplete_snapshot",
+      "2026-10-20": "incomplete_snapshot",
+      "2026-10-21": "incomplete_snapshot",
+      "2026-10-22": "incomplete_snapshot",
+      "2026-10-23": "incomplete_snapshot",
+      "2026-10-24": "incomplete_snapshot",
+      "2026-10-25": "incomplete_snapshot",
+      "2026-10-26": "incomplete_snapshot",
+      "2026-10-27": "incomplete_snapshot",
+      "2026-10-28": "incomplete_snapshot",
+      "2026-10-29": "incomplete_snapshot",
+      "2026-10-30": "incomplete_snapshot",
+      "2026-10-31": "incomplete_snapshot",
+      "2026-11-01": "incomplete_snapshot",
+      "2026-11-02": "incomplete_snapshot",
+      "2026-11-03": "incomplete_snapshot",
+      "2026-11-04": "incomplete_snapshot"
+    },
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -57,7 +105,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1162,40 +1210,40 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-11-04T01:05:05+08:00",
-      "last_success_at": "2026-11-04T01:05:05+08:00",
+      "attempted_at": "2026-11-04T15:03:22+08:00",
+      "last_success_at": "2026-11-04T15:03:22+08:00",
       "window_end": "2026-11-04",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-11-04T15:45:42+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-04T16:03:31+08:00",
       "last_success_at": "2026-11-04T15:45:42+08:00",
       "window_end": "2026-11-04",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-04T15:45:42+08:00",
+      "attempted_at": "2026-11-04T16:03:31+08:00",
       "last_success_at": "2026-11-04T00:05:18+08:00",
       "window_end": "2026-11-03",
       "lag_days": 1,
       "error": "cursor_incomplete"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-11-04T15:45:42+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-04T16:03:31+08:00",
       "last_success_at": "2026-11-04T15:45:42+08:00",
       "window_end": "2026-11-04",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-11-04T15:45:41.415029+08:00",
     "snapshot_id": "sha256:b2f23b121dd61e844557132131a873984dffbfc6c0027e64549f91d79aa6678a",
@@ -12184,15 +12232,15 @@
       "records_after_deduplication": 14318,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
