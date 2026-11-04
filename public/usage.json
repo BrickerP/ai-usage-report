@@ -1,16 +1,36 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-05T00:47:08+08:00",
-  "snapshot_id": "sha256:a2c49e090df3caf371568b7afc562352f490b86530ba5b81cb8b71f1a153967c",
-  "generated_at": "2026-11-05T00:47:08+08:00",
+  "captured_at": "2026-11-05T01:08:02+08:00",
+  "snapshot_id": "sha256:a154ae7e8303929344607fbe391d6f376fead9567c12aac045801102cce4954f",
+  "generated_at": "2026-11-05T01:08:02+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [],
-    "regression_kept": 0,
-    "regression_reasons": {},
+    "regression_dates": [
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03",
+      "2026-11-04",
+      "2026-11-05"
+    ],
+    "regression_kept": 9,
+    "regression_reasons": {
+      "2026-10-28": "incomplete_snapshot",
+      "2026-10-29": "incomplete_snapshot",
+      "2026-10-30": "incomplete_snapshot",
+      "2026-10-31": "incomplete_snapshot",
+      "2026-11-01": "incomplete_snapshot",
+      "2026-11-02": "incomplete_snapshot",
+      "2026-11-03": "incomplete_snapshot",
+      "2026-11-04": "incomplete_snapshot",
+      "2026-11-05": "incomplete_snapshot"
+    },
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -57,7 +77,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1176,41 +1196,41 @@
   },
   "source_status": {
     "codex": {
-      "status": "stale",
-      "attempted_at": "2026-11-04T16:03:07+08:00",
-      "last_success_at": "2026-11-04T16:03:07+08:00",
-      "window_end": "2026-11-04",
-      "lag_days": 1,
-      "error": "local_fragments_stale"
-    },
-    "claude": {
       "status": "fresh",
-      "attempted_at": "2026-11-05T00:47:04+08:00",
-      "last_success_at": "2026-11-05T00:47:04+08:00",
+      "attempted_at": "2026-11-05T00:05:07+08:00",
+      "last_success_at": "2026-11-05T00:05:07+08:00",
       "window_end": "2026-11-05",
       "lag_days": 0,
       "error": ""
     },
+    "claude": {
+      "status": "stale",
+      "attempted_at": "2026-11-05T01:05:30+08:00",
+      "last_success_at": "2026-11-05T00:47:04+08:00",
+      "window_end": "2026-11-05",
+      "lag_days": 0,
+      "error": "oneapi_reauth_required"
+    },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-05T00:47:04+08:00",
+      "attempted_at": "2026-11-05T01:05:30+08:00",
       "last_success_at": "2026-11-05T00:05:20+08:00",
       "window_end": "2026-11-04",
       "lag_days": 1,
       "error": "cursor_incomplete"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-11-05T00:47:04+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-05T01:05:30+08:00",
       "last_success_at": "2026-11-05T00:47:04+08:00",
       "window_end": "2026-11-05",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-11-05T00:47:03.194051+08:00",
     "snapshot_id": "sha256:13881dd24f5a4d0d798e0c0ae6bac1fc7033b95972529e3585e24f63fd271395",
@@ -12149,15 +12169,15 @@
       "records_after_deduplication": 13037,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
