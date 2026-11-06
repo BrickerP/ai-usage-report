@@ -1,26 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-06T16:13:27+08:00",
-  "snapshot_id": "sha256:3d278a85e4a1ea5d7c69b78e69095248d0453bd48a8e6077d9fcab17aba2278e",
-  "generated_at": "2026-11-06T16:13:27+08:00",
+  "captured_at": "2026-11-07T00:05:53+08:00",
+  "snapshot_id": "sha256:693c7141c7da53480f044c9e5d38eda166e9d6d3aabc65a3702c59070dab9cdd",
+  "generated_at": "2026-11-07T00:05:53+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-18"
-    ],
-    "regression_kept": 4,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -67,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m1-local",
+  "machine_id": "mac-m4-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -77,9 +67,9 @@
   "tools": [
     {
       "tool": "Codex",
-      "history": "2026-01-08 to 2026-11-05",
+      "history": "2026-01-08 to 2026-11-06",
       "cost": 157311.56593963,
-      "total_tokens": 259201696168,
+      "total_tokens": 259254863684,
       "models": [
         {
           "model": "gpt-5.6-sol",
@@ -154,19 +144,19 @@
         },
         {
           "model": "gpt-6.1-sol",
-          "tokens": 6873988566,
+          "tokens": 6927156082,
           "cost": 0.031066,
           "components_complete": true,
           "raw_models": [
             "gpt-6.1-sol"
           ],
           "pricing_provenance": "unpriced",
-          "input": 83148173,
-          "output": 17958601,
-          "cache_read": 6772881792,
+          "input": 84009793,
+          "output": 18140977,
+          "cache_read": 6825005312,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 9631440,
+          "reasoning": 9711837,
           "canonical_model": "gpt-6.1-sol",
           "pricing_version": "legacy",
           "ownership_rule_version": "3"
@@ -1190,31 +1180,31 @@
       "attempted_at": "2026-11-05T15:33:26+08:00",
       "last_success_at": "2026-11-05T15:33:26+08:00",
       "window_end": "2026-11-05",
-      "lag_days": 1,
+      "lag_days": 2,
       "error": "local_fragments_stale"
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-06T16:03:31+08:00",
+      "attempted_at": "2026-11-07T00:05:53+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
-      "lag_days": 1,
+      "lag_days": 2,
       "error": "oneapi_reauth_required"
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-11-06T16:03:31+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-07T00:05:53+08:00",
       "last_success_at": "2026-11-06T16:03:31+08:00",
       "window_end": "2026-11-06",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "cursor_incomplete"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-06T16:03:31+08:00",
+      "attempted_at": "2026-11-07T00:05:53+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
-      "lag_days": 1,
+      "lag_days": 2,
       "error": "oneapi_reauth_required"
     }
   },
@@ -40722,12 +40712,12 @@
     },
     {
       "date": "2026-11-06",
-      "codex_tokens": 0,
+      "codex_tokens": 53167516,
       "codex_cost": 0.0,
-      "codex_input": 0,
-      "codex_cache_read": 0,
-      "codex_output": 0,
-      "codex_reasoning": 0,
+      "codex_input": 861620,
+      "codex_cache_read": 52123520,
+      "codex_output": 182376,
+      "codex_reasoning": 80397,
       "claude_tokens": 0,
       "claude_cost": 0.0,
       "claude_input": 0,
@@ -40747,7 +40737,22 @@
       "oneapi_cache_write": 0,
       "oneapi_output": 0,
       "oneapi_requests": 0,
-      "codex_models": [],
+      "codex_models": [
+        {
+          "model": "gpt-6.1-sol",
+          "tokens": 53167516,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 861620,
+          "output": 182376,
+          "cache_read": 52123520,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 80397,
+          "pricing_version": "legacy"
+        }
+      ],
       "claude_models": [],
       "cursor_models": [
         {
@@ -40776,11 +40781,15 @@
         }
       ],
       "oneapi_models": [],
-      "total_tokens": 96374071,
+      "total_tokens": 149541587,
       "total_cost": 69.43244209999993,
+      "codex_snapshot_complete": true,
+      "codex_pricing_complete": false,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_provenance": "unpriced",
       "cursor_snapshot_complete": true,
-      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_provenance": "filtered-events-charged-cents"
     }
   ],
