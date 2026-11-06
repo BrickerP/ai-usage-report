@@ -1,26 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-06T01:13:45+08:00",
-  "snapshot_id": "sha256:5046e788f73f2b4b868c0ce1be6b6e9b01df0cae9fa1b110827f2f6fb4f64083",
-  "generated_at": "2026-11-06T01:13:45+08:00",
+  "captured_at": "2026-11-06T15:03:45+08:00",
+  "snapshot_id": "sha256:7546b699a88044ad7b82c9b8ea6fcbb295cc4342bafc6708ac745e525aa41d38",
+  "generated_at": "2026-11-06T15:03:45+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-18"
-    ],
-    "regression_kept": 4,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -67,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m1-local",
+  "machine_id": "mac-m4-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1195,7 +1185,7 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-06T01:05:21+08:00",
+      "attempted_at": "2026-11-06T15:03:44+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
       "lag_days": 1,
@@ -1203,15 +1193,15 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-06T01:05:21+08:00",
+      "attempted_at": "2026-11-06T15:03:44+08:00",
       "last_success_at": "2026-11-06T01:05:21+08:00",
       "window_end": "2026-11-05",
       "lag_days": 1,
-      "error": "cursor_data_lagging"
+      "error": "cursor_incomplete"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-06T01:05:21+08:00",
+      "attempted_at": "2026-11-06T15:03:44+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
       "lag_days": 1,
