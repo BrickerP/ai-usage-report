@@ -1,26 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-07T16:11:31+08:00",
-  "snapshot_id": "sha256:194747777505c8b66a2d0a594f25528333dfe1fda3593f5dff5997c242d1358e",
-  "generated_at": "2026-11-07T16:11:31+08:00",
+  "captured_at": "2026-11-08T00:05:14+08:00",
+  "snapshot_id": "sha256:214e7354581a7bf3742eebffb03e49b4b82e41a28aae02bbe5a36a8bd41ff599",
+  "generated_at": "2026-11-08T00:05:14+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-18"
-    ],
-    "regression_kept": 4,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -67,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m1-local",
+  "machine_id": "mac-m4-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1190,31 +1180,31 @@
       "attempted_at": "2026-11-05T15:33:26+08:00",
       "last_success_at": "2026-11-05T15:33:26+08:00",
       "window_end": "2026-11-05",
-      "lag_days": 2,
+      "lag_days": 3,
       "error": "local_fragments_stale"
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-07T16:03:21+08:00",
+      "attempted_at": "2026-11-08T00:05:13+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
-      "lag_days": 2,
+      "lag_days": 3,
       "error": "oneapi_reauth_required"
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-11-07T16:03:21+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-08T00:05:13+08:00",
       "last_success_at": "2026-11-07T16:03:21+08:00",
       "window_end": "2026-11-07",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "cursor_incomplete"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-07T16:03:21+08:00",
+      "attempted_at": "2026-11-08T00:05:13+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
-      "lag_days": 2,
+      "lag_days": 3,
       "error": "oneapi_reauth_required"
     }
   },
@@ -40849,8 +40839,8 @@
       "total_tokens": 26727444,
       "total_cost": 19.181059499999993,
       "cursor_snapshot_complete": true,
-      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_provenance": "filtered-events-charged-cents"
     }
   ],
