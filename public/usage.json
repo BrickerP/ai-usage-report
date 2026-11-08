@@ -1,16 +1,26 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-08T15:03:23+08:00",
-  "snapshot_id": "sha256:09301edf2adfd92469582fdc6ff84d6d17b43f26df0938d27a620fc087fc2a44",
-  "generated_at": "2026-11-08T15:03:23+08:00",
+  "captured_at": "2026-11-08T16:11:59+08:00",
+  "snapshot_id": "sha256:36ef404faeaaa6e6ac60789a7540879e10660ca47e99182b12afd0530f3388a2",
+  "generated_at": "2026-11-08T16:11:59+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [],
-    "regression_kept": 0,
-    "regression_reasons": {},
+    "regression_dates": [
+      "2026-07-18",
+      "2026-07-22",
+      "2026-07-23",
+      "2026-10-18"
+    ],
+    "regression_kept": 4,
+    "regression_reasons": {
+      "2026-07-18": "token_regression",
+      "2026-07-22": "token_regression",
+      "2026-07-23": "token_regression",
+      "2026-10-18": "token_regression"
+    },
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -57,7 +67,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m4-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1185,7 +1195,7 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-08T15:03:23+08:00",
+      "attempted_at": "2026-11-08T16:03:21+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
       "lag_days": 3,
@@ -1193,15 +1203,15 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-08T15:03:23+08:00",
-      "last_success_at": "2026-11-08T01:05:20+08:00",
+      "attempted_at": "2026-11-08T16:03:21+08:00",
+      "last_success_at": "2026-11-08T16:03:21+08:00",
       "window_end": "2026-11-07",
       "lag_days": 1,
-      "error": "cursor_incomplete"
+      "error": "cursor_data_lagging"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-08T15:03:23+08:00",
+      "attempted_at": "2026-11-08T16:03:21+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
       "lag_days": 3,
