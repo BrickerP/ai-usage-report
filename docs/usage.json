@@ -1,26 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-09T01:13:50+08:00",
-  "snapshot_id": "sha256:8a060e01c97e10fce0a6f14bfa53e538aed9d8bea20341aadbe164bbc4299bf2",
-  "generated_at": "2026-11-09T01:13:50+08:00",
+  "captured_at": "2026-11-09T15:03:29+08:00",
+  "snapshot_id": "sha256:cda3c1fa662b1b68194a6f5061883c6e93474c4e01da34ee2db0b2eb8124bb83",
+  "generated_at": "2026-11-09T15:03:29+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-18"
-    ],
-    "regression_kept": 4,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -67,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m1-local",
+  "machine_id": "mac-m4-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1195,7 +1185,7 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-09T01:05:23+08:00",
+      "attempted_at": "2026-11-09T15:03:28+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
       "lag_days": 4,
@@ -1203,15 +1193,15 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-09T01:05:23+08:00",
+      "attempted_at": "2026-11-09T15:03:28+08:00",
       "last_success_at": "2026-11-09T01:05:23+08:00",
       "window_end": "2026-11-08",
       "lag_days": 1,
-      "error": "cursor_data_lagging"
+      "error": "cursor_incomplete"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-09T01:05:23+08:00",
+      "attempted_at": "2026-11-09T15:03:28+08:00",
       "last_success_at": "2026-11-05T15:47:38+08:00",
       "window_end": "2026-11-05",
       "lag_days": 4,
@@ -39419,10 +39409,10 @@
       ],
       "total_tokens": 2474638950,
       "total_cost": 374.83845376000005,
-      "codex_snapshot_complete": true,
+      "codex_snapshot_complete": false,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_provenance": "mixed-legacy",
+      "codex_pricing_provenance": "mixed",
       "cursor_snapshot_complete": true,
       "cursor_pricing_complete": true,
       "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -40906,8 +40896,8 @@
       "total_tokens": 39475948,
       "total_cost": 34.289695500000015,
       "cursor_snapshot_complete": true,
-      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-charged-cents-v1",
       "cursor_pricing_provenance": "filtered-events-charged-cents"
     }
   ],
