@@ -1,26 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-10T13:45:08+08:00",
-  "snapshot_id": "sha256:03823339fc7dd58f1051d38f28bed1ecb62e4649f1dc0641e011bc5e5b72c5c1",
-  "generated_at": "2026-11-10T13:45:08+08:00",
+  "captured_at": "2026-11-10T15:03:38+08:00",
+  "snapshot_id": "sha256:03c404d083579676814b980071c513629cc87b124a41e1e32f8ea049537a98fd",
+  "generated_at": "2026-11-10T15:03:38+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-18"
-    ],
-    "regression_kept": 4,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -67,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m1-local",
+  "machine_id": "mac-m4-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1172,31 +1162,31 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-11-10T00:05:05+08:00",
-      "last_success_at": "2026-11-10T00:05:05+08:00",
+      "attempted_at": "2026-11-10T00:35:16+08:00",
+      "last_success_at": "2026-11-10T00:35:16+08:00",
       "window_end": "2026-11-10",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-10T13:34:44+08:00",
+      "attempted_at": "2026-11-10T15:03:37+08:00",
       "last_success_at": "2026-11-10T00:44:18+08:00",
       "window_end": "2026-11-10",
       "lag_days": 0,
       "error": "oneapi_reauth_required"
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-11-10T13:34:44+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-10T15:03:37+08:00",
       "last_success_at": "2026-11-10T13:34:44+08:00",
       "window_end": "2026-11-10",
       "lag_days": 0,
-      "error": ""
+      "error": "cursor_incomplete"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-10T13:34:44+08:00",
+      "attempted_at": "2026-11-10T15:03:37+08:00",
       "last_success_at": "2026-11-10T00:44:18+08:00",
       "window_end": "2026-11-10",
       "lag_days": 0,
