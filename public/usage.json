@@ -1,16 +1,26 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-12T00:50:09+08:00",
-  "snapshot_id": "sha256:47bbbfd734e1128213fd3c433d1443cf12527383e68870efda61fe434069e8e9",
-  "generated_at": "2026-11-12T00:50:09+08:00",
+  "captured_at": "2026-11-12T01:15:05+08:00",
+  "snapshot_id": "sha256:36e72fe2aa038bc7a1c79cb831b44fcfee9ba370d06c4e96d74aac38770f1215",
+  "generated_at": "2026-11-12T01:15:05+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [],
-    "regression_kept": 0,
-    "regression_reasons": {},
+    "regression_dates": [
+      "2026-07-18",
+      "2026-07-22",
+      "2026-07-23",
+      "2026-10-18"
+    ],
+    "regression_kept": 4,
+    "regression_reasons": {
+      "2026-07-18": "token_regression",
+      "2026-07-22": "token_regression",
+      "2026-07-23": "token_regression",
+      "2026-10-18": "token_regression"
+    },
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -57,7 +67,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1206,41 +1216,41 @@
   },
   "source_status": {
     "codex": {
-      "status": "stale",
-      "attempted_at": "2026-11-11T16:03:07+08:00",
-      "last_success_at": "2026-11-11T16:03:07+08:00",
-      "window_end": "2026-11-11",
-      "lag_days": 1,
-      "error": "local_fragments_stale"
-    },
-    "claude": {
       "status": "fresh",
-      "attempted_at": "2026-11-12T00:50:05+08:00",
-      "last_success_at": "2026-11-12T00:50:05+08:00",
+      "attempted_at": "2026-11-12T00:05:05+08:00",
+      "last_success_at": "2026-11-12T00:05:05+08:00",
       "window_end": "2026-11-12",
       "lag_days": 0,
       "error": ""
+    },
+    "claude": {
+      "status": "stale",
+      "attempted_at": "2026-11-12T01:05:18+08:00",
+      "last_success_at": "2026-11-12T00:50:05+08:00",
+      "window_end": "2026-11-12",
+      "lag_days": 0,
+      "error": "oneapi_reauth_required"
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-12T00:50:05+08:00",
-      "last_success_at": "2026-11-11T16:03:26+08:00",
+      "attempted_at": "2026-11-12T01:05:18+08:00",
+      "last_success_at": "2026-11-12T01:05:18+08:00",
       "window_end": "2026-11-10",
       "lag_days": 2,
-      "error": "cursor_incomplete"
+      "error": "cursor_data_lagging"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-11-12T00:50:05+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-12T01:05:18+08:00",
       "last_success_at": "2026-11-12T00:50:05+08:00",
       "window_end": "2026-11-12",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-11-12T00:50:03.323984+08:00",
     "snapshot_id": "sha256:f887520369158d867c8af8117ac4694029d1d6351a14ee3a95eea21cbc4ea452",
@@ -13302,15 +13312,15 @@
       "records_after_deduplication": 14897,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
