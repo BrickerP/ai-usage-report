@@ -1,28 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-12T11:30:58+08:00",
-  "snapshot_id": "sha256:9faea6ee38b707a869d2abf254ff9ec92158d5038853160f5376c66293e21500",
-  "generated_at": "2026-11-12T11:30:58+08:00",
+  "captured_at": "2026-11-12T15:03:50+08:00",
+  "snapshot_id": "sha256:0856a97ba7a1bb1e9deb38d8504c5fc46b71eade53b662708151cb253b348df8",
+  "generated_at": "2026-11-12T15:03:50+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-17",
-      "2026-10-18"
-    ],
-    "regression_kept": 5,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-17": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -69,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m1-local",
+  "machine_id": "mac-m4-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1219,15 +1207,15 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-11-12T00:05:05+08:00",
-      "last_success_at": "2026-11-12T00:05:05+08:00",
+      "attempted_at": "2026-11-12T00:36:12+08:00",
+      "last_success_at": "2026-11-12T00:36:12+08:00",
       "window_end": "2026-11-12",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-12T11:19:27+08:00",
+      "attempted_at": "2026-11-12T15:03:50+08:00",
       "last_success_at": "2026-11-12T00:50:05+08:00",
       "window_end": "2026-11-12",
       "lag_days": 0,
@@ -1235,15 +1223,15 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-12T11:19:27+08:00",
+      "attempted_at": "2026-11-12T15:03:50+08:00",
       "last_success_at": "2026-11-12T11:19:27+08:00",
       "window_end": "2026-11-10",
       "lag_days": 2,
-      "error": "cursor_data_lagging"
+      "error": "cursor_incomplete"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-12T11:19:27+08:00",
+      "attempted_at": "2026-11-12T15:03:50+08:00",
       "last_success_at": "2026-11-12T00:50:05+08:00",
       "window_end": "2026-11-12",
       "lag_days": 0,
