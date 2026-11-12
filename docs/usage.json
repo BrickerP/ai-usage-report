@@ -1,16 +1,70 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-13T01:00:32+08:00",
-  "snapshot_id": "sha256:a1a0843facb9c242b8c5d2a64993747ef794e016cdaa11f7a44e625c974bb4e0",
-  "generated_at": "2026-11-13T01:00:32+08:00",
+  "captured_at": "2026-11-13T01:11:41+08:00",
+  "snapshot_id": "sha256:adc1818d5f867b05ec44efd9e63b96f3ec9badde18054c466a524366a09732dc",
+  "generated_at": "2026-11-13T01:11:41+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [],
-    "regression_kept": 0,
-    "regression_reasons": {},
+    "regression_dates": [
+      "2026-10-16",
+      "2026-10-17",
+      "2026-10-18",
+      "2026-10-19",
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-23",
+      "2026-10-24",
+      "2026-10-25",
+      "2026-10-26",
+      "2026-10-27",
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03",
+      "2026-11-04",
+      "2026-11-05",
+      "2026-11-06",
+      "2026-11-07",
+      "2026-11-08",
+      "2026-11-09",
+      "2026-11-10"
+    ],
+    "regression_kept": 26,
+    "regression_reasons": {
+      "2026-10-16": "incomplete_snapshot",
+      "2026-10-17": "incomplete_snapshot",
+      "2026-10-18": "incomplete_snapshot",
+      "2026-10-19": "incomplete_snapshot",
+      "2026-10-20": "incomplete_snapshot",
+      "2026-10-21": "incomplete_snapshot",
+      "2026-10-22": "incomplete_snapshot",
+      "2026-10-23": "incomplete_snapshot",
+      "2026-10-24": "incomplete_snapshot",
+      "2026-10-25": "incomplete_snapshot",
+      "2026-10-26": "incomplete_snapshot",
+      "2026-10-27": "incomplete_snapshot",
+      "2026-10-28": "incomplete_snapshot",
+      "2026-10-29": "incomplete_snapshot",
+      "2026-10-30": "incomplete_snapshot",
+      "2026-10-31": "incomplete_snapshot",
+      "2026-11-01": "incomplete_snapshot",
+      "2026-11-02": "incomplete_snapshot",
+      "2026-11-03": "incomplete_snapshot",
+      "2026-11-04": "incomplete_snapshot",
+      "2026-11-05": "incomplete_snapshot",
+      "2026-11-06": "incomplete_snapshot",
+      "2026-11-07": "incomplete_snapshot",
+      "2026-11-08": "incomplete_snapshot",
+      "2026-11-09": "incomplete_snapshot",
+      "2026-11-10": "incomplete_snapshot"
+    },
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -57,7 +111,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1251,41 +1305,41 @@
   },
   "source_status": {
     "codex": {
-      "status": "stale",
-      "attempted_at": "2026-11-12T16:03:02+08:00",
-      "last_success_at": "2026-11-12T16:03:02+08:00",
-      "window_end": "2026-11-12",
-      "lag_days": 1,
-      "error": "local_fragments_stale"
-    },
-    "claude": {
       "status": "fresh",
-      "attempted_at": "2026-11-13T01:00:28+08:00",
-      "last_success_at": "2026-11-13T01:00:28+08:00",
+      "attempted_at": "2026-11-13T00:05:06+08:00",
+      "last_success_at": "2026-11-13T00:05:06+08:00",
       "window_end": "2026-11-13",
       "lag_days": 0,
       "error": ""
     },
+    "claude": {
+      "status": "stale",
+      "attempted_at": "2026-11-13T01:05:25+08:00",
+      "last_success_at": "2026-11-13T01:00:28+08:00",
+      "window_end": "2026-11-13",
+      "lag_days": 0,
+      "error": "oneapi_reauth_required"
+    },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-13T01:00:28+08:00",
+      "attempted_at": "2026-11-13T01:05:25+08:00",
       "last_success_at": "2026-11-12T16:03:28+08:00",
       "window_end": "2026-11-10",
       "lag_days": 3,
       "error": "cursor_incomplete"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-11-13T01:00:28+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-13T01:05:25+08:00",
       "last_success_at": "2026-11-13T01:00:28+08:00",
       "window_end": "2026-11-13",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-11-13T01:00:23.931052+08:00",
     "snapshot_id": "sha256:3dadea87fa0aa314dd5b8ddf804755d29fb967745c5b5ec8465f3b40c446b66b",
@@ -13639,15 +13693,15 @@
       "records_after_deduplication": 24841,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
@@ -43353,7 +43407,11 @@
       "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_provenance": "unpriced"
+      "codex_pricing_provenance": "unpriced",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard"
     }
   ],
   "notes": {
