@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-12T01:15:05+08:00",
-  "snapshot_id": "sha256:36e72fe2aa038bc7a1c79cb831b44fcfee9ba370d06c4e96d74aac38770f1215",
-  "generated_at": "2026-11-12T01:15:05+08:00",
+  "captured_at": "2026-11-12T11:30:58+08:00",
+  "snapshot_id": "sha256:9faea6ee38b707a869d2abf254ff9ec92158d5038853160f5376c66293e21500",
+  "generated_at": "2026-11-12T11:30:58+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -12,13 +12,15 @@
       "2026-07-18",
       "2026-07-22",
       "2026-07-23",
+      "2026-10-17",
       "2026-10-18"
     ],
-    "regression_kept": 4,
+    "regression_kept": 5,
     "regression_reasons": {
       "2026-07-18": "token_regression",
       "2026-07-22": "token_regression",
       "2026-07-23": "token_regression",
+      "2026-10-17": "token_regression",
       "2026-10-18": "token_regression"
     },
     "model_backfilled_dates": [
@@ -1225,7 +1227,7 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-12T01:05:18+08:00",
+      "attempted_at": "2026-11-12T11:19:27+08:00",
       "last_success_at": "2026-11-12T00:50:05+08:00",
       "window_end": "2026-11-12",
       "lag_days": 0,
@@ -1233,15 +1235,15 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-12T01:05:18+08:00",
-      "last_success_at": "2026-11-12T01:05:18+08:00",
+      "attempted_at": "2026-11-12T11:19:27+08:00",
+      "last_success_at": "2026-11-12T11:19:27+08:00",
       "window_end": "2026-11-10",
       "lag_days": 2,
       "error": "cursor_data_lagging"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-12T01:05:18+08:00",
+      "attempted_at": "2026-11-12T11:19:27+08:00",
       "last_success_at": "2026-11-12T00:50:05+08:00",
       "window_end": "2026-11-12",
       "lag_days": 0,
