@@ -1,28 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-12T16:14:34+08:00",
-  "snapshot_id": "sha256:7bd7f2153c9960baff8e85e95611ce4094d9855e04d9951646969cba43aba2fc",
-  "generated_at": "2026-11-12T16:14:34+08:00",
+  "captured_at": "2026-11-13T00:05:20+08:00",
+  "snapshot_id": "sha256:f313b4e6f96caf012e035c21b8e219b1fc6ac117bef8f00e583020f514900751",
+  "generated_at": "2026-11-13T00:05:20+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-17",
-      "2026-10-18"
-    ],
-    "regression_kept": 5,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-17": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -69,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m1-local",
+  "machine_id": "mac-m4-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1263,35 +1251,35 @@
   },
   "source_status": {
     "codex": {
-      "status": "fresh",
-      "attempted_at": "2026-11-12T15:03:22+08:00",
-      "last_success_at": "2026-11-12T15:03:22+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-12T15:34:21+08:00",
+      "last_success_at": "2026-11-12T15:34:21+08:00",
       "window_end": "2026-11-12",
-      "lag_days": 0,
-      "error": ""
+      "lag_days": 1,
+      "error": "local_fragments_stale"
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-12T16:03:28+08:00",
+      "attempted_at": "2026-11-13T00:05:20+08:00",
       "last_success_at": "2026-11-12T15:55:16+08:00",
       "window_end": "2026-11-12",
-      "lag_days": 0,
+      "lag_days": 1,
       "error": "oneapi_reauth_required"
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-12T16:03:28+08:00",
+      "attempted_at": "2026-11-13T00:05:20+08:00",
       "last_success_at": "2026-11-12T16:03:28+08:00",
       "window_end": "2026-11-10",
-      "lag_days": 2,
-      "error": "cursor_data_lagging"
+      "lag_days": 3,
+      "error": "cursor_incomplete"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-12T16:03:28+08:00",
+      "attempted_at": "2026-11-13T00:05:20+08:00",
       "last_success_at": "2026-11-12T15:55:16+08:00",
       "window_end": "2026-11-12",
-      "lag_days": 0,
+      "lag_days": 1,
       "error": "oneapi_reauth_required"
     }
   },
