@@ -3,9 +3,9 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m3-local",
   "hostname": "wpdeMacBook-Pro.local",
-  "collected_at": "2026-11-15T12:58:30+08:00",
-  "captured_at": "2026-11-15T12:58:30+08:00",
-  "snapshot_id": "mac-m3-local@2026-11-15T12:58:30+08:00",
+  "collected_at": "2026-11-15T15:34:04+08:00",
+  "captured_at": "2026-11-15T15:34:04+08:00",
+  "snapshot_id": "mac-m3-local@2026-11-15T15:34:04+08:00",
   "seeded_at": "2026-10-16T00:09:24+08:00",
   "seeded": true,
   "append_mode": true,
@@ -13,11 +13,11 @@
   "last_mode": "append",
   "last_append_stats": {
     "frozen_kept": 9,
-    "appended": 0,
-    "refreshed": 14,
+    "appended": 1,
+    "refreshed": 8,
     "today_updated": 0,
     "skipped": 0,
-    "regression_kept": 8,
+    "regression_kept": 11,
     "regression_dates": [
       "2026-10-25",
       "2026-10-26",
@@ -26,14 +26,14 @@
       "2026-10-29",
       "2026-10-30",
       "2026-10-31",
-      "2026-11-01"
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03",
+      "2026-11-04"
     ],
     "regression_reasons": {
       "2026-10-28:codex": "token_regression",
-      "2026-10-29:codex": "token_regression",
-      "2026-10-30:codex": "token_regression",
-      "2026-10-31:codex": "token_regression",
-      "2026-11-01:codex": "token_regression"
+      "2026-11-04:codex": "token_regression"
     },
     "pricing_changes": [],
     "pricing_regression_dates": []
@@ -1114,10 +1114,10 @@
           "pricing_version": "2026-07-31.v1"
         }
       ],
-      "codex_snapshot_complete": true,
+      "codex_snapshot_complete": false,
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_complete": false,
-      "codex_pricing_provenance": "mixed-legacy"
+      "codex_pricing_provenance": "legacy-preserved"
     },
     {
       "date": "2026-11-08",
@@ -1411,6 +1411,34 @@
       "codex_pricing_version": "2026-07-31.v1",
       "codex_pricing_complete": false,
       "codex_pricing_provenance": "mixed-legacy"
+    },
+    {
+      "date": "2026-11-15",
+      "codex_tokens": 197885065,
+      "codex_cost": 0.0,
+      "codex_input": 2919193,
+      "codex_cache_read": 194426752,
+      "codex_output": 539120,
+      "codex_reasoning": 312589,
+      "codex_models": [
+        {
+          "model": "gpt-6.1-sol",
+          "tokens": 197885065,
+          "cost": 0.0,
+          "components_complete": true,
+          "pricing_provenance": "unpriced",
+          "input": 2919193,
+          "output": 539120,
+          "cache_read": 194426752,
+          "cache_create": 0,
+          "reasoning": 312589,
+          "pricing_version": "legacy"
+        }
+      ],
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_complete": false,
+      "codex_pricing_provenance": "unpriced"
     }
   ],
   "model_breakdown_version": 5,
