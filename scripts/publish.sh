@@ -748,7 +748,7 @@ collect_oneapi_cache() {
     python3 "$ROOT/scripts/oneapi_usage.py" \
       --state-path "$state_path" \
       --status-out "$ONEAPI_STATUS_PATH" \
-      --days 5 >/dev/null 2>/dev/null || true
+      --days 31 >/dev/null 2>/dev/null || true
     notify_oneapi_status
     return 0
   fi
@@ -766,12 +766,12 @@ collect_oneapi_cache() {
     log "WARN: could not secure One API cache temp file; merge will keep prior series"
     return 0
   fi
-  log "collecting complete five-day One API account snapshot → ${cache_path}"
+  log "collecting complete 31-day One API account snapshot → ${cache_path}"
   ONEAPI_LIVE_ATTEMPTED=1
   if python3 "$ROOT/scripts/oneapi_usage.py" \
       --state-path "$state_path" \
       --status-out "$ONEAPI_STATUS_PATH" \
-      --days 5 \
+      --days 31 \
       > "$temp_path" \
       2> >(while IFS= read -r line; do log "oneapi: $line"; done >&2); then
     if ! mv -f -- "$temp_path" "$cache_path"; then

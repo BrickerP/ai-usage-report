@@ -70,17 +70,20 @@ npm run publish:pages
 What happens:
 
 1. Collect this Mac into the durable ledger `public/machines/<your-id>.json`
+   (Codex rollouts, plus OpenCode calls made with the second One API key)
    - **First run** on a machine: seed full local history once
    - **Later runs**: re-read `mutable_from` through today, then keep yesterday + today open
    - If the Mac was off for days, the old boundary remains and every missed day is recovered
    - A lower source snapshot is never allowed to overwrite the stored high-water value
 2. `git pull --rebase` — pick up the other Mac’s fragment and latest account snapshots
-3. After the pull, fetch and atomically cache a complete five-calendar-day One API
-   account snapshot. Keep the Codex model family and Claude model family in their
-   own series (Codex appends onto the local Codex series; Claude rebuilds the
-   Claude Code series), and retain only residual non-GPT/Codex and non-Claude
-   models in the One API series; preserve the complete prior model timeline
-   outside that window
+3. After the pull, fetch and atomically cache the One API account's usage
+   statistics for the last 31 calendar days (one request; a login outage shorter
+   than the window heals on the next successful run). Add every Mac's second-key
+   rows for the same window, then keep the Codex model family and Claude model
+   family in their own series (Codex appends onto the local Codex series; Claude
+   rebuilds the Claude Code series), and retain only residual non-GPT/Codex and
+   non-Claude models in the One API series; preserve the complete prior model
+   timeline outside that window
 4. Fetch Cursor Dashboard API (account-level; it has its own `cursor_mutable_from` boundary)
 5. SUM local tools across all fragments and reconcile each account-level source by
    its latest complete snapshot → write `public/usage.json`
@@ -106,9 +109,10 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 | Tool | Rule |
 |------|------|
 | Codex | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected from `~/.codex` rollout JSONL; report = SUM across `machines/*.json` **plus the One API gateway's Codex model family** (additive append, no dedup). A fragment marked `retired` remains in historical totals but is excluded from active freshness and hostname checks |
-| Claude Code | Account-level; rebuilt from the One API gateway's Claude model family for the last two calendar days, older local collector values stay frozen; do not SUM across Macs |
+| Claude Code | Account-level; rebuilt from the One API gateway's Claude model family (plus second-key rows) for the One API window, older values stay frozen; do not SUM across Macs |
 | Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
-| One API | Account-level residual gateway series; collect after pull, keep the GPT/Codex model family in a dedicated `codex` series and the Claude family in the `claude` series, replace only a complete five-day fetch window, and keep prior history on missing/expired state or incomplete pagination. Local Comate history is retained here only for dates without gateway coverage |
+| One API | Account-level residual gateway series; collect after pull, keep the GPT/Codex model family in a dedicated `codex` series and the Claude family in the `claude` series, replace only a complete 31-day statistics window, and keep prior history on missing/expired state or an incomplete response. Local Comate history is retained here only for dates without gateway coverage |
+| Second One API key | OpenCode sends most One API requests with a key that belongs to another account, so this account's statistics never include them. Each Mac meters those calls locally (`oneapi_key2` in its fragment); the merge SUMs every Mac's rows for the One API window and adds them to the same model families, with quota estimated from this account's own quota per token for that model |
 
 The non-overlap rule assumes Cursor reports its own cloud usage and
 `use_openai_key=false`. This is the currently verified account configuration.
@@ -182,14 +186,16 @@ Do not use `--force-reseed` for this migration.
 | `src/lib/report.ts` | Calendar ranges, tool/model scopes, token parts and exact records |
 | `src/lib/pattern.ts` | Data-derived usage patterns and first/record/last bookmarks |
 | `public/ai-usage-card-{light,dark}.svg` | Generated static GitHub README cards |
-| `public/machines/<id>.json` | Per-Mac Codex fragment plus one-time local Comate history |
+| `public/machines/<id>.json` | Per-Mac Codex fragment, second-key OpenCode usage, and one-time local Comate history |
 | `scripts/generate_readme_cards.mjs` | Dynamic summary + weekly Skyline SVG generator |
 | `scripts/usage_pipeline.py` | Collect + merge |
 | `scripts/ai_usage_comparison_image.py` | Compatibility CLI for the former collector name |
 | `scripts/model_prices.v1.json` | Versioned Codex estimate ledger |
 | `scripts/cursor_usage_api.py` | Cursor session, API, redaction, and event normalization library |
 | `scripts/cursor_usage_api_probe.py` | Manual Cursor diagnostic export CLI |
-| `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, and aggregation |
+| `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, second-key pricing, and aggregation |
+| `scripts/opencode_key2_usage.py` | Second-key calls from OpenCode's database joined with the key-split request ledger |
+| `scripts/opencode_oneapi_models.v1.json` | OpenCode model IDs whose One API log name differs |
 | `scripts/comate_usage.py` | Local Comate session parser |
 | `scripts/machine_fragments.py` | Fragment I/O + SUM merge |
 | `scripts/legacy_report_renderer.py` | Legacy `--out` / `--png` report rendering |
@@ -199,12 +205,14 @@ Do not use `--force-reseed` for this migration.
 ## Data sources
 
 - Codex: `~/.codex` rollout JSONL (sum of each request's real token increment)
-- Claude Code: One API gateway's Claude model family (last two calendar days; older dates keep prior local collector values)
+- Claude Code: One API gateway's Claude model family (the One API window; older dates keep prior values)
 - Cursor: authenticated Dashboard API via local Cursor session
 - Historical Comate: `~/.comate-engine/store/chat_session_*` (positive
   `contextUsed` deltas; cost always 0), migrated under One API only on dates
   without gateway coverage
-- One API: management log API through a saved `chrome-use` UUAP session. The GPT/Codex
+- One API: the account's usage statistics (`/api/mine/usage_statistics`, day × model ×
+  source totals of requests, tokens and quota) through a saved `chrome-use` UUAP
+  session. The GPT/Codex
   model families are split out into a dedicated `codex` series (appended onto the
   local Codex tool series); the Claude model family is split out into the
   Claude Code tool; other named models such as Grok,
@@ -215,6 +223,17 @@ Do not use `--force-reseed` for this migration.
   deterministically. Each snapshot records its account scope, timezone-aware
   capture time, ownership-rule version, complete calendar window, and a stable
   SHA-256 content id; model rows retain canonical and raw labels.
+- Second One API key: OpenCode's `oneapi-key-split` plugin sends most One API
+  requests with a key from another account and appends one line per response to
+  `~/.local/state/oneapi-key-split/requests-YYYY-MM.jsonl` (time, session, request
+  kind, key 1 or 2, status; never the key). Each publish joins those lines with the
+  assistant and compaction rows of `~/.local/share/opencode/opencode.db` (read-only)
+  and records the key-2 calls' tokens per day and gateway model name. Forked
+  sessions copy their parent's messages, so identical copies count once.
+  `backfill-YYYY-MM.jsonl` covers calls from before the plugin kept a ledger; it
+  was derived once by matching local calls against this account's own log records
+  (a call with no key-1 record used key 2). Override the paths with
+  `OPENCODE_DB_PATH` and `ONEAPI_KEY_LEDGER_DIR`.
 - Costs: the checked-in, versioned model-price ledger for reproducible
   Codex estimates; unresolved historical models retain any collector
   estimate, or remain unpriced, with explicit `legacy`/`unpriced` provenance
@@ -222,6 +241,10 @@ Do not use `--force-reseed` for this migration.
   Cursor uses its account API; One API quota (including the Claude Code series
   and the gateway-routed Codex series)
   is converted at 250,000 units/CNY and estimated at the pinned 0.14 USD/CNY rate.
+  Second-key quota is an estimate: tokens times this account's quota per token for
+  the same model in the same window (OpenCode's own key-1 calls, which carry no
+  source header, else the model's calls from any source); model rows that include
+  it carry `pricing_provenance: oneapi-estimated`.
 
 Save or refresh the One API browser state after logging in manually:
 
@@ -234,7 +257,7 @@ chmod 600 "$HOME/Library/Application Support/ai-usage-report/oneapi-chrome-state
 
 The default state location is persistent across reboots. Use
 `ONEAPI_STATE_PATH` to choose another state file. Collection is complete-or-
-nothing: rate-limit or authentication failures retain the prior published One
+nothing: network or authentication failures retain the prior published One
 API series instead of writing a partial or zero snapshot. The publisher collects
 this account snapshot after `git pull` and installs its cache with an atomic
 rename, preventing an older pre-pull or half-written cache from replacing newer

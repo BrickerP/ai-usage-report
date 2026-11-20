@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Collect LLM usage data from One API gateway.
+
+One request to /api/mine/usage_statistics returns the account's day x model x
+source totals (requests, tokens, quota) for a calendar window, so a single run
+re-reads the whole window and recovers any days a failed run missed.
 """
 from __future__ import annotations
 
@@ -21,8 +25,9 @@ from zoneinfo import ZoneInfo
 
 
 ONEAPI_BASE = "https://oneapi-comate.baidu-int.com"
-PAGE_SIZE = 20
 DEFAULT_TZ = "Asia/Shanghai"
+# /api/mine/usage_statistics reports gateway calendar days in this zone.
+GATEWAY_TIMEZONE = "Asia/Shanghai"
 DEFAULT_STATE_PATH = str(
     Path.home()
     / "Library"
@@ -33,7 +38,7 @@ DEFAULT_STATE_PATH = str(
 QUOTA_PER_CNY = 250_000
 USD_PER_CNY = 0.14
 ACCOUNTING_VERSION = 2
-DEFAULT_DAYS = 5
+DEFAULT_DAYS = 31
 AUTH_EXPIRY_WARNING_HOURS = 48
 STATUS_VERSION = 1
 OWNERSHIP_RULE = "codex_family_to_codex_claude_family_to_claude_remainder_to_oneapi"
@@ -42,7 +47,7 @@ ACCOUNT_SCOPE = {
     "kind": "account",
     "scope_id": "oneapi:self",
     "account_id": "self",
-    "endpoint": "/api/log/self/",
+    "endpoint": "/api/mine/usage_statistics",
     "merge_strategy": "latest_complete_snapshot",
 }
 
@@ -156,38 +161,105 @@ def window_calendar_days(start: str, end: str) -> int:
     return max(0, (last - first).days + 1)
 
 
-def snapshot_id_for_records(
-    records: list[dict[str, Any]],
+STATS_FIELDS = (
+    ("requests", "request_count"),
+    ("input", "prompt_tokens"),
+    ("output", "completion_tokens"),
+    ("cache_read", "cache_read_tokens"),
+    ("cache_write", "cache_write_tokens"),
+    ("quota", "quota"),
+)
+
+
+def _stats_count(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, float) and value.is_integer() and value >= 0:
+        return int(value)
+    return None
+
+
+def normalize_stats_rows(
+    raw_rows: Any,
+    *,
+    window_start: str,
+    window_end: str,
+) -> list[dict[str, Any]]:
+    """Validate the gateway's day x model x source rows for one window."""
+    if not isinstance(raw_rows, list):
+        raise OneApiRefreshFailed("One API usage statistics have no daily rows")
+    rows: list[dict[str, Any]] = []
+    for item in raw_rows:
+        if not isinstance(item, dict):
+            raise OneApiRefreshFailed("One API usage statistics contain an invalid row")
+        try:
+            day = dt.date.fromisoformat(str(item.get("day") or "")).isoformat()
+        except ValueError as exc:
+            raise OneApiRefreshFailed(
+                "One API usage statistics contain an invalid day"
+            ) from exc
+        if not (window_start <= day <= window_end):
+            raise OneApiRefreshFailed(
+                f"One API usage statistics row {day} falls outside "
+                f"{window_start}..{window_end}"
+            )
+        row: dict[str, Any] = {
+            "date": day,
+            "model_name": str(item.get("model_name") or "").strip(),
+            "source": str(item.get("source") or "").strip(),
+        }
+        for field, source_field in STATS_FIELDS:
+            count = _stats_count(item.get(source_field, 0))
+            if count is None:
+                raise OneApiRefreshFailed(
+                    f"One API usage statistics contain an invalid {source_field}"
+                )
+            row[field] = count
+        rows.append(row)
+    return rows
+
+
+def row_tokens(row: dict[str, Any]) -> int:
+    return (
+        safe_int(row.get("input"))
+        + safe_int(row.get("output"))
+        + safe_int(row.get("cache_read"))
+        + safe_int(row.get("cache_write"))
+    )
+
+
+def snapshot_id_for_rows(
+    rows: list[dict[str, Any]],
     *,
     timezone: str,
     window_start: str,
     window_end: str,
 ) -> str:
     """Hash stable accounting inputs; browser/session details never enter it."""
-    normalized_records = []
-    for record in records:
-        if not isinstance(record, dict):
+    normalized_rows = []
+    for row in rows:
+        if not isinstance(row, dict):
             continue
-        raw_model = str(record.get("model_name") or "").strip()
-        normalized_records.append(
+        raw_model = str(row.get("model_name") or "").strip()
+        normalized_rows.append(
             {
-                "request_id": str(
-                    record.get("request_id") or record.get("id") or ""
-                ),
-                "created_at": safe_int(record.get("created_at")),
+                "date": str(row.get("date") or ""),
                 "raw_model": raw_model,
                 "canonical_model": canonical_model_name(raw_model),
                 "owner": classify_model(raw_model),
-                "input_tokens": safe_int(record.get("prompt_tokens")),
-                "output_tokens": safe_int(record.get("completion_tokens")),
-                "cache_read_tokens": safe_int(record.get("cache_read_tokens")),
-                "cache_write_tokens": safe_int(
-                    record.get("cache_write_tokens")
-                ),
-                "quota": safe_int(record.get("quota")),
+                "source": str(row.get("source") or ""),
+                "estimated": bool(row.get("estimated")),
+                "requests": safe_int(row.get("requests")),
+                "input_tokens": safe_int(row.get("input")),
+                "output_tokens": safe_int(row.get("output")),
+                "cache_read_tokens": safe_int(row.get("cache_read")),
+                "cache_write_tokens": safe_int(row.get("cache_write")),
+                "quota": safe_int(row.get("quota")),
             }
         )
-    normalized_records.sort(
+    normalized_rows.sort(
         key=lambda item: json.dumps(
             item,
             ensure_ascii=False,
@@ -196,13 +268,13 @@ def snapshot_id_for_records(
         )
     )
     content = {
-        "snapshot_schema": 1,
+        "snapshot_schema": 2,
         "accounting_version": ACCOUNTING_VERSION,
         "ownership_rule_version": OWNERSHIP_RULE_VERSION,
         "scope": ACCOUNT_SCOPE,
         "timezone": timezone,
         "window": {"start": window_start, "end": window_end},
-        "records": normalized_records,
+        "rows": normalized_rows,
     }
     encoded = json.dumps(
         content,
@@ -211,15 +283,6 @@ def snapshot_id_for_records(
         separators=(",", ":"),
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
-
-
-def record_tokens(record: dict[str, Any]) -> int:
-    return (
-        safe_int(record.get("prompt_tokens"))
-        + safe_int(record.get("completion_tokens"))
-        + safe_int(record.get("cache_read_tokens"))
-        + safe_int(record.get("cache_write_tokens"))
-    )
 
 
 def _new_model_acc() -> dict[str, Any]:
@@ -231,6 +294,7 @@ def _new_model_acc() -> dict[str, Any]:
         "total_tokens": 0,
         "count": 0,
         "quota_total": 0,
+        "estimated_tokens": 0,
         "raw_models": set(),
     }
 
@@ -253,7 +317,7 @@ def _model_breakdown(
     if merge_cache:
         cache_read = cache_read + cache_write
         cache_write = 0
-    return {
+    breakdown = {
         "model": model_name,
         "canonical_model": model_name,
         "raw_model": sorted(model_totals["raw_models"])[0],
@@ -269,251 +333,167 @@ def _model_breakdown(
         "quota_total": model_totals["quota_total"],
         "cost_usd": quota_to_usd(model_totals["quota_total"]),
     }
+    if model_totals["estimated_tokens"]:
+        # Second-key traffic is metered locally; its quota is an estimate.
+        breakdown["key2_tokens"] = model_totals["estimated_tokens"]
+        breakdown["pricing_provenance"] = "oneapi-estimated"
+    return breakdown
 
 
-def aggregate_records(
-    records: list[dict[str, Any]],
+# Per-owner shape of a daily point: residual One API keeps cache read/write,
+# Claude reports cache write as cache create, Codex folds both into cache read.
+SERIES_CACHE_FIELDS = {
+    "oneapi": (("cache_read", "cache_read_tokens"), ("cache_write", "cache_write_tokens")),
+    "claude": (("cache_read", "cache_read_tokens"), ("cache_create", "cache_write_tokens")),
+    "codex": (("cache_read", ("cache_read_tokens", "cache_write_tokens")),),
+}
+
+
+def _series(
+    by_date_model: dict[str, dict[str, dict[str, Any]]],
+    owner: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    daily: list[dict[str, Any]] = []
+    totals: dict[str, Any] = {"input_tokens": 0, "output_tokens": 0}
+    for field, _sources in SERIES_CACHE_FIELDS[owner]:
+        totals[f"{field}_tokens"] = 0
+    totals.update({"total_tokens": 0, "quota": 0, "requests": 0})
+    for date_key in sorted(by_date_model):
+        models = by_date_model[date_key]
+        point: dict[str, Any] = {
+            "date": date_key,
+            "tokens": sum(model["total_tokens"] for model in models.values()),
+            "input": sum(model["input_tokens"] for model in models.values()),
+            "output": sum(model["output_tokens"] for model in models.values()),
+        }
+        for field, sources in SERIES_CACHE_FIELDS[owner]:
+            names = sources if isinstance(sources, tuple) else (sources,)
+            point[field] = sum(
+                model[name] for model in models.values() for name in names
+            )
+        point["requests"] = sum(model["count"] for model in models.values())
+        point["quota"] = sum(model["quota_total"] for model in models.values())
+        point["cost_cny"] = quota_to_cny(point["quota"])
+        point["cost_usd"] = quota_to_usd(point["quota"])
+        point["model_breakdowns"] = [
+            _model_breakdown(
+                model_name,
+                model_totals,
+                owner,
+                merge_cache=owner == "codex",
+            )
+            for model_name, model_totals in sorted(
+                models.items(),
+                key=lambda item: (-item[1]["total_tokens"], item[0]),
+            )
+        ]
+        daily.append(point)
+        totals["input_tokens"] += point["input"]
+        totals["output_tokens"] += point["output"]
+        for field, _sources in SERIES_CACHE_FIELDS[owner]:
+            totals[f"{field}_tokens"] += point[field]
+        totals["total_tokens"] += point["tokens"]
+        totals["quota"] += point["quota"]
+        totals["requests"] += point["requests"]
+    totals["cost_cny"] = quota_to_cny(totals["quota"])
+    totals["cost_usd"] = quota_to_usd(totals["quota"])
+    ordered = {key: totals[key] for key in totals if key != "requests"}
+    ordered["requests"] = totals["requests"]
+    return daily, ordered
+
+
+def aggregate_rows(
+    rows: list[dict[str, Any]],
     *,
     timezone: str = DEFAULT_TZ,
     window_start: str = "",
     window_end: str = "",
 ) -> dict[str, Any]:
-    """Aggregate One API traffic by ownership.
+    """Aggregate One API day x model rows by ownership.
 
     The GPT/Codex model family is split out into a dedicated ``codex`` series
     (destined to append onto the local Codex "Codex" tool series) rather than
     being excluded.  Claude model family traffic is split out into a dedicated
     ``claude`` series destined for the "Claude Code" tool; every other model
-    remains the residual "One API" series.
+    remains the residual "One API" series.  Rows marked ``estimated`` are the
+    second key's locally metered traffic and are summed with the account rows.
     """
     tz = resolve_tz(timezone)
-    by_date_model: dict[str, dict[str, dict[str, Any]]] = defaultdict(
-        lambda: defaultdict(_new_model_acc)
-    )
-    claude_by_date_model: dict[str, dict[str, dict[str, Any]]] = defaultdict(
-        lambda: defaultdict(_new_model_acc)
-    )
-    codex_by_date_model: dict[str, dict[str, dict[str, Any]]] = defaultdict(
-        lambda: defaultdict(_new_model_acc)
-    )
+    targets: dict[str, dict[str, dict[str, dict[str, Any]]]] = {
+        owner: defaultdict(lambda: defaultdict(_new_model_acc))
+        for owner in ("oneapi", "claude", "codex")
+    }
     unclassified = {"requests": 0, "tokens": 0, "quota": 0}
     raw_tokens = 0
     raw_quota = 0
+    raw_requests = 0
 
-    for record in records:
-        if not isinstance(record, dict):
+    for row in rows:
+        if not isinstance(row, dict):
             continue
-        tokens = record_tokens(record)
-        quota = safe_int(record.get("quota"))
+        tokens = row_tokens(row)
+        quota = safe_int(row.get("quota"))
+        requests = safe_int(row.get("requests"))
         raw_tokens += tokens
         raw_quota += quota
-        owner = classify_model(record.get("model_name"))
-        if owner == "unclassified":
-            unclassified["requests"] += 1
+        raw_requests += requests
+        raw_model = str(row.get("model_name") or "").strip()
+        owner = classify_model(raw_model)
+        date_key = str(row.get("date") or "")
+        if owner == "unclassified" or not date_key:
+            unclassified["requests"] += requests
             unclassified["tokens"] += tokens
             unclassified["quota"] += quota
             continue
-
-        created_at = safe_int(record.get("created_at"))
-        if not created_at:
-            unclassified["requests"] += 1
-            unclassified["tokens"] += tokens
-            unclassified["quota"] += quota
-            continue
-        date_key = dt.datetime.fromtimestamp(created_at, tz=tz).strftime("%Y-%m-%d")
-        raw_model = str(record.get("model_name") or "").strip()
-        canonical_model = canonical_model_name(raw_model)
-        if owner == "claude":
-            target = claude_by_date_model
-        elif owner == "codex":
-            target = codex_by_date_model
-        else:
-            target = by_date_model
-        acc = target[date_key][canonical_model]
+        acc = targets[owner][date_key][canonical_model_name(raw_model)]
         acc["raw_models"].add(raw_model)
-        acc["input_tokens"] += safe_int(record.get("prompt_tokens"))
-        acc["output_tokens"] += safe_int(record.get("completion_tokens"))
-        acc["cache_read_tokens"] += safe_int(record.get("cache_read_tokens"))
-        acc["cache_write_tokens"] += safe_int(record.get("cache_write_tokens"))
+        acc["input_tokens"] += safe_int(row.get("input"))
+        acc["output_tokens"] += safe_int(row.get("output"))
+        acc["cache_read_tokens"] += safe_int(row.get("cache_read"))
+        acc["cache_write_tokens"] += safe_int(row.get("cache_write"))
         acc["total_tokens"] += tokens
-        acc["count"] += 1
+        acc["count"] += requests
         acc["quota_total"] += quota
+        if row.get("estimated"):
+            acc["estimated_tokens"] += tokens
 
-    daily: list[dict[str, Any]] = []
-    total_input = 0
-    total_output = 0
-    total_cache_read = 0
-    total_cache_write = 0
-    total_tokens = 0
-    total_quota = 0
-    total_requests = 0
-    for date_key in sorted(by_date_model):
-        models = by_date_model[date_key]
-        day_input = sum(model["input_tokens"] for model in models.values())
-        day_output = sum(model["output_tokens"] for model in models.values())
-        day_cache_read = sum(
-            model["cache_read_tokens"] for model in models.values()
-        )
-        day_cache_write = sum(
-            model["cache_write_tokens"] for model in models.values()
-        )
-        day_tokens = sum(model["total_tokens"] for model in models.values())
-        day_quota = sum(model["quota_total"] for model in models.values())
-        day_requests = sum(model["count"] for model in models.values())
-        daily.append(
-            {
-                "date": date_key,
-                "tokens": day_tokens,
-                "input": day_input,
-                "output": day_output,
-                "cache_read": day_cache_read,
-                "cache_write": day_cache_write,
-                "requests": day_requests,
-                "quota": day_quota,
-                "cost_cny": quota_to_cny(day_quota),
-                "cost_usd": quota_to_usd(day_quota),
-                "model_breakdowns": [
-                    _model_breakdown(model_name, model_totals, "oneapi")
-                    for model_name, model_totals in sorted(
-                        models.items(),
-                        key=lambda item: (
-                            -item[1]["total_tokens"],
-                            item[0],
-                        ),
-                    )
-                ],
-            }
-        )
-        total_input += day_input
-        total_output += day_output
-        total_cache_read += day_cache_read
-        total_cache_write += day_cache_write
-        total_tokens += day_tokens
-        total_quota += day_quota
-        total_requests += day_requests
-
-    # Claude family: cache_write_tokens is the gateway's cache-write (≈ cache
-    # creation) count, so it maps onto the Claude Code "cache create" component.
-    claude_daily: list[dict[str, Any]] = []
-    claude_input = 0
-    claude_output = 0
-    claude_cache_read = 0
-    claude_cache_create = 0
-    claude_tokens = 0
-    claude_quota = 0
-    claude_requests = 0
-    for date_key in sorted(claude_by_date_model):
-        models = claude_by_date_model[date_key]
-        day_input = sum(model["input_tokens"] for model in models.values())
-        day_output = sum(model["output_tokens"] for model in models.values())
-        day_cache_read = sum(
-            model["cache_read_tokens"] for model in models.values()
-        )
-        day_cache_create = sum(
-            model["cache_write_tokens"] for model in models.values()
-        )
-        day_tokens = sum(model["total_tokens"] for model in models.values())
-        day_quota = sum(model["quota_total"] for model in models.values())
-        day_requests = sum(model["count"] for model in models.values())
-        claude_daily.append(
-            {
-                "date": date_key,
-                "tokens": day_tokens,
-                "input": day_input,
-                "output": day_output,
-                "cache_read": day_cache_read,
-                "cache_create": day_cache_create,
-                "requests": day_requests,
-                "quota": day_quota,
-                "cost_cny": quota_to_cny(day_quota),
-                "cost_usd": quota_to_usd(day_quota),
-                "model_breakdowns": [
-                    _model_breakdown(model_name, model_totals, "claude")
-                    for model_name, model_totals in sorted(
-                        models.items(),
-                        key=lambda item: (
-                            -item[1]["total_tokens"],
-                            item[0],
-                        ),
-                    )
-                ],
-            }
-        )
-        claude_input += day_input
-        claude_output += day_output
-        claude_cache_read += day_cache_read
-        claude_cache_create += day_cache_create
-        claude_tokens += day_tokens
-        claude_quota += day_quota
-        claude_requests += day_requests
-
-    # Codex family: cache_write_tokens is the gateway's cache-write count, which
-    # maps onto the Codex "cache read" component the same way the local Codex
-    # collector does not split cache creation.  This series appends onto the
-    # local Codex series in the pipeline (additive, no deduplication).
-    codex_daily: list[dict[str, Any]] = []
-    codex_input = 0
-    codex_output = 0
-    codex_cache_read = 0
-    codex_tokens = 0
-    codex_quota = 0
-    codex_requests = 0
-    for date_key in sorted(codex_by_date_model):
-        models = codex_by_date_model[date_key]
-        day_input = sum(model["input_tokens"] for model in models.values())
-        day_output = sum(model["output_tokens"] for model in models.values())
-        day_cache_read = sum(
-            model["cache_read_tokens"] + model["cache_write_tokens"]
-            for model in models.values()
-        )
-        day_tokens = sum(model["total_tokens"] for model in models.values())
-        day_quota = sum(model["quota_total"] for model in models.values())
-        day_requests = sum(model["count"] for model in models.values())
-        codex_daily.append(
-            {
-                "date": date_key,
-                "tokens": day_tokens,
-                "input": day_input,
-                "output": day_output,
-                "cache_read": day_cache_read,
-                "requests": day_requests,
-                "quota": day_quota,
-                "cost_cny": quota_to_cny(day_quota),
-                "cost_usd": quota_to_usd(day_quota),
-                "model_breakdowns": [
-                    _model_breakdown(model_name, model_totals, "codex", merge_cache=True)
-                    for model_name, model_totals in sorted(
-                        models.items(),
-                        key=lambda item: (
-                            -item[1]["total_tokens"],
-                            item[0],
-                        ),
-                    )
-                ],
-            }
-        )
-        codex_input += day_input
-        codex_output += day_output
-        codex_cache_read += day_cache_read
-        codex_tokens += day_tokens
-        codex_quota += day_quota
-        codex_requests += day_requests
-
-    first = daily[0]["date"] if daily else ""
-    last = daily[-1]["date"] if daily else ""
-    claude_first = claude_daily[0]["date"] if claude_daily else ""
-    claude_last = claude_daily[-1]["date"] if claude_daily else ""
-    codex_first = codex_daily[0]["date"] if codex_daily else ""
-    codex_last = codex_daily[-1]["date"] if codex_daily else ""
+    daily, totals = _series(targets["oneapi"], "oneapi")
+    claude_daily, claude_totals = _series(targets["claude"], "claude")
+    codex_daily, codex_totals = _series(targets["codex"], "codex")
     calendar_days = window_calendar_days(window_start, window_end)
     window_complete = bool(window_start and window_end and calendar_days)
+    window = {
+        "start": window_start,
+        "end": window_end,
+        "timezone": timezone,
+        "calendar_days": calendar_days,
+        "complete": window_complete,
+    }
+
+    def history(points: list[dict[str, Any]]) -> dict[str, str]:
+        return {
+            "first": points[0]["date"] if points else "",
+            "last": points[-1]["date"] if points else "",
+        }
+
+    def family(points: list[dict[str, Any]], family_totals: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "available": True,
+            "complete": window_complete,
+            "timezone": timezone,
+            "window": dict(window),
+            "history": history(points),
+            "totals": family_totals,
+            "daily_timeline": points,
+        }
+
     return {
         "available": True,
         "complete": window_complete,
         "accounting_version": ACCOUNTING_VERSION,
         "captured_at": dt.datetime.now(tz=tz).isoformat(timespec="microseconds"),
-        "snapshot_id": snapshot_id_for_records(
-            records,
+        "snapshot_id": snapshot_id_for_rows(
+            rows,
             timezone=timezone,
             window_start=window_start,
             window_end=window_end,
@@ -522,85 +502,83 @@ def aggregate_records(
         "ownership_rule": OWNERSHIP_RULE,
         "ownership_rule_version": OWNERSHIP_RULE_VERSION,
         "timezone": timezone,
-        "request_count": len(records),
-        "included_request_count": total_requests + claude_requests + codex_requests,
-        "window": {
-            "start": window_start,
-            "end": window_end,
-            "timezone": timezone,
-            "calendar_days": calendar_days,
-            "complete": window_complete,
-        },
-        "history": {"first": first, "last": last},
+        "request_count": raw_requests,
+        "included_request_count": raw_requests - unclassified["requests"],
+        "window": window,
+        "history": history(daily),
         "raw_totals": {
             "total_tokens": raw_tokens,
             "quota": raw_quota,
-            "requests": len(records),
+            "requests": raw_requests,
         },
         "excluded": {},
         "unclassified": unclassified,
-        "totals": {
-            "input_tokens": total_input,
-            "output_tokens": total_output,
-            "cache_read_tokens": total_cache_read,
-            "cache_write_tokens": total_cache_write,
-            "total_tokens": total_tokens,
-            "quota": total_quota,
-            "cost_cny": quota_to_cny(total_quota),
-            "cost_usd": quota_to_usd(total_quota),
-            "requests": total_requests,
-        },
+        "totals": totals,
         "daily_timeline": daily,
-        "claude": {
-            "available": True,
-            "complete": window_complete,
-            "timezone": timezone,
-            "window": {
-                "start": window_start,
-                "end": window_end,
-                "timezone": timezone,
-                "calendar_days": calendar_days,
-                "complete": window_complete,
-            },
-            "history": {"first": claude_first, "last": claude_last},
-            "totals": {
-                "input_tokens": claude_input,
-                "output_tokens": claude_output,
-                "cache_read_tokens": claude_cache_read,
-                "cache_create_tokens": claude_cache_create,
-                "total_tokens": claude_tokens,
-                "quota": claude_quota,
-                "cost_cny": quota_to_cny(claude_quota),
-                "cost_usd": quota_to_usd(claude_quota),
-                "requests": claude_requests,
-            },
-            "daily_timeline": claude_daily,
-        },
-        "codex": {
-            "available": True,
-            "complete": window_complete,
-            "timezone": timezone,
-            "window": {
-                "start": window_start,
-                "end": window_end,
-                "timezone": timezone,
-                "calendar_days": calendar_days,
-                "complete": window_complete,
-            },
-            "history": {"first": codex_first, "last": codex_last},
-            "totals": {
-                "input_tokens": codex_input,
-                "output_tokens": codex_output,
-                "cache_read_tokens": codex_cache_read,
-                "total_tokens": codex_tokens,
-                "quota": codex_quota,
-                "cost_cny": quota_to_cny(codex_quota),
-                "cost_usd": quota_to_usd(codex_quota),
-                "requests": codex_requests,
-            },
-            "daily_timeline": codex_daily,
-        },
+        "claude": family(claude_daily, claude_totals),
+        "codex": family(codex_daily, codex_totals),
     }
+
+
+# Rows of the second One API key, metered by OpenCode on each Mac.
+KEY2_SOURCE = "opencode-key2"
+
+
+def key2_rates(account_rows: list[dict[str, Any]]) -> dict[str, float]:
+    """Quota per token for each model, from this account's own calls.
+
+    Rows without a source header are OpenCode's key-1 calls: the key split
+    sends the same request stream to the second key, so their token mix and
+    price match. A model without such rows uses its calls from any source.
+    """
+    opencode: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    every: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for row in account_rows:
+        if not isinstance(row, dict):
+            continue
+        model = canonical_model_name(row.get("model_name"))
+        tokens = row_tokens(row)
+        if not model or tokens <= 0:
+            continue
+        targets = (every,) if row.get("source") else (every, opencode)
+        for target in targets:
+            target[model][0] += safe_int(row.get("quota"))
+            target[model][1] += tokens
+    rates: dict[str, float] = {}
+    for model, (quota, tokens) in every.items():
+        own_quota, own_tokens = opencode.get(model, (0, 0))
+        rates[model] = own_quota / own_tokens if own_tokens else quota / tokens
+    return rates
+
+
+def price_key2_rows(
+    account_rows: list[dict[str, Any]],
+    key2_points: dict[str, dict[str, dict[str, int]]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Turn second-key day x model totals into estimated account rows."""
+    rates = key2_rates(account_rows)
+    rows: list[dict[str, Any]] = []
+    unpriced: set[str] = set()
+    for date_key in sorted(key2_points):
+        for model in sorted(key2_points[date_key]):
+            counts = key2_points[date_key][model]
+            row: dict[str, Any] = {
+                "date": date_key,
+                "model_name": model,
+                "source": KEY2_SOURCE,
+                "requests": safe_int(counts.get("requests")),
+                "input": safe_int(counts.get("input")),
+                "output": safe_int(counts.get("output")),
+                "cache_read": safe_int(counts.get("cache_read")),
+                "cache_write": safe_int(counts.get("cache_write")),
+                "estimated": True,
+            }
+            rate = rates.get(canonical_model_name(model))
+            if rate is None:
+                unpriced.add(model)
+            row["quota"] = round(row_tokens(row) * rate) if rate is not None else 0
+            rows.append(row)
+    return rows, sorted(unpriced)
 
 
 def chrome_use_path() -> str:
@@ -1005,102 +983,44 @@ def save_session_state_atomic(
             pass
 
 
-FETCH_BATCH_JS = r"""
+FETCH_STATS_JS = r"""
 (async () => {
-  const BASE = '%(base)s';
-  const START_TS = %(start_ts)d;
-  const END_TS = %(end_ts)d;
-  const PAGE_SIZE = %(page_size)d;
-  const START_PAGE = %(start_page)d;
-  const BATCH_PAGES = %(batch_pages)d;
+  const URL_PATH = '%(base)s/api/mine/usage_statistics?start_time=%(start)s&end_time=%(end)s';
   const MAX_ATTEMPTS = 3;
-  const PAGE_DELAY_MS = 600;
-  const records = [];
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  async function fetchPage(url, label) {
-    let lastError = '';
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      try {
-        const response = await fetch(url, {credentials: 'include'});
-        if (response.status === 401 || response.status === 403) {
-          return {_error_code: 'oneapi_reauth_required'};
-        } else if (response.status === 429) {
-          return {_rate_limited: true};
-        } else if (response.status >= 500) {
-          lastError = 'oneapi_network_unavailable';
-        } else if (!response.ok) {
-          return {_error_code: 'oneapi_refresh_failed'};
-        } else {
-          const payload = await response.json();
-          if (!payload.success) {
-            return {_error_code: 'oneapi_refresh_failed'};
-          }
-          return payload;
-        }
-      } catch (_error) {
+  let lastError = '';
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(URL_PATH, {credentials: 'include'});
+      if (response.status === 401 || response.status === 403) {
+        return JSON.stringify({_error_code: 'oneapi_reauth_required'});
+      }
+      if (response.status === 429 || response.status >= 500) {
         lastError = 'oneapi_network_unavailable';
+      } else if (!response.ok) {
+        return JSON.stringify({_error_code: 'oneapi_refresh_failed'});
+      } else {
+        let payload;
+        try {
+          payload = await response.json();
+        } catch (_error) {
+          return JSON.stringify({_error_code: 'oneapi_reauth_required'});
+        }
+        const data = payload && payload.data;
+        if (!payload || payload.success !== true || !data
+            || !Array.isArray(data.daily_model_stats)) {
+          return JSON.stringify({_error_code: 'oneapi_refresh_failed'});
+        }
+        return JSON.stringify({_complete: true, _rows: data.daily_model_stats});
       }
-      if (attempt + 1 < MAX_ATTEMPTS) {
-        await delay(500 * Math.pow(2, attempt));
-      }
+    } catch (_error) {
+      lastError = 'oneapi_network_unavailable';
     }
-    return {_error_code: lastError || 'oneapi_refresh_failed'};
+    if (attempt + 1 < MAX_ATTEMPTS) {
+      await delay(1000 * Math.pow(2, attempt));
+    }
   }
-
-  let pages = 0;
-  for (
-    let page = START_PAGE;
-    page < START_PAGE + BATCH_PAGES;
-    page++
-  ) {
-    let payload;
-    const url = BASE + '/api/log/self/?p=' + page
-      + '&type=0&model_name=&start_timestamp=' + START_TS
-      + '&end_timestamp=' + END_TS;
-    payload = await fetchPage(url, 'page_' + page);
-    if (payload._error_code) {
-      return JSON.stringify({
-        _complete: false,
-        _error_code: payload._error_code,
-        _next_page: page,
-        _pages: pages,
-        _records: records,
-      });
-    }
-    if (payload._rate_limited) {
-      return JSON.stringify({
-        _complete: false,
-        _rate_limited: true,
-        _next_page: page,
-        _pages: pages,
-        _records: records,
-      });
-    }
-
-    const pageRecords = Array.isArray(payload.data) ? payload.data : [];
-    pages += 1;
-    for (const record of pageRecords) {
-      records.push(record);
-    }
-    if (pageRecords.length < PAGE_SIZE) {
-      return JSON.stringify({
-        _complete: true,
-        _pages: pages,
-        _next_page: page + 1,
-        _records: records,
-      });
-    }
-    await delay(PAGE_DELAY_MS);
-  }
-
-  return JSON.stringify({
-    _complete: false,
-    _batch_complete: true,
-    _next_page: START_PAGE + BATCH_PAGES,
-    _pages: pages,
-    _records: records,
-  });
+  return JSON.stringify({_error_code: lastError || 'oneapi_refresh_failed'});
 })()
 """
 
@@ -1114,6 +1034,10 @@ def collect_oneapi(
 ) -> dict[str, Any]:
     if days < 1:
         raise ValueError("days must be at least 1")
+    if timezone != GATEWAY_TIMEZONE:
+        raise ValueError(
+            f"One API usage statistics use {GATEWAY_TIMEZONE} calendar days"
+        )
     tz = resolve_tz(timezone)
     now = dt.datetime.now(tz=tz)
     end_date = dt.date.fromisoformat(until) if until else now.date()
@@ -1124,13 +1048,6 @@ def collect_oneapi(
     )
     if start_date > end_date:
         raise ValueError("since must not be after until")
-    end_time = dt.time.max if until else now.time()
-    end_ts = int(
-        dt.datetime.combine(end_date, end_time, tzinfo=tz).timestamp()
-    )
-    start_ts = int(
-        dt.datetime.combine(start_date, dt.time.min, tzinfo=tz).timestamp()
-    )
 
     resolved_state_path = str(Path(state_path).expanduser())
     if not Path(resolved_state_path).exists():
@@ -1143,14 +1060,6 @@ def collect_oneapi(
         ) from exc
     launch_state_path = _scoped_launch_state(resolved_state_path)
     session_name = f"oneapi-usage-{os.getpid()}"
-    records: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    duplicates_removed = 0
-    page = 0
-    pages = 0
-    rate_limit_count = 0
-    max_pages = 2000
-    batch_pages = 10
     opened = False
     silent_sso_attempted = False
     session_health: dict[str, Any] = {}
@@ -1202,82 +1111,34 @@ def collect_oneapi(
         )
         session_health["silent_sso_attempted"] = silent_sso_attempted
 
-        while page < max_pages:
-            js = FETCH_BATCH_JS % {
+        browser_result = _evaluate_browser_object(
+            cu,
+            session_name,
+            FETCH_STATS_JS
+            % {
                 "base": ONEAPI_BASE,
-                "page_size": PAGE_SIZE,
-                "start_ts": start_ts,
-                "end_ts": end_ts,
-                "start_page": page,
-                "batch_pages": batch_pages,
-            }
-            browser_result = _evaluate_browser_object(
-                cu,
-                session_name,
-                js,
-                phase="usage fetch",
-                timeout_ms=120_000,
-                process_timeout=150,
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+            },
+            phase="usage statistics fetch",
+            timeout_ms=120_000,
+            process_timeout=150,
+        )
+        error_code = str(browser_result.get("_error_code") or "")
+        if error_code:
+            _raise_browser_error(
+                error_code,
+                "One API usage statistics fetch failed",
             )
-            error_code = str(browser_result.get("_error_code") or "")
-            if error_code:
-                _raise_browser_error(
-                    error_code,
-                    "One API usage fetch failed",
-                )
-
-            batch_records = browser_result.get("_records")
-            if not isinstance(batch_records, list):
-                raise OneApiRefreshFailed(
-                    "One API batch response is missing records"
-                )
-            for record in batch_records:
-                if not isinstance(record, dict):
-                    continue
-                request_id = str(
-                    record.get("request_id") or record.get("id") or ""
-                )
-                if request_id and request_id in seen:
-                    duplicates_removed += 1
-                    continue
-                if request_id:
-                    seen.add(request_id)
-                records.append(record)
-            pages += safe_int(browser_result.get("_pages"))
-
-            if browser_result.get("_complete"):
-                break
-            next_page = safe_int(browser_result.get("_next_page"))
-            if next_page < page:
-                raise OneApiRefreshFailed(
-                    f"One API incomplete fetch returned invalid page {next_page}"
-                )
-            if browser_result.get("_rate_limited"):
-                rate_limit_count += 1
-                if rate_limit_count > 20:
-                    raise OneApiRefreshFailed(
-                        f"One API incomplete fetch at page {next_page}: "
-                        "rate limit did not recover"
-                    )
-                page = next_page
-                time.sleep(60)
-                continue
-            if browser_result.get("_batch_complete"):
-                if next_page <= page:
-                    raise OneApiRefreshFailed(
-                        f"One API incomplete fetch stalled at page {page}"
-                    )
-                page = next_page
-                continue
-
+        if browser_result.get("_complete") is not True:
             raise OneApiRefreshFailed(
-                f"One API incomplete fetch at page {next_page} "
-                f"after {len(records)} records"
+                "One API usage statistics response is incomplete"
             )
-        else:
-            raise OneApiRefreshFailed(
-                f"One API incomplete fetch exceeded {max_pages} pages"
-            )
+        rows = normalize_stats_rows(
+            browser_result.get("_rows"),
+            window_start=start_date.isoformat(),
+            window_end=end_date.isoformat(),
+        )
     except OneApiCollectorError as exc:
         exc.metadata.setdefault("silent_sso_attempted", silent_sso_attempted)
         if session_health:
@@ -1306,21 +1167,15 @@ def collect_oneapi(
                     file=sys.stderr,
                 )
 
-    result = aggregate_records(
-        records,
+    result = aggregate_rows(
+        rows,
         timezone=timezone,
         window_start=start_date.isoformat(),
         window_end=end_date.isoformat(),
     )
-    result["pages"] = pages
-    result["rate_limit_retries"] = rate_limit_count
-    result["pagination"] = {
-        "complete": True,
-        "pages": pages,
-        "page_size": PAGE_SIZE,
-        "records_after_deduplication": len(records),
-        "duplicates_removed": duplicates_removed,
-    }
+    # Raw account rows let the merge add the second key's local rows and price
+    # them with this account's own per-model rates. They are not published.
+    result["rows"] = rows
     result["session_health"] = session_health
     return result
 
@@ -1457,7 +1312,7 @@ if __name__ == "__main__":
         type=int,
         default=DEFAULT_DAYS,
         help=(
-            "Lookback calendar days from today (default 5). "
+            "Lookback calendar days from today (default 31). "
             "Ignored when --since is set."
         ),
     )

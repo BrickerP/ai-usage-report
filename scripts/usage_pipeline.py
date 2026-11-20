@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
+from collections import Counter, defaultdict
 import copy
 import datetime as dt
 import hashlib
@@ -82,6 +82,9 @@ cursor_api = load_module("cursor_usage_api", SCRIPTS_DIR / "cursor_usage_api.py"
 comate_usage = load_module("comate_usage", SCRIPTS_DIR / "comate_usage.py")
 machine_fragments = load_module("machine_fragments", SCRIPTS_DIR / "machine_fragments.py")
 oneapi_usage = load_module("oneapi_usage", SCRIPTS_DIR / "oneapi_usage.py")
+opencode_key2_usage = load_module(
+    "opencode_key2_usage", SCRIPTS_DIR / "opencode_key2_usage.py"
+)
 legacy_renderer = load_module(
     "legacy_report_renderer", SCRIPTS_DIR / "legacy_report_renderer.py"
 )
@@ -803,17 +806,20 @@ def validate_oneapi_snapshot(
     ):
         raise ValueError("One API snapshot does not cover the expected calendar window")
 
-    pagination = (
-        payload.get("pagination")
-        if isinstance(payload.get("pagination"), dict)
-        else {}
-    )
-    if pagination.get("complete") is not True:
-        raise ValueError("One API snapshot pagination is incomplete")
-    if safe_int(pagination.get("records_after_deduplication")) != safe_int(
+    rows = payload.get("rows")
+    if not isinstance(rows, list):
+        raise ValueError("One API snapshot has no account rows")
+    for row in rows:
+        if (
+            not isinstance(row, dict)
+            or row.get("estimated")
+            or not (window["start"] <= str(row.get("date") or "") <= window["end"])
+        ):
+            raise ValueError("One API snapshot account rows are invalid")
+    if sum(safe_int(row.get("requests")) for row in rows) != safe_int(
         payload.get("request_count")
     ):
-        raise ValueError("One API snapshot pagination count mismatch")
+        raise ValueError("One API snapshot row count mismatch")
 
     daily = payload.get("daily_timeline")
     if not isinstance(daily, list):
@@ -865,6 +871,75 @@ def validate_oneapi_snapshot(
         if abs(actual - computed) > max(1e-9, abs(computed) * 1e-9):
             raise ValueError(f"One API snapshot total mismatch: {field}")
     return payload
+
+
+def key2_points_from_fragments(
+    fragments: list[dict[str, Any]],
+    window_start: str,
+    window_end: str,
+) -> tuple[dict[str, dict[str, Counter]], list[str]]:
+    """SUM every Mac's second-key day x model totals inside the window."""
+    points: dict[str, dict[str, Counter]] = defaultdict(lambda: defaultdict(Counter))
+    machines: list[str] = []
+    for fragment in fragments:
+        daily = opencode_key2_usage.section_daily(fragment.get("oneapi_key2"))
+        if not daily:
+            continue
+        machines.append(
+            machine_fragments.sanitize_machine_id(str(fragment.get("machine_id") or ""))
+        )
+        for point in daily:
+            if not (window_start <= point["date"] <= window_end):
+                continue
+            for entry in point["models"]:
+                counts = points[point["date"]][entry["model"]]
+                counts["requests"] += entry["requests"]
+                for field in opencode_key2_usage.TOKEN_FIELDS:
+                    counts[field] += entry[field]
+    return points, sorted(machines)
+
+
+def add_key2_usage(
+    snapshot: dict[str, Any],
+    fragments: list[dict[str, Any]],
+    *,
+    timezone: str,
+) -> dict[str, Any]:
+    """Re-aggregate a fresh account snapshot together with the second key.
+
+    The second key's calls are logged under another One API account, so each
+    Mac meters them from OpenCode (see opencode_key2_usage). Their quota is
+    estimated from this account's own per-model rates in the same window.
+    """
+    window = snapshot.get("window") if isinstance(snapshot.get("window"), dict) else {}
+    start = str(window.get("start") or "")
+    end = str(window.get("end") or "")
+    account_rows = [row for row in snapshot.get("rows") or [] if isinstance(row, dict)]
+    points, machines = key2_points_from_fragments(fragments, start, end)
+    key2_rows, unpriced = oneapi_usage.price_key2_rows(account_rows, points)
+    combined = oneapi_usage.aggregate_rows(
+        [*account_rows, *key2_rows],
+        timezone=timezone,
+        window_start=start,
+        window_end=end,
+    )
+    for field, value in snapshot.items():
+        if field not in combined:
+            combined[field] = value
+    combined["captured_at"] = snapshot.get("captured_at")
+    estimated_quota = sum(row["quota"] for row in key2_rows)
+    combined["key2"] = {
+        "source": "opencode-key-ledger",
+        "machines": machines,
+        "window": {"start": start, "end": end},
+        "requests": sum(row["requests"] for row in key2_rows),
+        "total_tokens": sum(oneapi_usage.row_tokens(row) for row in key2_rows),
+        "estimated_quota": estimated_quota,
+        "estimated_cost_cny": oneapi_usage.quota_to_cny(estimated_quota),
+        "estimated_cost_usd": oneapi_usage.quota_to_usd(estimated_quota),
+        "unpriced_models": unpriced,
+    }
+    return combined
 
 
 def reconcile_oneapi_payload(
@@ -2275,13 +2350,11 @@ PUBLIC_ONEAPI_FIELDS = {
     "excluded",
     "history",
     "included_request_count",
+    "key2",
     "legacy_comate",
     "legacy_history_discarded",
     "ownership_rule",
     "ownership_rule_version",
-    "pages",
-    "pagination",
-    "rate_limit_retries",
     "raw_totals",
     "request_count",
     "stale",
@@ -2798,6 +2871,25 @@ def collect_local_machine(
         raise FileNotFoundError(f"machine fragment disappeared: {fragment_file}")
     fragment_payload["scan_complete"] = bool(codex_usage.get("scan_complete", True))
     fragment_payload["scan_errors"] = dict(codex_usage.get("scan_errors") or {})
+    key2_since = opencode_key2_usage.recompute_from(today)
+    try:
+        key2 = opencode_key2_usage.collect_key2_daily(
+            home=home, timezone=timezone, since=key2_since, until=today
+        )
+    except Exception as exc:  # never block the local capture on OpenCode's database
+        print(
+            f"WARN: second One API key usage was not refreshed; kept stored days: {exc}",
+            file=sys.stderr,
+        )
+        key2 = None
+    if key2 is not None:
+        fragment_payload["oneapi_key2"] = opencode_key2_usage.merge_section(
+            fragment_payload.get("oneapi_key2"),
+            key2,
+            since=key2_since,
+            collected_at=dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+        )
+        local_summary["oneapi_key2"] = key2["stats"]
     machine_fragments.write_json_atomic(fragment_file, fragment_payload)
     local_summary["machine_fragment"] = str(fragment_file)
     local_summary["fragment_mode"] = fragment_meta.get("mode")
@@ -2933,7 +3025,7 @@ def collect_usage(
     merge_only: bool = False,
     usage_json_path: Path | None = None,
     force_reseed: bool = False,
-    oneapi_days: int = 5,
+    oneapi_days: int = oneapi_usage.DEFAULT_DAYS,
     oneapi_cache_path: Path | None = None,
     skip_oneapi_live: bool = False,
 ) -> dict[str, Any]:
@@ -3313,6 +3405,9 @@ def collect_usage(
             "state_path": oneapi_state_path,
         }
 
+    if oneapi_refresh_complete:
+        oneapi_data = add_key2_usage(oneapi_data, status_fragments, timezone=timezone)
+
     if not comate and isinstance(prior_oneapi.get("legacy_comate"), dict):
         comate = {
             "history": prior_oneapi["legacy_comate"].get("history") or {},
@@ -3643,8 +3738,8 @@ def main() -> int:
         help="Validate and print Codex cache backfill stats without writing files.",
     )
     parser.add_argument("--cursor-page-size", type=int, default=500)
-    parser.add_argument("--oneapi-days", type=int, default=5,
-                        help="One API lookback days from today (default 5).")
+    parser.add_argument("--oneapi-days", type=int, default=oneapi_usage.DEFAULT_DAYS,
+                        help=f"One API lookback days from today (default {oneapi_usage.DEFAULT_DAYS}).")
     parser.add_argument("--oneapi-cache-path", type=str, default="",
                         help="Path to a pre-collected One API JSON snapshot to skip live fetch.")
     parser.add_argument(
@@ -3806,9 +3901,12 @@ def main() -> int:
                         "`codex exec --ephemeral` persist no session file and therefore "
                         "cannot be recorded. "
                         "One API includes only non-GPT/Codex and non-Claude model families "
-                        "from the gateway, such as Grok and DeepSeek. Historical local "
-                        "Comate context deltas are retained under One API only on dates "
-                        "without gateway coverage."
+                        "from the gateway, such as Grok and DeepSeek. OpenCode calls made "
+                        "with the second One API key are logged under another account, so "
+                        "each Mac meters them from OpenCode's local database and the "
+                        "key-split ledger and adds them to the same model families. "
+                        "Historical local Comate context deltas are retained under One API "
+                        "only on dates without gateway coverage."
                     ),
                     "cost": (
                         f"Codex estimates use the checked-in versioned price ledger "
@@ -3820,15 +3918,18 @@ def main() -> int:
                         "(250,000 units/CNY, ~0.14 USD/CNY); "
                         "Cursor costs come from the authenticated Dashboard API; "
                         "One API quota uses 250,000 units/CNY and is estimated at "
-                        "~0.14 USD/CNY. "
+                        "~0.14 USD/CNY; the second key's quota is estimated from this "
+                        "account's own quota per token for the same model in the same "
+                        "window. "
                         "Codex daily totals are SUMMED across public/machines/*.json "
                         "plus the One API gateway's Codex model family; "
                         "Claude Code and One API are account-level and rebuilt from the "
-                        "One API gateway on each publish; "
+                        "latest 31-day One API window on each publish; "
                         "Cursor is account-level and replaced from the API on each publish "
                         "(if API unavailable, prior usage.json Cursor series is kept); "
                         "One API is account-level, excludes no owned model families, "
-                        "and keeps its prior series when authentication or pagination fails."
+                        "and keeps its prior series when authentication fails or the "
+                        "usage statistics are incomplete."
                     ),
                     "merge": (
                         f"Merged machine fragments: {', '.join(machines) if machines else '(none)'}. "
