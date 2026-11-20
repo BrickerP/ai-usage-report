@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-20T15:37:16+08:00",
-  "snapshot_id": "sha256:66c56d27a8cf10103ccb215737cfe4c09845e2c3f772f803e1d41201767b8c4f",
-  "generated_at": "2026-11-20T15:37:16+08:00",
+  "captured_at": "2026-11-20T16:03:38+08:00",
+  "snapshot_id": "sha256:4de785745dfccd702ca73789715c50ca98bf054479566b71b52b3898f1c11efa",
+  "generated_at": "2026-11-20T16:03:38+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -57,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1304,16 +1304,16 @@
   },
   "source_status": {
     "codex": {
-      "status": "stale",
-      "attempted_at": "2026-11-19T16:03:03+08:00",
-      "last_success_at": "2026-11-19T16:03:03+08:00",
-      "window_end": "2026-11-19",
-      "lag_days": 1,
-      "error": "local_fragments_stale"
+      "status": "fresh",
+      "attempted_at": "2026-11-20T15:03:18+08:00",
+      "last_success_at": "2026-11-20T15:03:18+08:00",
+      "window_end": "2026-11-20",
+      "lag_days": 0,
+      "error": ""
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-20T15:36:42+08:00",
+      "attempted_at": "2026-11-20T16:03:34+08:00",
       "last_success_at": "2026-11-20T15:16:26+08:00",
       "window_end": "2026-11-20",
       "lag_days": 0,
@@ -1321,7 +1321,7 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-20T15:36:42+08:00",
+      "attempted_at": "2026-11-20T16:03:34+08:00",
       "last_success_at": "2026-11-19T16:03:38+08:00",
       "window_end": "2026-11-10",
       "lag_days": 10,
@@ -1329,7 +1329,7 @@
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-20T15:36:42+08:00",
+      "attempted_at": "2026-11-20T16:03:34+08:00",
       "last_success_at": "2026-11-20T15:16:26+08:00",
       "window_end": "2026-11-20",
       "lag_days": 0,
@@ -15409,10 +15409,10 @@
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
