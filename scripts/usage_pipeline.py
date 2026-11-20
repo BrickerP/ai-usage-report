@@ -942,6 +942,9 @@ def add_key2_usage(
     return combined
 
 
+GATEWAY_FAMILIES = ("claude", "codex")
+
+
 def reconcile_oneapi_payload(
     prior: dict[str, Any],
     fetched: dict[str, Any],
@@ -958,13 +961,18 @@ def reconcile_oneapi_payload(
             if isinstance(point, dict) and point.get("date"):
                 by_date[str(point["date"])] = copy.deepcopy(point)
 
-    # Merge the gateway Codex family series the same way: prior days outside the
-    # fresh window are retained so the appended Codex series stays complete.
-    codex_by_date: dict[str, dict[str, Any]] = {}
+    # The Claude and Codex family series are merged the same way: prior days
+    # outside the fresh window are retained, so both stay complete and keep
+    # the per-model tokens they are priced from.
+    family_by_date: dict[str, dict[str, dict[str, Any]]] = {
+        family: {} for family in GATEWAY_FAMILIES
+    }
     if compatible:
-        for point in (prior.get("codex") or {}).get("daily_timeline") or []:
-            if isinstance(point, dict) and point.get("date"):
-                codex_by_date[str(point["date"])] = copy.deepcopy(point)
+        for family, family_days in family_by_date.items():
+            series = prior.get(family) if isinstance(prior.get(family), dict) else {}
+            for point in series.get("daily_timeline") or []:
+                if isinstance(point, dict) and point.get("date"):
+                    family_days[str(point["date"])] = copy.deepcopy(point)
 
     result = copy.deepcopy(fetched if fetched else prior)
     if fetched.get("available") and fetched.get("complete"):
@@ -989,20 +997,22 @@ def reconcile_oneapi_payload(
             gateway_point["source"] = "oneapi"
             by_date[date_key] = gateway_point
 
-        fetched_codex = fetched.get("codex") if isinstance(fetched.get("codex"), dict) else {}
-        if fetched_codex.get("daily_timeline"):
-            for date_key in list(codex_by_date):
+        for family, family_days in family_by_date.items():
+            series = fetched.get(family)
+            if not isinstance(series, dict):
+                continue
+            for date_key in list(family_days):
                 if start <= date_key <= end:
-                    del codex_by_date[date_key]
-            for point in fetched_codex.get("daily_timeline") or []:
+                    del family_days[date_key]
+            for point in series.get("daily_timeline") or []:
                 if not isinstance(point, dict) or not point.get("date"):
                     continue
                 date_key = str(point["date"])
                 if not (start <= date_key <= end):
                     raise ValueError(
-                        f"One API Codex point {date_key} falls outside {start}..{end}"
+                        f"One API {family} point {date_key} falls outside {start}..{end}"
                     )
-                codex_by_date[date_key] = copy.deepcopy(point)
+                family_days[date_key] = copy.deepcopy(point)
 
     for point in legacy_comate.get("daily_timeline") or []:
         if not isinstance(point, dict) or not point.get("date"):
@@ -1021,15 +1031,15 @@ def reconcile_oneapi_payload(
         "total_tokens": safe_int(legacy_comate.get("total_tokens")),
         "note": "Local Comate context deltas are retained only for dates without One API gateway coverage.",
     }
-    if codex_by_date:
-        codex_series = (
-            result.get("codex")
-            if isinstance(result.get("codex"), dict)
-            else {}
-        )
-        result["codex"] = {
-            **codex_series,
-            "daily_timeline": [codex_by_date[key] for key in sorted(codex_by_date)],
+    for family, family_days in family_by_date.items():
+        if not family_days:
+            continue
+        series = result.get(family) if isinstance(result.get(family), dict) else {}
+        timeline = [family_days[key] for key in sorted(family_days)]
+        result[family] = {
+            **series,
+            "history": {"first": timeline[0]["date"], "last": timeline[-1]["date"]},
+            "daily_timeline": timeline,
         }
     return recompute_oneapi_totals(result)
 
@@ -1973,6 +1983,78 @@ def unresolved_models_for_day(day: dict[str, Any]) -> list[str]:
     ]
 
 
+LIST_PRICED_PREFIXES = ("codex", "claude")
+LEGACY_RESIDUAL_MODEL = "Legacy collector residual"
+
+
+def list_price_cost(model: dict[str, Any]) -> float | None:
+    """Price one normalized model row from its token components, if possible."""
+    price = PINNED_PRICE_INDEX.get(str(model.get("model") or "").strip())
+    if price is None or not model.get("components_complete"):
+        return None
+    cache_write = safe_int(model.get("cache_create")) + safe_int(model.get("cache_write"))
+    return (
+        safe_int(model.get("input")) * safe_float(price.get("input"))
+        + safe_int(model.get("output")) * safe_float(price.get("output"))
+        + safe_int(model.get("cache_read")) * safe_float(price.get("cache_read"))
+        + cache_write * safe_float(price.get("cache_create"))
+    )
+
+
+def apply_list_prices(rows: list[dict[str, Any]]) -> None:
+    """Price Codex and Claude Code days from their persisted per-model tokens.
+
+    Every model with complete token components and a ledger rate is priced at
+    that list price, whichever Mac or gateway series recorded it. Other models
+    and unattributed remainders keep their recorded cost. A legacy collector
+    residual is dropped once every token-bearing model of the day is priced.
+    """
+    for row in rows:
+        for prefix in LIST_PRICED_PREFIXES:
+            models = normalize_models(row.get(f"{prefix}_models"))
+            unattributed_cost = max(
+                0.0,
+                safe_float(row.get(f"{prefix}_cost"))
+                - sum(safe_float(model.get("cost")) for model in models),
+            )
+            priced = unpriced = 0
+            for model in models:
+                if safe_int(model.get("tokens")) <= 0:
+                    continue
+                cost = list_price_cost(model)
+                if cost is None:
+                    unpriced += 1
+                    continue
+                model["cost"] = cost
+                model["canonical_model"] = PINNED_PRICE_INDEX[model["model"]]["canonical_model"]
+                model.pop("pricing_versions", None)
+                model["pricing_version"] = PRICING_VERSION
+                model["pricing_provenance"] = "pinned-ledger"
+                priced += 1
+            if not priced:
+                continue
+            if not unpriced:
+                models = [
+                    model for model in models if model["model"] != LEGACY_RESIDUAL_MODEL
+                ]
+            complete = (
+                not unpriced
+                and unattributed_cost <= 1e-9
+                and sum(safe_int(model.get("tokens")) for model in models)
+                == safe_int(row.get(f"{prefix}_tokens"))
+            )
+            row[f"{prefix}_models"] = models
+            row[f"{prefix}_cost"] = (
+                sum(safe_float(model.get("cost")) for model in models) + unattributed_cost
+            )
+            row[f"{prefix}_pricing_version"] = PRICING_VERSION
+            row[f"{prefix}_pricing_complete"] = complete
+            row[f"{prefix}_pricing_provenance"] = (
+                "pinned-ledger" if complete else "mixed-legacy"
+            )
+        recompute_daily_total(row)
+
+
 def iter_codex_jsonl(home: Path):
     """Yield every Codex rollout JSONL under ~/.codex (sessions + archived)."""
     roots = [
@@ -2432,6 +2514,34 @@ def public_oneapi_payload(value: Any) -> dict[str, Any]:
         for key, item in value.items()
         if key in PUBLIC_ONEAPI_FIELDS
     }
+
+
+def gateway_charge_note(oneapi: Any) -> str:
+    """State what the gateway actually charged in its latest collected window."""
+    oneapi = oneapi if isinstance(oneapi, dict) else {}
+    window = oneapi.get("window") if isinstance(oneapi.get("window"), dict) else {}
+    start = str(window.get("start") or "")
+    end = str(window.get("end") or "")
+    if not (start and end):
+        return ""
+
+    def charged_cny(points: Any) -> float:
+        return oneapi_usage.quota_to_cny(
+            sum(
+                safe_int(point.get("quota"))
+                for point in (points if isinstance(points, list) else [])
+                if isinstance(point, dict) and start <= str(point.get("date") or "") <= end
+            )
+        )
+
+    claude = charged_cny((oneapi.get("claude") or {}).get("daily_timeline"))
+    codex = charged_cny((oneapi.get("codex") or {}).get("daily_timeline"))
+    other = charged_cny(oneapi.get("daily_timeline"))
+    return (
+        f"The gateway actually charged ¥{claude + codex + other:,.0f} for {start} to {end}: "
+        f"Claude ¥{claude:,.0f}, Codex ¥{codex:,.0f}, other models ¥{other:,.0f} "
+        "(the second key's share is estimated). "
+    )
 
 
 def source_lag_days(today: str, window_end: str) -> int | None:
@@ -3512,10 +3622,10 @@ def collect_usage(
         next_cursor_pricing_version = CURSOR_PRICING_VERSION
 
     # Claude Code is rebuilt from One API's Claude model family. The local
-    # Claude collector has been removed, so any date the One API Claude series
-    # covers is authoritative; rebuild from its earliest covered date and keep
-    # older prior values frozen. Fall back to the previous day when the series
-    # is absent (e.g. a failed One API refresh).
+    # Claude collector has been removed, so any date the durable One API Claude
+    # series covers is authoritative; rebuild from its earliest stored date and
+    # keep older prior values frozen. Fall back to the previous day when the
+    # series is absent.
     claude_data = claude_data_from_oneapi(oneapi_data)
     claude_first = str((claude_data.get("history") or {}).get("first") or "")
     claude_rebuild_from = claude_first or machine_fragments.previous_day(today)
@@ -3536,6 +3646,9 @@ def collect_usage(
         durable_oneapi_rows,
         oneapi_data,
     )
+    # Codex and Claude Code are compared at list price; One API keeps the
+    # gateway's actual charge.
+    apply_list_prices(daily_rows)
     for row in daily_rows:
         for prefix in ("codex", "claude", "cursor", "oneapi"):
             row[f"{prefix}_models"] = models_with_remainder(
@@ -3909,26 +4022,29 @@ def main() -> int:
                         "only on dates without gateway coverage."
                     ),
                     "cost": (
-                        f"Codex estimates use the checked-in versioned price ledger "
-                        f"{PRICING_VERSION}; known models are deterministically repriced from "
-                        "persisted per-model token components. Models without a pinned rate retain "
-                        "their collector value with explicit legacy provenance and cannot silently "
-                        "replace a higher durable estimate; "
-                        "Claude Code costs come from the One API gateway quota "
-                        "(250,000 units/CNY, ~0.14 USD/CNY); "
-                        "Cursor costs come from the authenticated Dashboard API; "
-                        "One API quota uses 250,000 units/CNY and is estimated at "
-                        "~0.14 USD/CNY; the second key's quota is estimated from this "
-                        "account's own quota per token for the same model in the same "
-                        "window. "
-                        "Codex daily totals are SUMMED across public/machines/*.json "
+                        "Codex and Claude Code costs are estimates at official API list "
+                        f"prices, from the checked-in price ledger {PRICING_VERSION} "
+                        "(OpenAI and Anthropic pricing pages): every model's persisted "
+                        "input, output, and cache tokens are priced at standard rates, "
+                        "short-context for GPT, with GPT-5.6 Sol at its regular rate rather "
+                        "than its temporary promotion. The One API gateway reports no "
+                        "Claude cache hits, so all Claude input is priced as uncached, "
+                        "which overstates what the same traffic costs with prompt caching. "
+                        "Models without a list price, and days stored without per-model "
+                        "tokens, keep their recorded cost. "
+                        "Cursor costs come from the authenticated Dashboard API. "
+                        "One API shows the gateway's actual charge for its other models: "
+                        "quota at 250,000 units/CNY and ~0.14 USD/CNY; the second key's "
+                        "charge is estimated from this account's own quota per token for "
+                        "the same model in the same window. "
+                        + gateway_charge_note(data.get("oneapi"))
+                        + "Codex daily totals are SUMMED across public/machines/*.json "
                         "plus the One API gateway's Codex model family; "
-                        "Claude Code and One API are account-level and rebuilt from the "
-                        "latest 31-day One API window on each publish; "
+                        "Claude Code and One API are account-level; each publish refreshes "
+                        "the latest 31-day One API window and keeps older days; "
                         "Cursor is account-level and replaced from the API on each publish "
                         "(if API unavailable, prior usage.json Cursor series is kept); "
-                        "One API is account-level, excludes no owned model families, "
-                        "and keeps its prior series when authentication fails or the "
+                        "One API keeps its prior series when authentication fails or the "
                         "usage statistics are incomplete."
                     ),
                     "merge": (

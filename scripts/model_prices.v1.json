@@ -1,10 +1,31 @@
 {
-  "pricing_version": "2026-07-31.v1",
+  "pricing_version": "2026-11-20.v1",
   "currency": "USD",
   "unit": "per_token",
-  "pinned_at": "2026-07-31",
+  "pinned_at": "2026-11-20",
   "application": "revalue_all_history",
+  "sources": [
+    "https://developers.openai.com/api/docs/pricing",
+    "https://platform.claude.com/docs/en/about-claude/pricing"
+  ],
+  "basis": "Standard API list prices. GPT models use short-context rates; GPT-5.6 Sol uses its regular rate, not the promotion that ends 2026-11-30; Claude Haiku 5.5 uses its rate for prompts up to 100,000 tokens. cache_create is the 5-minute (Claude) or 30-minute (GPT) cache write rate.",
   "models": [
+    {
+      "model": "claude-fable-5-2",
+      "aliases": ["claude-fable-5.2"],
+      "input": 0.000008,
+      "output": 0.00004,
+      "cache_read": 0.0000002,
+      "cache_create": 0.00001
+    },
+    {
+      "model": "claude-fable-5-1",
+      "aliases": ["claude-fable-5.1"],
+      "input": 0.00001,
+      "output": 0.00005,
+      "cache_read": 0.00000025,
+      "cache_create": 0.0000125
+    },
     {
       "model": "claude-fable-5",
       "aliases": ["claude-fable-5-high"],
@@ -22,12 +43,28 @@
       "cache_create": 0.00000125
     },
     {
+      "model": "claude-haiku-5-5",
+      "aliases": ["claude-haiku-5.5"],
+      "input": 0.0000001,
+      "output": 0.0000005,
+      "cache_read": 0.00000001,
+      "cache_create": 0.000000125
+    },
+    {
       "model": "claude-opus-5",
       "aliases": ["claude-opus-4-5-20251101", "claude-opus-4-6", "claude-opus-4-7", "claude-opus-4-8"],
       "input": 0.000005,
       "output": 0.000025,
       "cache_read": 0.0000005,
       "cache_create": 0.00000625
+    },
+    {
+      "model": "claude-opus-5-5",
+      "aliases": ["claude-opus-5.5"],
+      "input": 0.000004,
+      "output": 0.00002,
+      "cache_read": 0.0000002,
+      "cache_create": 0.000005
     },
     {
       "model": "claude-sonnet-4-6",
@@ -43,6 +80,14 @@
       "input": 0.000002,
       "output": 0.00001,
       "cache_read": 0.0000002,
+      "cache_create": 0.0000025
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "aliases": ["claude-sonnet-5.5"],
+      "input": 0.000002,
+      "output": 0.00001,
+      "cache_read": 0.0000001,
       "cache_create": 0.0000025
     },
     {
@@ -87,7 +132,7 @@
     },
     {
       "model": "gpt-5.5",
-      "aliases": ["gpt-5.6-sol"],
+      "aliases": ["codex-auto-review"],
       "input": 0.000005,
       "output": 0.00003,
       "cache_read": 0.0000005,
@@ -96,21 +141,86 @@
     {
       "model": "gpt-5.6-luna",
       "aliases": [],
-      "input": 0.000001,
-      "output": 0.000006,
-      "cache_read": 0.0000001,
-      "cache_create": 0.00000125
+      "input": 0.0000002,
+      "output": 0.0000012,
+      "cache_read": 0.00000002,
+      "cache_create": 0.00000025
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "aliases": [],
+      "input": 0.000005,
+      "output": 0.00003,
+      "cache_read": 0.0000005,
+      "cache_create": 0.00000625
     },
     {
       "model": "gpt-5.6-terra",
       "aliases": [],
-      "input": 0.0000025,
-      "output": 0.000015,
-      "cache_read": 0.00000025,
-      "cache_create": 0.000003125
+      "input": 0.000002,
+      "output": 0.000012,
+      "cache_read": 0.0000002,
+      "cache_create": 0.0000025
+    },
+    {
+      "model": "gpt-6-astra",
+      "aliases": [],
+      "input": 0.00001,
+      "output": 0.00005,
+      "cache_read": 0.000001,
+      "cache_create": 0.0000125
+    },
+    {
+      "model": "gpt-6-luna",
+      "aliases": [],
+      "input": 0.0000001,
+      "output": 0.0000005,
+      "cache_read": 0.00000001,
+      "cache_create": 0.000000125
+    },
+    {
+      "model": "gpt-6-sol",
+      "aliases": [],
+      "input": 0.000002,
+      "output": 0.00001,
+      "cache_read": 0.0000002,
+      "cache_create": 0.0000025
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "aliases": [],
+      "input": 0.000002,
+      "output": 0.00001,
+      "cache_read": 0.0000001,
+      "cache_create": 0.0000025
+    },
+    {
+      "model": "gpt-6.1-terra",
+      "aliases": [],
+      "input": 0.000001,
+      "output": 0.000005,
+      "cache_read": 0.00000005,
+      "cache_create": 0.00000125
+    },
+    {
+      "model": "gpt-6.2-astra",
+      "aliases": [],
+      "input": 0.000008,
+      "output": 0.00004,
+      "cache_read": 0.0000004,
+      "cache_create": 0.00001
+    },
+    {
+      "model": "gpt-6.2-sol",
+      "aliases": [],
+      "input": 0.000002,
+      "output": 0.00001,
+      "cache_read": 0.0000001,
+      "cache_create": 0.0000025
     }
   ],
   "unresolved_models": [
-    "gpt-5.3-codex-spark"
+    "gpt-5.3-codex-spark",
+    "gpt-reserve"
   ]
 }
