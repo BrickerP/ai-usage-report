@@ -1272,7 +1272,10 @@ def fetch_cursor_usage(
     state = cursor_api.read_cursor_state(home)
     token = str(state.get("access_token") or "")
     if not token:
-        return {"available": False, "error": "missing local Cursor access token"}
+        return {
+            "available": False,
+            "error": str(state.get("token_error") or "missing local Cursor access token"),
+        }
 
     version = cursor_api.cursor_product_version()
     client = cursor_api.CursorClient(token, version, str(state.get("email") or ""))

@@ -206,7 +206,11 @@ Do not use `--force-reseed` for this migration.
 
 - Codex: `~/.codex` rollout JSONL (sum of each request's real token increment)
 - Claude Code: One API gateway's Claude model family (the One API window refreshes its days; older gateway days keep their stored series)
-- Cursor: authenticated Dashboard API via local Cursor session
+- Cursor: authenticated Dashboard API via local Cursor session. Cursor 3.29+
+  stores that token encrypted (`cursor-safe-storage:v1`); the collector reads the
+  key from the login-keychain item "Cursor Safe Storage" with `/usr/bin/security`
+  and decrypts the token locally. macOS asks once per Mac to allow this; choose
+  Always Allow so scheduled runs work unattended.
 - Historical Comate: `~/.comate-engine/store/chat_session_*` (positive
   `contextUsed` deltas; cost always 0), migrated under One API only on dates
   without gateway coverage
