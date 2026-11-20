@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sqlite3
 import subprocess
 import tempfile
@@ -72,6 +73,42 @@ class SafeStorageTokenTests(unittest.TestCase):
 
         self.assertEqual(state["access_token"], "plain.jwt.token")
         run.assert_not_called()
+
+
+class ProxyTests(unittest.TestCase):
+    def proxy_handler(self, client) -> object:
+        return next(
+            handler
+            for handler in client.opener.handlers
+            if isinstance(handler, cursor_api.request.ProxyHandler)
+        )
+
+    def test_https_proxy_urllib_cannot_use_is_bypassed(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "https_proxy": "https://proxy.example:8891",
+                "http_proxy": "http://proxy.example:8080",
+            },
+            clear=True,
+        ):
+            client = cursor_api.CursorClient("token", "3.29.15", "")
+
+        proxies = self.proxy_handler(client).proxies
+        self.assertNotIn("https", proxies)
+        self.assertEqual(proxies["http"], "http://proxy.example:8080")
+
+    def test_http_proxy_is_kept_for_https_requests(self):
+        with mock.patch.dict(
+            os.environ,
+            {"https_proxy": "http://proxy.example:8080"},
+            clear=True,
+        ):
+            client = cursor_api.CursorClient("token", "3.29.15", "")
+
+        self.assertEqual(
+            self.proxy_handler(client).proxies["https"], "http://proxy.example:8080"
+        )
 
 
 if __name__ == "__main__":

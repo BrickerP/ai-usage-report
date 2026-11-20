@@ -251,12 +251,29 @@ def split_aggregate_windows(start_ms: int, end_ms: int) -> list[tuple[int, int]]
     return list(zip(points, points[1:]))
 
 
+def usable_proxies() -> dict[str, str]:
+    """Environment proxies urllib can use.
+
+    urllib cannot open TLS to an https:// proxy: it sends a plain CONNECT and
+    the proxy closes the connection. Requests for those schemes go direct.
+    """
+    return {
+        scheme: url
+        for scheme, url in request.getproxies().items()
+        if not str(url).lower().startswith("https://")
+    }
+
+
 class CursorClient:
     def __init__(self, token: str, version: str, email: str) -> None:
         self.token = token
         self.version = version
         self.email = email
         self.context = ssl.create_default_context()
+        self.opener = request.build_opener(
+            request.ProxyHandler(usable_proxies()),
+            request.HTTPSHandler(context=self.context),
+        )
 
     def headers(self) -> dict[str, str]:
         return {
@@ -287,7 +304,7 @@ class CursorClient:
 
     def _open(self, req: request.Request) -> tuple[int, dict[str, str], bytes]:
         try:
-            with request.urlopen(req, timeout=30, context=self.context) as response:
+            with self.opener.open(req, timeout=30) as response:
                 return response.status, dict(response.headers.items()), response.read()
         except error.HTTPError as exc:
             return exc.code, dict(exc.headers.items()), exc.read()
