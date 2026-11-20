@@ -2,12 +2,16 @@
 """Production Cursor session, transport, redaction, and event helpers."""
 from __future__ import annotations
 
+import base64
+import ctypes
 import datetime as dt
+import hashlib
 import json
 from pathlib import Path
 import re
 import sqlite3
 import ssl
+import subprocess
 from typing import Any
 from urllib import error, request
 
@@ -18,6 +22,13 @@ CURSOR_AGGREGATE_BOUNDARIES = (
     dt.datetime(2025, 8, 1, tzinfo=dt.timezone.utc),
     dt.datetime(2026, 5, 14, tzinfo=dt.timezone.utc),
 )
+# Cursor 3.29+ stores its tokens with Electron safeStorage:
+# "cursor-safe-storage:v1:" + base64(b"v10" + AES-128-CBC ciphertext). The key
+# is PBKDF2-SHA1 of the "Cursor Safe Storage" login-keychain secret (salt
+# "saltysalt", 1003 rounds) and the IV is 16 spaces.
+SAFE_STORAGE_PREFIX = "cursor-safe-storage:v1:"
+SAFE_STORAGE_SERVICE = "Cursor Safe Storage"
+SAFE_STORAGE_ACCOUNT = "Cursor Key"
 
 
 def safe_int(value: Any) -> int:
@@ -53,6 +64,74 @@ def cursor_product_version() -> str:
     product = Path("/Applications/Cursor.app/Contents/Resources/app/product.json")
     data = read_json(product)
     return str(data.get("version") or "desktop")
+
+
+def safe_storage_key() -> bytes:
+    """Derive the safeStorage key; macOS asks once to allow `security` to read it."""
+    proc = subprocess.run(
+        [
+            "/usr/bin/security",
+            "find-generic-password",
+            "-s",
+            SAFE_STORAGE_SERVICE,
+            "-a",
+            SAFE_STORAGE_ACCOUNT,
+            "-w",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError("the Cursor Safe Storage keychain secret is unavailable")
+    secret = proc.stdout.rstrip("\n").encode("utf-8")
+    return hashlib.pbkdf2_hmac("sha1", secret, b"saltysalt", 1003, 16)
+
+
+def aes_cbc_decrypt(key: bytes, iv: bytes, data: bytes) -> bytes:
+    """Decrypt AES-CBC with PKCS#7 padding through macOS CommonCrypto."""
+    common_crypto = ctypes.CDLL("/usr/lib/system/libcommonCrypto.dylib")
+    common_crypto.CCCrypt.restype = ctypes.c_int32
+    common_crypto.CCCrypt.argtypes = [
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_size_t),
+    ]
+    k_cc_decrypt, k_cc_algorithm_aes, k_cc_option_pkcs7_padding = 1, 0, 1
+    output = ctypes.create_string_buffer(len(data) + 16)
+    written = ctypes.c_size_t(0)
+    status = common_crypto.CCCrypt(
+        k_cc_decrypt,
+        k_cc_algorithm_aes,
+        k_cc_option_pkcs7_padding,
+        key,
+        len(key),
+        iv,
+        data,
+        len(data),
+        output,
+        len(output),
+        ctypes.byref(written),
+    )
+    if status != 0:
+        raise ValueError(f"CommonCrypto decryption failed with status {status}")
+    return output.raw[: written.value]
+
+
+def decrypt_safe_storage(value: str) -> str:
+    blob = base64.b64decode(value[len(SAFE_STORAGE_PREFIX):], validate=True)
+    if blob[:3] != b"v10":
+        raise ValueError("unsupported Cursor safe storage version")
+    return aes_cbc_decrypt(safe_storage_key(), b" " * 16, blob[3:]).decode("utf-8")
 
 
 def read_cursor_state(home: Path) -> dict[str, Any]:
@@ -98,6 +177,15 @@ def read_cursor_state(home: Path) -> dict[str, Any]:
             state["use_openai_key"] = app_user.get("useOpenAIKey")
             state["membership"] = state["membership"] or str(app_user.get("membershipType") or "")
             state["subscription_status"] = state["subscription_status"] or str(app_user.get("subscriptionStatus") or "")
+    if state["access_token"].startswith(SAFE_STORAGE_PREFIX):
+        try:
+            state["access_token"] = decrypt_safe_storage(state["access_token"])
+        except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
+            state["access_token"] = ""
+            state["token_error"] = (
+                f"local Cursor access token could not be decrypted ({type(exc).__name__}); "
+                "allow security to read the Cursor Safe Storage keychain item"
+            )
     return state
 
 
