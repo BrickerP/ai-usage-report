@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-07-31.v1",
-  "captured_at": "2026-11-20T15:16:27+08:00",
-  "snapshot_id": "sha256:056559535311de3dce286461002a3841a2e74c7eb832adeae1ac7d31a90e1700",
-  "generated_at": "2026-11-20T15:16:27+08:00",
+  "captured_at": "2026-11-20T15:37:16+08:00",
+  "snapshot_id": "sha256:66c56d27a8cf10103ccb215737cfe4c09845e2c3f772f803e1d41201767b8c4f",
+  "generated_at": "2026-11-20T15:37:16+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -57,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m4-local",
+  "machine_id": "mac-m3-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -69,7 +69,7 @@
       "tool": "Codex",
       "history": "2026-01-08 to 2026-11-20",
       "cost": 158109.82262657,
-      "total_tokens": 272215188262,
+      "total_tokens": 272804148656,
       "models": [
         {
           "model": "gpt-5.6-sol",
@@ -242,6 +242,25 @@
           "ownership_rule_version": "3"
         },
         {
+          "model": "gpt-6.2-astra",
+          "tokens": 1396431964,
+          "cost": 61.069551200000014,
+          "components_complete": true,
+          "raw_models": [
+            "gpt-6.2-astra"
+          ],
+          "pricing_provenance": "unpriced",
+          "input": 20216093,
+          "output": 1317695,
+          "cache_read": 1374898176,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 227719,
+          "canonical_model": "gpt-6.2-astra",
+          "pricing_version": "legacy",
+          "ownership_rule_version": "3"
+        },
+        {
           "model": "gpt-6.1-terra",
           "tokens": 1138278133,
           "cost": 0.0,
@@ -254,25 +273,6 @@
           "cache_create": 0,
           "reasoning": 1044255,
           "pricing_version": "legacy"
-        },
-        {
-          "model": "gpt-6.2-astra",
-          "tokens": 807471570,
-          "cost": 61.069551200000014,
-          "components_complete": true,
-          "raw_models": [
-            "gpt-6.2-astra"
-          ],
-          "pricing_provenance": "unpriced",
-          "input": 16649776,
-          "output": 946722,
-          "cache_read": 789875072,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 133885,
-          "canonical_model": "gpt-6.2-astra",
-          "pricing_version": "legacy",
-          "ownership_rule_version": "3"
         },
         {
           "model": "gpt-5",
@@ -1312,33 +1312,33 @@
       "error": "local_fragments_stale"
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-11-20T15:16:26+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-20T15:36:42+08:00",
       "last_success_at": "2026-11-20T15:16:26+08:00",
       "window_end": "2026-11-20",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-20T15:16:26+08:00",
+      "attempted_at": "2026-11-20T15:36:42+08:00",
       "last_success_at": "2026-11-19T16:03:38+08:00",
       "window_end": "2026-11-10",
       "lag_days": 10,
       "error": "cursor_incomplete"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-11-20T15:16:26+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-20T15:36:42+08:00",
       "last_success_at": "2026-11-20T15:16:26+08:00",
       "window_end": "2026-11-20",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_reauth_required"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-11-20T15:16:24.943456+08:00",
     "snapshot_id": "sha256:139ec44ecafb967c40470d151c743aab07ffde1e300fa72a485d69602e8feb91",
@@ -15404,15 +15404,15 @@
       "records_after_deduplication": 14213,
       "duplicates_removed": 0
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "2026-07-13",
-        "last": "2026-11-20"
+        "first": "",
+        "last": ""
       },
-      "total_tokens": 2831742,
+      "total_tokens": 0,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
@@ -46445,12 +46445,12 @@
     },
     {
       "date": "2026-11-20",
-      "codex_tokens": 26285510,
+      "codex_tokens": 615245904,
       "codex_cost": 3.2702846400000007,
-      "codex_input": 3404755,
-      "codex_cache_read": 22745367,
-      "codex_output": 135388,
-      "codex_reasoning": 0,
+      "codex_input": 6971072,
+      "codex_cache_read": 607768471,
+      "codex_output": 506361,
+      "codex_reasoning": 93834,
       "claude_tokens": 17557334,
       "claude_cost": 8.498266560000001,
       "claude_input": 17428921,
@@ -46471,6 +46471,25 @@
       "oneapi_output": 225551,
       "oneapi_requests": 148,
       "codex_models": [
+        {
+          "model": "gpt-6.2-astra",
+          "tokens": 590466471,
+          "cost": 0.38853248,
+          "components_complete": true,
+          "raw_models": [
+            "gpt-6.2-astra"
+          ],
+          "pricing_provenance": "unpriced",
+          "input": 3689551,
+          "output": 374104,
+          "cache_read": 586402816,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 93834,
+          "canonical_model": "gpt-6.2-astra",
+          "pricing_version": "legacy",
+          "ownership_rule_version": "3"
+        },
         {
           "model": "gpt-6.1-sol",
           "tokens": 13995368,
@@ -46514,21 +46533,6 @@
           "cache_read": 1591808,
           "cache_write": 0,
           "canonical_model": "gpt-5.6-terra",
-          "ownership_rule_version": "3"
-        },
-        {
-          "model": "gpt-6.2-astra",
-          "tokens": 1506077,
-          "cost": 0.38853248,
-          "components_complete": true,
-          "raw_models": [
-            "gpt-6.2-astra"
-          ],
-          "input": 123234,
-          "output": 3131,
-          "cache_read": 1379712,
-          "cache_write": 0,
-          "canonical_model": "gpt-6.2-astra",
           "ownership_rule_version": "3"
         },
         {
@@ -46762,16 +46766,20 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 51235213,
+      "total_tokens": 640195607,
       "total_cost": 12.327148400000002,
+      "codex_snapshot_complete": true,
+      "codex_pricing_complete": false,
+      "codex_pricing_version": "2026-07-31.v1",
+      "codex_pricing_provenance": "unpriced",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard",
       "claude_snapshot_complete": true,
       "claude_pricing_version": "oneapi",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "oneapi",
-      "codex_snapshot_complete": true,
-      "codex_pricing_version": "oneapi",
-      "codex_pricing_complete": true,
-      "codex_pricing_provenance": "oneapi"
+      "claude_pricing_provenance": "oneapi"
     }
   ],
   "notes": {
