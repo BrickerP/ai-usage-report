@@ -939,7 +939,7 @@ def write_machine_fragment_append(
         ),
         "daily": merged,
     }
-    for key in ("retired", "retired_at", "retirement_note"):
+    for key in ("retired", "retired_at", "retirement_note", "oneapi_key2"):
         if key in (stored_existing or {}):
             payload[key] = (stored_existing or {})[key]
     write_json_atomic(path, payload)

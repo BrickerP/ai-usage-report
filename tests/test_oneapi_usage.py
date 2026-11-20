@@ -32,25 +32,45 @@ usage_report = load_module(
 )
 
 
-def record(
+def row(
     model: str,
     *,
-    created_at: int = 1785254400,
+    date: str = "2026-07-29",
+    source: str = "",
+    requests: int = 1,
     prompt: int = 0,
     output: int = 0,
     cache_read: int = 0,
     cache_write: int = 0,
     quota: int = 0,
 ) -> dict:
+    """A normalized /api/mine/usage_statistics day x model x source row."""
     return {
-        "created_at": created_at,
+        "date": date,
         "model_name": model,
-        "prompt_tokens": prompt,
-        "completion_tokens": output,
-        "cache_read_tokens": cache_read,
-        "cache_write_tokens": cache_write,
+        "source": source,
+        "requests": requests,
+        "input": prompt,
+        "output": output,
+        "cache_read": cache_read,
+        "cache_write": cache_write,
         "quota": quota,
-        "request_id": f"{model}-{created_at}-{prompt}",
+    }
+
+
+def stats_row(model: str, **values) -> dict:
+    """The same row as the gateway returns it."""
+    normalized = row(model, **values)
+    return {
+        "day": normalized["date"],
+        "model_name": normalized["model_name"],
+        "source": normalized["source"],
+        "request_count": normalized["requests"],
+        "prompt_tokens": normalized["input"],
+        "completion_tokens": normalized["output"],
+        "cache_read_tokens": normalized["cache_read"],
+        "cache_write_tokens": normalized["cache_write"],
+        "quota": normalized["quota"],
     }
 
 
@@ -151,17 +171,17 @@ def saved_browser_state(*, expiry: float = 2_000_000_000) -> dict:
 
 class OneApiExclusiveAggregationTests(unittest.TestCase):
     def test_splits_codex_and_claude_into_own_series_and_keeps_other_models(self):
-        result = oneapi_usage.aggregate_records(
+        result = oneapi_usage.aggregate_rows(
             [
-                record("gpt-5.6-sol", prompt=100, quota=1000),
-                record("openai/o4-mini", prompt=200, quota=2000),
-                record("claude-opus-5", prompt=300, quota=3000),
-                record("grok-4.5", prompt=400, quota=4000),
-                record("deepseek-v4-flash", cache_read=500, quota=5000),
-                record("anthropic.claude-opus-5", prompt=600, quota=6000),
-                record("openai.gpt-5.6-sol", prompt=700, quota=7000),
-                record("provider.o3", prompt=800, quota=8000),
-                record("provider.deepseek-v4", prompt=50, quota=500),
+                row("gpt-5.6-sol", prompt=100, quota=1000),
+                row("openai/o4-mini", prompt=200, quota=2000),
+                row("claude-opus-5", prompt=300, quota=3000),
+                row("grok-4.5", prompt=400, quota=4000),
+                row("deepseek-v4-flash", cache_read=500, quota=5000),
+                row("anthropic.claude-opus-5", prompt=600, quota=6000),
+                row("openai.gpt-5.6-sol", prompt=700, quota=7000),
+                row("provider.o3", prompt=800, quota=8000),
+                row("provider.deepseek-v4", prompt=50, quota=500),
             ],
             timezone="Asia/Shanghai",
             window_start="2026-07-29",
@@ -188,8 +208,8 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
         self.assertEqual(result["included_request_count"], 9)
 
     def test_codex_series_folds_gateway_cache_write_into_cache_read(self):
-        result = oneapi_usage.aggregate_records(
-            [record("gpt-5.6-sol", prompt=10, cache_write=5, quota=1000)],
+        result = oneapi_usage.aggregate_rows(
+            [row("gpt-5.6-sol", prompt=10, cache_write=5, quota=1000)],
             timezone="Asia/Shanghai",
             window_start="2026-07-29",
             window_end="2026-07-29",
@@ -227,16 +247,16 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
 
     def test_snapshot_metadata_is_account_scoped_complete_and_content_stable(self):
         records = [
-            record("DeepSeek-V4", prompt=10, quota=100),
-            record("Grok-4.5", output=20, quota=200),
+            row("DeepSeek-V4", prompt=10, quota=100),
+            row("Grok-4.5", output=20, quota=200),
         ]
-        first = oneapi_usage.aggregate_records(
+        first = oneapi_usage.aggregate_rows(
             records,
             timezone="Asia/Shanghai",
             window_start="2026-07-27",
             window_end="2026-07-31",
         )
-        reordered = oneapi_usage.aggregate_records(
+        reordered = oneapi_usage.aggregate_rows(
             list(reversed(records)),
             timezone="Asia/Shanghai",
             window_start="2026-07-27",
@@ -271,8 +291,8 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
             oneapi_usage.OWNERSHIP_RULE_VERSION,
         )
 
-        changed = oneapi_usage.aggregate_records(
-            [record("DeepSeek-V4", prompt=11, quota=100), records[1]],
+        changed = oneapi_usage.aggregate_rows(
+            [row("DeepSeek-V4", prompt=11, quota=100), records[1]],
             timezone="Asia/Shanghai",
             window_start="2026-07-27",
             window_end="2026-07-31",
@@ -284,8 +304,8 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
         self.assertAlmostEqual(oneapi_usage.quota_to_usd(212_468), 0.11898208)
 
     def test_empty_model_is_not_added_to_exclusive_totals(self):
-        result = oneapi_usage.aggregate_records(
-            [record("", prompt=123, quota=456)],
+        result = oneapi_usage.aggregate_rows(
+            [row("", prompt=123, quota=456)],
             timezone="Asia/Shanghai",
             window_start="2026-07-29",
             window_end="2026-07-29",
@@ -296,10 +316,10 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
         self.assertEqual(result["daily_timeline"], [])
 
     def test_daily_cost_is_derived_from_filtered_quota(self):
-        result = oneapi_usage.aggregate_records(
+        result = oneapi_usage.aggregate_rows(
             [
-                record("claude-opus-5", prompt=100, quota=250_000),
-                record("deepseek-v4-flash", prompt=100, quota=250_000),
+                row("claude-opus-5", prompt=100, quota=250_000),
+                row("deepseek-v4-flash", prompt=100, quota=250_000),
             ],
             timezone="Asia/Shanghai",
             window_start="2026-07-29",
@@ -313,15 +333,19 @@ class OneApiExclusiveAggregationTests(unittest.TestCase):
 
 
 class OneApiBrowserCollectionTests(unittest.TestCase):
-    def test_default_collection_window_is_five_calendar_days(self):
+    def test_default_collection_window_is_31_calendar_days(self):
         default = inspect.signature(oneapi_usage.collect_oneapi).parameters[
             "days"
         ].default
-        self.assertEqual(default, 5)
-        self.assertEqual(oneapi_usage.DEFAULT_DAYS, 5)
+        self.assertEqual(default, 31)
+        self.assertEqual(oneapi_usage.DEFAULT_DAYS, 31)
 
         with self.assertRaisesRegex(ValueError, "at least 1"):
             oneapi_usage.collect_oneapi(state_path="missing.json", days=0)
+
+    def test_collection_requires_gateway_calendar_days(self):
+        with self.assertRaisesRegex(ValueError, "Asia/Shanghai calendar days"):
+            oneapi_usage.collect_oneapi(timezone="UTC", state_path="missing.json")
 
     def test_explicit_chrome_use_precedes_path_and_local_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -446,9 +470,8 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
             )
             browser_result = {
                 "_complete": True,
-                "_pages": 1,
-                "_records": [
-                    record(
+                "_rows": [
+                    stats_row(
                         "deepseek-v4-flash",
                         prompt=100,
                         quota=250_000,
@@ -503,7 +526,13 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
         self.assertIn("--session", eval_command)
         self.assertIn("--session", close_command)
         save_state.assert_called_once()
+        self.assertIn(
+            "/api/mine/usage_statistics?start_time=2026-07-29&end_time=2026-07-29",
+            run.call_args_list[2].kwargs["input"],
+        )
         self.assertEqual(result["totals"]["total_tokens"], 100)
+        self.assertEqual(result["rows"], [row("deepseek-v4-flash", prompt=100, quota=250_000)])
+        self.assertEqual(result["scope"]["endpoint"], "/api/mine/usage_statistics")
         self.assertTrue(result["complete"])
         self.assertTrue(result["session_health"]["state_refreshed"])
         self.assertFalse(result["session_health"]["silent_sso_attempted"])
@@ -517,10 +546,7 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
             browser_result = json.dumps(
                 {
                     "_complete": False,
-                    "_e": "http_429_page_115",
-                    "_page": 115,
-                    "_count": 2_280,
-                    "_records": [record("deepseek-v4-flash", prompt=100)],
+                    "_rows": [stats_row("deepseek-v4-flash", prompt=100)],
                 }
             )
             completed = [
@@ -555,43 +581,24 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
                         until="2026-07-29",
                     )
 
-    def test_rate_limited_batch_resumes_from_failed_page_and_deduplicates(self):
+    def run_collection(self, browser_result: dict, **window):
         with tempfile.TemporaryDirectory() as tmp:
             state_path = Path(tmp) / "state.json"
             state_path.write_text(
                 json.dumps(saved_browser_state()), encoding="utf-8"
             )
-            first = record("deepseek-v4-flash", prompt=100, quota=1000)
-            second = record("grok-4.5", prompt=200, quota=2000)
             completed = [
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
                 auth_completed(authenticated=True),
-                browser_completed(
-                    {
-                        "_complete": False,
-                        "_rate_limited": True,
-                        "_next_page": 7,
-                        "_pages": 7,
-                        "_records": [first],
-                    }
-                ),
-                browser_completed(
-                    {
-                        "_complete": True,
-                        "_next_page": 8,
-                        "_pages": 1,
-                        "_records": [first, second],
-                    }
-                ),
+                browser_completed(browser_result),
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
             ]
-
             with (
                 mock.patch.object(
                     oneapi_usage.subprocess,
                     "run",
                     side_effect=completed,
-                ) as run,
+                ),
                 mock.patch.object(
                     oneapi_usage,
                     "chrome_use_path",
@@ -602,22 +609,61 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
                     "save_session_state_atomic",
                     return_value={"state_refreshed": True, "warning": ""},
                 ),
-                mock.patch.object(oneapi_usage.time, "sleep") as sleep,
             ):
-                result = oneapi_usage.collect_oneapi(
+                return oneapi_usage.collect_oneapi(
                     timezone="Asia/Shanghai",
                     state_path=str(state_path),
-                    since="2026-07-29",
-                    until="2026-07-29",
+                    **window,
                 )
 
-        sleep.assert_called_once()
-        self.assertEqual(result["totals"]["requests"], 2)
-        self.assertEqual(result["totals"]["total_tokens"], 300)
-        self.assertEqual(result["pagination"]["duplicates_removed"], 1)
-        self.assertTrue(result["pagination"]["complete"])
-        self.assertIn("const START_PAGE = 0", run.call_args_list[2].kwargs["input"])
-        self.assertIn("const START_PAGE = 7", run.call_args_list[3].kwargs["input"])
+    def test_statistics_window_is_one_request_with_all_sources(self):
+        result = self.run_collection(
+            {
+                "_complete": True,
+                "_rows": [
+                    stats_row("deepseek-v4-flash", date="2026-07-28", requests=3, prompt=100, quota=1000),
+                    stats_row("deepseek-v4-flash", date="2026-07-29", source="ducc", requests=2, prompt=200, quota=2000),
+                    stats_row("claude-opus-5-5", date="2026-07-29", requests=4, prompt=50, output=5, quota=500),
+                ],
+            },
+            since="2026-07-28",
+            until="2026-07-29",
+        )
+
+        self.assertEqual(result["request_count"], 9)
+        self.assertEqual(result["window"]["calendar_days"], 2)
+        self.assertEqual(
+            [(point["date"], point["requests"], point["tokens"]) for point in result["daily_timeline"]],
+            [("2026-07-28", 3, 100), ("2026-07-29", 2, 200)],
+        )
+        self.assertEqual(result["claude"]["totals"]["requests"], 4)
+        self.assertEqual(len(result["rows"]), 3)
+
+    def test_statistics_row_outside_the_window_is_rejected(self):
+        with self.assertRaisesRegex(oneapi_usage.OneApiRefreshFailed, "outside"):
+            self.run_collection(
+                {"_complete": True, "_rows": [stats_row("grok-4.5", date="2026-07-30", prompt=1)]},
+                since="2026-07-29",
+                until="2026-07-29",
+            )
+
+    def test_statistics_row_with_invalid_counts_is_rejected(self):
+        broken = stats_row("grok-4.5", prompt=1)
+        broken["prompt_tokens"] = -1
+        with self.assertRaisesRegex(oneapi_usage.OneApiRefreshFailed, "prompt_tokens"):
+            self.run_collection(
+                {"_complete": True, "_rows": [broken]},
+                since="2026-07-29",
+                until="2026-07-29",
+            )
+
+    def test_statistics_error_code_raises_the_matching_collector_error(self):
+        with self.assertRaises(oneapi_usage.OneApiReauthRequired):
+            self.run_collection(
+                {"_error_code": "oneapi_reauth_required"},
+                since="2026-07-29",
+                until="2026-07-29",
+            )
 
     def test_initial_auth_failure_attempts_silent_sso_once_then_succeeds(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -637,8 +683,7 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
                 browser_completed(
                     {
                         "_complete": True,
-                        "_pages": 1,
-                        "_records": [record("grok-4.5", prompt=10)],
+                        "_rows": [stats_row("grok-4.5", prompt=10)],
                     }
                 ),
                 subprocess.CompletedProcess([], 0, stdout="", stderr=""),
@@ -968,7 +1013,7 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
 
 
 class OneApiPublishFlowTests(unittest.TestCase):
-    def test_account_snapshot_is_atomic_five_day_and_collected_after_pull(self):
+    def test_account_snapshot_is_atomic_31_day_and_collected_after_pull(self):
         source = (ROOT / "scripts" / "publish.sh").read_text(encoding="utf-8")
         main = source.index("# Capture local sources before touching the network")
         recover = source.index("\nrecover_leftover_generated_git_state", main)
@@ -983,7 +1028,7 @@ class OneApiPublishFlowTests(unittest.TestCase):
         self.assertIn("sidecar backup", source)
         self.assertIn("--skip-oneapi-live", source)
         self.assertNotIn("passing the existing One API cache", source)
-        self.assertIn("--days 5", source)
+        self.assertIn("--days 31", source)
         self.assertIn('--status-out "$ONEAPI_STATUS_PATH"', source)
         self.assertIn("mktemp", source)
         self.assertIn('mv -f -- "$temp_path" "$cache_path"', source)
@@ -1004,18 +1049,19 @@ class OneApiReconciliationTests(unittest.TestCase):
         )
         return row
 
-    def test_complete_cache_must_satisfy_snapshot_contract(self):
-        snapshot = oneapi_usage.aggregate_records(
-            [record("deepseek-v4", prompt=10, quota=100)],
+    def account_snapshot(self, rows: list[dict]) -> dict:
+        snapshot = oneapi_usage.aggregate_rows(
+            rows,
             timezone="Asia/Shanghai",
             window_start="2026-07-27",
             window_end="2026-07-31",
         )
         snapshot["captured_at"] = "2026-07-31T12:00:00+08:00"
-        snapshot["pagination"] = {
-            "complete": True,
-            "records_after_deduplication": snapshot["request_count"],
-        }
+        snapshot["rows"] = rows
+        return snapshot
+
+    def test_complete_cache_must_satisfy_snapshot_contract(self):
+        snapshot = self.account_snapshot([row("deepseek-v4", prompt=10, quota=100)])
 
         self.assertIs(
             usage_report.validate_oneapi_snapshot(
@@ -1027,15 +1073,113 @@ class OneApiReconciliationTests(unittest.TestCase):
             snapshot,
         )
 
-        broken = dict(snapshot)
-        broken["pagination"] = {"complete": False}
-        with self.assertRaisesRegex(ValueError, "pagination"):
-            usage_report.validate_oneapi_snapshot(
-                broken,
-                timezone="Asia/Shanghai",
-                today="2026-07-31",
-                calendar_days=5,
-            )
+        for broken_rows, message in (
+            (None, "no account rows"),
+            ([{**row("deepseek-v4", prompt=10, quota=100), "estimated": True}], "rows are invalid"),
+            ([row("deepseek-v4", date="2026-07-20", prompt=10, quota=100)], "rows are invalid"),
+            ([row("deepseek-v4", requests=2, prompt=10, quota=100)], "row count mismatch"),
+        ):
+            with self.subTest(message=message):
+                broken = dict(snapshot)
+                broken["rows"] = broken_rows
+                with self.assertRaisesRegex(ValueError, message):
+                    usage_report.validate_oneapi_snapshot(
+                        broken,
+                        timezone="Asia/Shanghai",
+                        today="2026-07-31",
+                        calendar_days=5,
+                    )
+
+    def key2_fragment(self, machine_id: str, points: list[dict]) -> dict:
+        return {
+            "machine_id": machine_id,
+            "daily": [],
+            "oneapi_key2": {
+                "version": 1,
+                "daily": [
+                    {
+                        "date": point["date"],
+                        "models": [
+                            {
+                                "model": point["model"],
+                                "requests": point.get("requests", 1),
+                                "input": point.get("input", 0),
+                                "output": point.get("output", 0),
+                                "cache_read": point.get("cache_read", 0),
+                                "cache_write": point.get("cache_write", 0),
+                                "tokens": sum(
+                                    point.get(field, 0)
+                                    for field in ("input", "output", "cache_read", "cache_write")
+                                ),
+                            }
+                        ],
+                    }
+                    for point in points
+                ],
+            },
+        }
+
+    def test_second_key_rows_join_their_model_family_with_estimated_quota(self):
+        snapshot = self.account_snapshot(
+            [
+                # OpenCode's own key-1 calls (no source header) set the rate: 2 quota/token.
+                row("claude-opus-5-5", date="2026-07-29", prompt=90, output=10, quota=200),
+                # Another client at a different rate must not move it.
+                row("claude-opus-5-5", date="2026-07-29", source="ducc", prompt=100, quota=900),
+                # Only a sourced row exists for this model: 3 quota/token.
+                row("gpt-6.2-astra", date="2026-07-30", source="iCode", prompt=10, quota=30),
+            ]
+        )
+        fragments = [
+            self.key2_fragment("mac-a", [
+                {"date": "2026-07-29", "model": "claude-opus-5-5", "requests": 2, "input": 400, "output": 100},
+                {"date": "2026-07-20", "model": "claude-opus-5-5", "input": 999},  # outside the window
+            ]),
+            self.key2_fragment("mac-b", [
+                {"date": "2026-07-29", "model": "claude-opus-5-5", "input": 50},
+                {"date": "2026-07-30", "model": "gpt-6.2-astra", "input": 10, "cache_read": 10},
+                {"date": "2026-07-30", "model": "gemini 4 carbon", "input": 7},
+            ]),
+            {"machine_id": "mac-c", "daily": []},
+        ]
+
+        combined = usage_report.add_key2_usage(snapshot, fragments, timezone="Asia/Shanghai")
+
+        claude_day = combined["claude"]["daily_timeline"][0]
+        self.assertEqual(claude_day["tokens"], 100 + 100 + 550)
+        self.assertEqual(claude_day["requests"], 2 + 3)
+        self.assertEqual(claude_day["quota"], 200 + 900 + 1100)
+        model = claude_day["model_breakdowns"][0]
+        self.assertEqual(model["key2_tokens"], 550)
+        self.assertEqual(model["pricing_provenance"], "oneapi-estimated")
+        codex_day = combined["codex"]["daily_timeline"][0]
+        self.assertEqual(codex_day["tokens"], 10 + 20)
+        self.assertEqual(codex_day["quota"], 30 + 60)
+        residual = combined["daily_timeline"][0]
+        self.assertEqual(residual["tokens"], 7)
+        self.assertEqual(residual["quota"], 0)
+        self.assertEqual(combined["captured_at"], snapshot["captured_at"])
+        self.assertEqual(combined["rows"], snapshot["rows"])
+        self.assertEqual(
+            combined["key2"],
+            {
+                "source": "opencode-key-ledger",
+                "machines": ["mac-a", "mac-b"],
+                "window": {"start": "2026-07-27", "end": "2026-07-31"},
+                "requests": 5,
+                "total_tokens": 550 + 20 + 7,
+                "estimated_quota": 1100 + 60,
+                "estimated_cost_cny": oneapi_usage.quota_to_cny(1160),
+                "estimated_cost_usd": oneapi_usage.quota_to_usd(1160),
+                "unpriced_models": ["gemini 4 carbon"],
+            },
+        )
+
+    def test_key2_summary_is_published_with_the_oneapi_payload(self):
+        public = usage_report.public_oneapi_payload(
+            {"key2": {"total_tokens": 1}, "rows": [row("grok-4.5", prompt=1)], "session_health": {}}
+        )
+        self.assertEqual(public, {"key2": {"total_tokens": 1}})
 
     def test_unavailable_collection_preserves_prior_oneapi_history(self):
         current = [usage_report.empty_daily_row("2026-07-29")]
