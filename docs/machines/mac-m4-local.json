@@ -1,11 +1,11 @@
 {
   "schema_version": 4,
-  "pricing_version": "2026-07-31.v1",
+  "pricing_version": "2026-11-20.v1",
   "machine_id": "mac-m4-local",
   "hostname": "yupengdeMacBook-Pro.local",
-  "collected_at": "2026-11-20T16:21:03+08:00",
-  "captured_at": "2026-11-20T16:21:03+08:00",
-  "snapshot_id": "mac-m4-local@2026-11-20T16:21:03+08:00",
+  "collected_at": "2026-11-20T18:11:31+08:00",
+  "captured_at": "2026-11-20T18:11:31+08:00",
+  "snapshot_id": "mac-m4-local@2026-11-20T18:11:31+08:00",
   "seeded_at": "2026-08-23T00:12:13+08:00",
   "seeded": true,
   "append_mode": true,
@@ -41,7 +41,48 @@
     "regression_reasons": {
       "2026-10-31:codex": "token_regression"
     },
-    "pricing_changes": [],
+    "pricing_changes": [
+      {
+        "date": "2026-11-02",
+        "tool": "codex",
+        "from": 3.852498,
+        "to": 34.359808799999996,
+        "pricing_version": "2026-11-20.v1",
+        "pricing_complete": true
+      },
+      {
+        "date": "2026-11-03",
+        "tool": "codex",
+        "from": 48.25332,
+        "to": 127.29540399999999,
+        "pricing_version": "2026-11-20.v1",
+        "pricing_complete": true
+      },
+      {
+        "date": "2026-11-04",
+        "tool": "codex",
+        "from": 22.234914,
+        "to": 63.075202000000004,
+        "pricing_version": "2026-11-20.v1",
+        "pricing_complete": true
+      },
+      {
+        "date": "2026-11-06",
+        "tool": "codex",
+        "from": 0.0,
+        "to": 8.759352,
+        "pricing_version": "2026-11-20.v1",
+        "pricing_complete": true
+      },
+      {
+        "date": "2026-11-18",
+        "tool": "codex",
+        "from": 0.0,
+        "to": 2.30588,
+        "pricing_version": "2026-11-20.v1",
+        "pricing_complete": true
+      }
+    ],
     "pricing_regression_dates": []
   },
   "timezone": "Asia/Shanghai",
@@ -3671,7 +3712,7 @@
     {
       "date": "2026-11-02",
       "codex_tokens": 206696786,
-      "codex_cost": 3.852498,
+      "codex_cost": 34.359808799999996,
       "codex_input": 3088932,
       "codex_cache_read": 203097984,
       "codex_output": 509870,
@@ -3680,15 +3721,16 @@
         {
           "model": "gpt-6.1-sol",
           "tokens": 202301277,
-          "cost": 0.0,
+          "cost": 30.5073108,
           "components_complete": true,
-          "pricing_provenance": "unpriced",
+          "pricing_provenance": "pinned-ledger",
           "input": 2872992,
           "output": 486717,
           "cache_read": 198941568,
           "cache_create": 0,
           "reasoning": 271169,
-          "pricing_version": "legacy"
+          "canonical_model": "gpt-6.1-sol",
+          "pricing_version": "2026-11-20.v1"
         },
         {
           "model": "gpt-5.6-sol",
@@ -3701,19 +3743,19 @@
           "cache_read": 4156416,
           "cache_create": 0,
           "reasoning": 14313,
-          "canonical_model": "gpt-5.5",
-          "pricing_version": "2026-07-31.v1"
+          "canonical_model": "gpt-5.6-sol",
+          "pricing_version": "2026-11-20.v1"
         }
       ],
       "codex_snapshot_complete": true,
-      "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_complete": false,
-      "codex_pricing_provenance": "mixed-legacy"
+      "codex_pricing_version": "2026-11-20.v1",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "pinned-ledger"
     },
     {
       "date": "2026-11-03",
       "codex_tokens": 634753927,
-      "codex_cost": 48.25332,
+      "codex_cost": 127.29540399999999,
       "codex_input": 7689782,
       "codex_cache_read": 625765760,
       "codex_output": 1298385,
@@ -3722,15 +3764,16 @@
         {
           "model": "gpt-6.1-sol",
           "tokens": 561697226,
-          "cost": 0.0,
+          "cost": 79.04208399999999,
           "components_complete": true,
-          "pricing_provenance": "unpriced",
+          "pricing_provenance": "pinned-ledger",
           "input": 6003368,
           "output": 1158178,
           "cache_read": 554535680,
           "cache_create": 0,
           "reasoning": 769020,
-          "pricing_version": "legacy"
+          "canonical_model": "gpt-6.1-sol",
+          "pricing_version": "2026-11-20.v1"
         },
         {
           "model": "gpt-5.6-sol",
@@ -3743,19 +3786,19 @@
           "cache_read": 71230080,
           "cache_create": 0,
           "reasoning": 71244,
-          "canonical_model": "gpt-5.5",
-          "pricing_version": "2026-07-31.v1"
+          "canonical_model": "gpt-5.6-sol",
+          "pricing_version": "2026-11-20.v1"
         }
       ],
       "codex_snapshot_complete": true,
-      "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_complete": false,
-      "codex_pricing_provenance": "mixed-legacy"
+      "codex_pricing_version": "2026-11-20.v1",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "pinned-ledger"
     },
     {
       "date": "2026-11-04",
       "codex_tokens": 329864946,
-      "codex_cost": 22.234914,
+      "codex_cost": 63.075202000000004,
       "codex_input": 2750434,
       "codex_cache_read": 326310528,
       "codex_output": 803984,
@@ -3764,15 +3807,16 @@
         {
           "model": "gpt-6.1-sol",
           "tokens": 294588880,
-          "cost": 0.0,
+          "cost": 40.840288,
           "components_complete": true,
-          "pricing_provenance": "unpriced",
+          "pricing_provenance": "pinned-ledger",
           "input": 2080440,
           "output": 750360,
           "cache_read": 291758080,
           "cache_create": 0,
           "reasoning": 521963,
-          "pricing_version": "legacy"
+          "canonical_model": "gpt-6.1-sol",
+          "pricing_version": "2026-11-20.v1"
         },
         {
           "model": "gpt-5.6-sol",
@@ -3785,19 +3829,19 @@
           "cache_read": 34552448,
           "cache_create": 0,
           "reasoning": 23716,
-          "canonical_model": "gpt-5.5",
-          "pricing_version": "2026-07-31.v1"
+          "canonical_model": "gpt-5.6-sol",
+          "pricing_version": "2026-11-20.v1"
         }
       ],
       "codex_snapshot_complete": true,
-      "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_complete": false,
-      "codex_pricing_provenance": "mixed-legacy"
+      "codex_pricing_version": "2026-11-20.v1",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "pinned-ledger"
     },
     {
       "date": "2026-11-06",
       "codex_tokens": 53167516,
-      "codex_cost": 0.0,
+      "codex_cost": 8.759352,
       "codex_input": 861620,
       "codex_cache_read": 52123520,
       "codex_output": 182376,
@@ -3806,26 +3850,27 @@
         {
           "model": "gpt-6.1-sol",
           "tokens": 53167516,
-          "cost": 0.0,
+          "cost": 8.759352,
           "components_complete": true,
-          "pricing_provenance": "unpriced",
+          "pricing_provenance": "pinned-ledger",
           "input": 861620,
           "output": 182376,
           "cache_read": 52123520,
           "cache_create": 0,
           "reasoning": 80397,
-          "pricing_version": "legacy"
+          "canonical_model": "gpt-6.1-sol",
+          "pricing_version": "2026-11-20.v1"
         }
       ],
       "codex_snapshot_complete": true,
-      "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_complete": false,
-      "codex_pricing_provenance": "unpriced"
+      "codex_pricing_version": "2026-11-20.v1",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "pinned-ledger"
     },
     {
       "date": "2026-11-18",
       "codex_tokens": 795156,
-      "codex_cost": 0.0,
+      "codex_cost": 2.30588,
       "codex_input": 770294,
       "codex_cache_read": 24832,
       "codex_output": 30,
@@ -3834,164 +3879,64 @@
         {
           "model": "gpt-6.2-sol",
           "tokens": 530794,
-          "cost": 0.0,
+          "cost": 1.030132,
           "components_complete": true,
-          "pricing_provenance": "unpriced",
+          "pricing_provenance": "pinned-ledger",
           "input": 514134,
           "output": 20,
           "cache_read": 16640,
           "cache_create": 0,
           "reasoning": 0,
-          "pricing_version": "legacy"
+          "canonical_model": "gpt-6.2-sol",
+          "pricing_version": "2026-11-20.v1"
         },
         {
           "model": "gpt-6.1-sol",
           "tokens": 133406,
-          "cost": 0.0,
+          "cost": 0.2590696,
           "components_complete": true,
-          "pricing_provenance": "unpriced",
+          "pricing_provenance": "pinned-ledger",
           "input": 129305,
           "output": 5,
           "cache_read": 4096,
           "cache_create": 0,
           "reasoning": 0,
-          "pricing_version": "legacy"
+          "canonical_model": "gpt-6.1-sol",
+          "pricing_version": "2026-11-20.v1"
         },
         {
           "model": "gpt-6.2-astra",
           "tokens": 130956,
-          "cost": 0.0,
+          "cost": 1.0166784,
           "components_complete": true,
-          "pricing_provenance": "unpriced",
+          "pricing_provenance": "pinned-ledger",
           "input": 126855,
           "output": 5,
           "cache_read": 4096,
           "cache_create": 0,
           "reasoning": 0,
-          "pricing_version": "legacy"
+          "canonical_model": "gpt-6.2-astra",
+          "pricing_version": "2026-11-20.v1"
         }
       ],
       "codex_snapshot_complete": true,
-      "codex_pricing_version": "2026-07-31.v1",
-      "codex_pricing_complete": false,
-      "codex_pricing_provenance": "unpriced"
+      "codex_pricing_version": "2026-11-20.v1",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "pinned-ledger"
     }
   ],
-  "model_breakdown_version": 5,
-  "legacy_comate": {
-    "available": true,
-    "session_files": 23,
-    "sessions_with_usage": 9,
-    "message_count": 82,
-    "total_tokens": 2869161,
-    "cost": 0.0,
-    "history": {
-      "first": "2026-07-13",
-      "last": "2026-11-20"
-    },
-    "daily_timeline": [
-      {
-        "date": "2026-07-13",
-        "tokens": 1521236,
-        "cost": 0.0,
-        "input": 1521236,
-        "output": 0,
-        "sessions": 3,
-        "messages": 34,
-        "model_breakdowns": [
-          {
-            "model": "grok-4.5",
-            "total_tokens": 1426714,
-            "cost_usd": 0.0,
-            "source": "comate-local"
-          },
-          {
-            "model": "GLM-5",
-            "total_tokens": 94522,
-            "cost_usd": 0.0,
-            "source": "comate-local"
-          }
-        ]
-      },
-      {
-        "date": "2026-07-14",
-        "tokens": 114360,
-        "cost": 0.0,
-        "input": 114360,
-        "output": 0,
-        "sessions": 1,
-        "messages": 28,
-        "model_breakdowns": [
-          {
-            "model": "Auto",
-            "total_tokens": 107852,
-            "cost_usd": 0.0,
-            "source": "comate-local"
-          },
-          {
-            "model": "GLM-5",
-            "total_tokens": 6508,
-            "cost_usd": 0.0,
-            "source": "comate-local"
-          }
-        ]
-      },
-      {
-        "date": "2026-07-15",
-        "tokens": 1121114,
-        "cost": 0.0,
-        "input": 1121114,
-        "output": 0,
-        "sessions": 1,
-        "messages": 12,
-        "model_breakdowns": [
-          {
-            "model": "grok-4.5",
-            "total_tokens": 1121114,
-            "cost_usd": 0.0,
-            "source": "comate-local"
-          }
-        ]
-      },
-      {
-        "date": "2026-11-20",
-        "tokens": 112451,
-        "cost": 0.0,
-        "input": 112451,
-        "output": 0,
-        "sessions": 4,
-        "messages": 8,
-        "model_breakdowns": [
-          {
-            "model": "auto",
-            "total_tokens": 112451,
-            "cost_usd": 0.0,
-            "source": "comate-local"
-          }
-        ]
-      }
-    ],
-    "accounting_version": 1,
-    "note": "Comate tokens are positive contextUsed deltas from local chat sessions; not billable API tokens. Cost is always 0."
-  },
-  "scan_complete": true,
-  "scan_errors": {
-    "unreadable_files": 0,
-    "invalid_json_lines": 0,
-    "invalid_timestamps": 0
-  },
   "oneapi_key2": {
     "version": 1,
-    "collected_at": "2026-11-20T16:21:39+08:00",
+    "collected_at": "2026-11-20T18:12:30+08:00",
     "recomputed_from": "2026-10-12",
     "stats": {
-      "calls": 61542,
-      "key1_calls": 9,
-      "key2_calls": 8046,
+      "calls": 62093,
+      "key1_calls": 19,
+      "key2_calls": 8587,
       "unattributed_calls": 53487,
       "unattributed_after_ledger": 0,
-      "fork_copies": 22541,
-      "ledger_lines": 799,
+      "fork_copies": 26032,
+      "ledger_lines": 1381,
       "backfill_lines": 7262,
       "ledger_since": "2026-11-20T14:40:38+08:00",
       "unmapped_models": [],
@@ -4349,56 +4294,56 @@
       },
       {
         "date": "2026-11-20",
-        "requests": 1650,
-        "tokens": 630677313,
+        "requests": 2191,
+        "tokens": 876794147,
         "models": [
           {
             "model": "claude-opus-5-5",
             "raw_models": [
               "Opus 5.5"
             ],
-            "requests": 1353,
-            "input": 560909431,
-            "output": 1020184,
+            "requests": 1871,
+            "input": 803627900,
+            "output": 1424114,
             "cache_read": 0,
             "cache_write": 0,
-            "tokens": 561929615
+            "tokens": 805052014
           },
           {
             "model": "gpt-6.2-astra",
             "raw_models": [
               "gpt-6.2-astra"
             ],
-            "requests": 218,
-            "input": 6817211,
-            "output": 173064,
-            "cache_read": 55325952,
+            "requests": 221,
+            "input": 6889114,
+            "output": 176551,
+            "cache_read": 56196480,
             "cache_write": 0,
-            "tokens": 62316227
+            "tokens": 63262145
           },
           {
             "model": "claude-sonnet-5.5",
             "raw_models": [
               "Claude Sonnet 5.5"
             ],
-            "requests": 6,
-            "input": 3522793,
-            "output": 34471,
+            "requests": 8,
+            "input": 4811656,
+            "output": 52532,
             "cache_read": 0,
             "cache_write": 0,
-            "tokens": 3557264
+            "tokens": 4864188
           },
           {
             "model": "ernie-5.5-flash-preview",
             "raw_models": [
               "ERNIE-5.5-Flash-Preview"
             ],
-            "requests": 72,
-            "input": 281154,
-            "output": 42011,
-            "cache_read": 2543360,
+            "requests": 90,
+            "input": 397575,
+            "output": 50223,
+            "cache_read": 3160320,
             "cache_write": 0,
-            "tokens": 2866525
+            "tokens": 3608118
           },
           {
             "model": "deepseek-v4.1-flash-1017",
@@ -4415,5 +4360,108 @@
         ]
       }
     ]
+  },
+  "model_breakdown_version": 5,
+  "legacy_comate": {
+    "available": true,
+    "session_files": 23,
+    "sessions_with_usage": 9,
+    "message_count": 82,
+    "total_tokens": 2869161,
+    "cost": 0.0,
+    "history": {
+      "first": "2026-07-13",
+      "last": "2026-11-20"
+    },
+    "daily_timeline": [
+      {
+        "date": "2026-07-13",
+        "tokens": 1521236,
+        "cost": 0.0,
+        "input": 1521236,
+        "output": 0,
+        "sessions": 3,
+        "messages": 34,
+        "model_breakdowns": [
+          {
+            "model": "grok-4.5",
+            "total_tokens": 1426714,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          },
+          {
+            "model": "GLM-5",
+            "total_tokens": 94522,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          }
+        ]
+      },
+      {
+        "date": "2026-07-14",
+        "tokens": 114360,
+        "cost": 0.0,
+        "input": 114360,
+        "output": 0,
+        "sessions": 1,
+        "messages": 28,
+        "model_breakdowns": [
+          {
+            "model": "Auto",
+            "total_tokens": 107852,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          },
+          {
+            "model": "GLM-5",
+            "total_tokens": 6508,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          }
+        ]
+      },
+      {
+        "date": "2026-07-15",
+        "tokens": 1121114,
+        "cost": 0.0,
+        "input": 1121114,
+        "output": 0,
+        "sessions": 1,
+        "messages": 12,
+        "model_breakdowns": [
+          {
+            "model": "grok-4.5",
+            "total_tokens": 1121114,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          }
+        ]
+      },
+      {
+        "date": "2026-11-20",
+        "tokens": 112451,
+        "cost": 0.0,
+        "input": 112451,
+        "output": 0,
+        "sessions": 4,
+        "messages": 8,
+        "model_breakdowns": [
+          {
+            "model": "auto",
+            "total_tokens": 112451,
+            "cost_usd": 0.0,
+            "source": "comate-local"
+          }
+        ]
+      }
+    ],
+    "accounting_version": 1,
+    "note": "Comate tokens are positive contextUsed deltas from local chat sessions; not billable API tokens. Cost is always 0."
+  },
+  "scan_complete": true,
+  "scan_errors": {
+    "unreadable_files": 0,
+    "invalid_json_lines": 0,
+    "invalid_timestamps": 0
   }
 }
