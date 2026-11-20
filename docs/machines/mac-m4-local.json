@@ -3,9 +3,9 @@
   "pricing_version": "2026-07-31.v1",
   "machine_id": "mac-m4-local",
   "hostname": "yupengdeMacBook-Pro.local",
-  "collected_at": "2026-11-20T15:03:18+08:00",
-  "captured_at": "2026-11-20T15:03:18+08:00",
-  "snapshot_id": "mac-m4-local@2026-11-20T15:03:18+08:00",
+  "collected_at": "2026-11-20T16:21:03+08:00",
+  "captured_at": "2026-11-20T16:21:03+08:00",
+  "snapshot_id": "mac-m4-local@2026-11-20T16:21:03+08:00",
   "seeded_at": "2026-08-23T00:12:13+08:00",
   "seeded": true,
   "append_mode": true,
@@ -3880,10 +3880,10 @@
   "model_breakdown_version": 5,
   "legacy_comate": {
     "available": true,
-    "session_files": 22,
-    "sessions_with_usage": 8,
-    "message_count": 80,
-    "total_tokens": 2831742,
+    "session_files": 23,
+    "sessions_with_usage": 9,
+    "message_count": 82,
+    "total_tokens": 2869161,
     "cost": 0.0,
     "history": {
       "first": "2026-07-13",
@@ -3955,16 +3955,16 @@
       },
       {
         "date": "2026-11-20",
-        "tokens": 75032,
+        "tokens": 112451,
         "cost": 0.0,
-        "input": 75032,
+        "input": 112451,
         "output": 0,
-        "sessions": 3,
-        "messages": 6,
+        "sessions": 4,
+        "messages": 8,
         "model_breakdowns": [
           {
             "model": "auto",
-            "total_tokens": 75032,
+            "total_tokens": 112451,
             "cost_usd": 0.0,
             "source": "comate-local"
           }
@@ -3979,5 +3979,441 @@
     "unreadable_files": 0,
     "invalid_json_lines": 0,
     "invalid_timestamps": 0
+  },
+  "oneapi_key2": {
+    "version": 1,
+    "collected_at": "2026-11-20T16:21:39+08:00",
+    "recomputed_from": "2026-10-12",
+    "stats": {
+      "calls": 61542,
+      "key1_calls": 9,
+      "key2_calls": 8046,
+      "unattributed_calls": 53487,
+      "unattributed_after_ledger": 0,
+      "fork_copies": 22541,
+      "ledger_lines": 799,
+      "backfill_lines": 7262,
+      "ledger_since": "2026-11-20T14:40:38+08:00",
+      "unmapped_models": [],
+      "kept_higher_dates": []
+    },
+    "daily": [
+      {
+        "date": "2026-11-13",
+        "requests": 1413,
+        "tokens": 605496867,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 1320,
+            "input": 576812960,
+            "output": 886281,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 577699241
+          },
+          {
+            "model": "gpt-6-astra",
+            "raw_models": [
+              "gpt-6-astra"
+            ],
+            "requests": 55,
+            "input": 2022972,
+            "output": 54993,
+            "cache_read": 16064128,
+            "cache_write": 0,
+            "tokens": 18142093
+          },
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 34,
+            "input": 435577,
+            "output": 10332,
+            "cache_read": 6432384,
+            "cache_write": 0,
+            "tokens": 6878293
+          },
+          {
+            "model": "claude-sonnet-5.5",
+            "raw_models": [
+              "Claude Sonnet 5.5"
+            ],
+            "requests": 4,
+            "input": 2752191,
+            "output": 25049,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 2777240
+          }
+        ]
+      },
+      {
+        "date": "2026-11-14",
+        "requests": 61,
+        "tokens": 37535587,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 61,
+            "input": 37498846,
+            "output": 36741,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 37535587
+          }
+        ]
+      },
+      {
+        "date": "2026-11-15",
+        "requests": 1,
+        "tokens": 6693,
+        "models": [
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 1,
+            "input": 6634,
+            "output": 59,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 6693
+          }
+        ]
+      },
+      {
+        "date": "2026-11-16",
+        "requests": 1657,
+        "tokens": 630805071,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 1112,
+            "input": 507914361,
+            "output": 817445,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 508731806
+          },
+          {
+            "model": "gpt-6-astra",
+            "raw_models": [
+              "gpt-6-astra"
+            ],
+            "requests": 288,
+            "input": 1449545,
+            "output": 141291,
+            "cache_read": 107152000,
+            "cache_write": 0,
+            "tokens": 108742836
+          },
+          {
+            "model": "ernie-5.5-flash-preview",
+            "raw_models": [
+              "ERNIE-5.5-Flash-Preview"
+            ],
+            "requests": 210,
+            "input": 517132,
+            "output": 77276,
+            "cache_read": 8190720,
+            "cache_write": 0,
+            "tokens": 8785128
+          },
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 43,
+            "input": 210948,
+            "output": 42619,
+            "cache_read": 2119680,
+            "cache_write": 0,
+            "tokens": 2373247
+          },
+          {
+            "model": "claude-sonnet-5.5",
+            "raw_models": [
+              "Claude Sonnet 5.5"
+            ],
+            "requests": 4,
+            "input": 2141054,
+            "output": 31000,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 2172054
+          }
+        ]
+      },
+      {
+        "date": "2026-11-17",
+        "requests": 1086,
+        "tokens": 478392177,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 952,
+            "input": 470447620,
+            "output": 668833,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 471116453
+          },
+          {
+            "model": "ernie-5.5-flash-preview",
+            "raw_models": [
+              "ERNIE-5.5-Flash-Preview"
+            ],
+            "requests": 121,
+            "input": 235483,
+            "output": 42320,
+            "cache_read": 4722176,
+            "cache_write": 0,
+            "tokens": 4999979
+          },
+          {
+            "model": "claude-sonnet-5.5",
+            "raw_models": [
+              "Claude Sonnet 5.5"
+            ],
+            "requests": 3,
+            "input": 1788838,
+            "output": 11275,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 1800113
+          },
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 10,
+            "input": 32575,
+            "output": 10673,
+            "cache_read": 432384,
+            "cache_write": 0,
+            "tokens": 475632
+          }
+        ]
+      },
+      {
+        "date": "2026-11-18",
+        "requests": 1676,
+        "tokens": 496971377,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 897,
+            "input": 372145943,
+            "output": 736589,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 372882532
+          },
+          {
+            "model": "gpt-6.2-astra",
+            "raw_models": [
+              "gpt-6.2-astra"
+            ],
+            "requests": 286,
+            "input": 1513278,
+            "output": 159700,
+            "cache_read": 89826048,
+            "cache_write": 0,
+            "tokens": 91499026
+          },
+          {
+            "model": "ernie-5.5-flash-preview",
+            "raw_models": [
+              "ERNIE-5.5-Flash-Preview"
+            ],
+            "requests": 455,
+            "input": 665677,
+            "output": 139429,
+            "cache_read": 25853440,
+            "cache_write": 0,
+            "tokens": 26658546
+          },
+          {
+            "model": "claude-sonnet-5.5",
+            "raw_models": [
+              "Claude Sonnet 5.5"
+            ],
+            "requests": 8,
+            "input": 4589864,
+            "output": 46683,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 4636547
+          },
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 21,
+            "input": 234191,
+            "output": 21557,
+            "cache_read": 832640,
+            "cache_write": 0,
+            "tokens": 1088388
+          },
+          {
+            "model": "claude-fable-5-2",
+            "raw_models": [
+              "Fable 5.2 尝鲜"
+            ],
+            "requests": 5,
+            "input": 128696,
+            "output": 306,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 129002
+          },
+          {
+            "model": "gpt-6.2-sol",
+            "raw_models": [
+              "gpt-6.2-sol"
+            ],
+            "requests": 4,
+            "input": 38848,
+            "output": 88,
+            "cache_read": 38400,
+            "cache_write": 0,
+            "tokens": 77336
+          }
+        ]
+      },
+      {
+        "date": "2026-11-19",
+        "requests": 502,
+        "tokens": 177709039,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 310,
+            "input": 134547848,
+            "output": 281281,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 134829129
+          },
+          {
+            "model": "gpt-6.2-astra",
+            "raw_models": [
+              "gpt-6.2-astra"
+            ],
+            "requests": 190,
+            "input": 1824056,
+            "output": 67629,
+            "cache_read": 39753472,
+            "cache_write": 0,
+            "tokens": 41645157
+          },
+          {
+            "model": "claude-sonnet-5.5",
+            "raw_models": [
+              "Claude Sonnet 5.5"
+            ],
+            "requests": 2,
+            "input": 1221424,
+            "output": 13329,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 1234753
+          }
+        ]
+      },
+      {
+        "date": "2026-11-20",
+        "requests": 1650,
+        "tokens": 630677313,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 1353,
+            "input": 560909431,
+            "output": 1020184,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 561929615
+          },
+          {
+            "model": "gpt-6.2-astra",
+            "raw_models": [
+              "gpt-6.2-astra"
+            ],
+            "requests": 218,
+            "input": 6817211,
+            "output": 173064,
+            "cache_read": 55325952,
+            "cache_write": 0,
+            "tokens": 62316227
+          },
+          {
+            "model": "claude-sonnet-5.5",
+            "raw_models": [
+              "Claude Sonnet 5.5"
+            ],
+            "requests": 6,
+            "input": 3522793,
+            "output": 34471,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 3557264
+          },
+          {
+            "model": "ernie-5.5-flash-preview",
+            "raw_models": [
+              "ERNIE-5.5-Flash-Preview"
+            ],
+            "requests": 72,
+            "input": 281154,
+            "output": 42011,
+            "cache_read": 2543360,
+            "cache_write": 0,
+            "tokens": 2866525
+          },
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 1,
+            "input": 7623,
+            "output": 59,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 7682
+          }
+        ]
+      }
+    ]
   }
 }
