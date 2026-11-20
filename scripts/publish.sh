@@ -766,7 +766,7 @@ collect_oneapi_cache() {
     log "WARN: could not secure One API cache temp file; merge will keep prior series"
     return 0
   fi
-  log "collecting the 31-day One API account snapshot → ${cache_path}"
+  log "collecting complete 31-day One API account snapshot → ${cache_path}"
   ONEAPI_LIVE_ATTEMPTED=1
   if python3 "$ROOT/scripts/oneapi_usage.py" \
       --state-path "$state_path" \
