@@ -109,7 +109,7 @@ Same launchd schedule on both Macs is fine; a push collision just triggers re-me
 | Tool | Rule |
 |------|------|
 | Codex | Per-machine durable fragment; dates before `mutable_from` are frozen, the open window is re-collected from `~/.codex` rollout JSONL; report = SUM across `machines/*.json` **plus the One API gateway's Codex model family** (additive append, no dedup). A fragment marked `retired` remains in historical totals but is excluded from active freshness and hostname checks |
-| Claude Code | Account-level; rebuilt from the One API gateway's Claude model family (plus second-key rows) for the One API window, older values stay frozen; do not SUM across Macs |
+| Claude Code | Account-level; rebuilt from the One API gateway's Claude model family (plus second-key rows). The payload keeps that family's daily series, so the One API window replaces only its own days and older gateway days keep their model tokens; days before the gateway series stay frozen; do not SUM across Macs |
 | Cursor | Account-level; dates before `cursor_mutable_from` are frozen, the open window is refreshed; do not SUM across Macs |
 | One API | Account-level residual gateway series; collect after pull, keep the GPT/Codex model family in a dedicated `codex` series and the Claude family in the `claude` series, replace only a complete 31-day statistics window, and keep prior history on missing/expired state or an incomplete response. Local Comate history is retained here only for dates without gateway coverage |
 | Second One API key | OpenCode sends most One API requests with a key that belongs to another account, so this account's statistics never include them. Each Mac meters those calls locally (`oneapi_key2` in its fragment); the merge SUMs every Mac's rows for the One API window and adds them to the same model families, with quota estimated from this account's own quota per token for that model |
@@ -190,7 +190,7 @@ Do not use `--force-reseed` for this migration.
 | `scripts/generate_readme_cards.mjs` | Dynamic summary + weekly Skyline SVG generator |
 | `scripts/usage_pipeline.py` | Collect + merge |
 | `scripts/ai_usage_comparison_image.py` | Compatibility CLI for the former collector name |
-| `scripts/model_prices.v1.json` | Versioned Codex estimate ledger |
+| `scripts/model_prices.v1.json` | Versioned list-price ledger for Codex and Claude Code |
 | `scripts/cursor_usage_api.py` | Cursor session, API, redaction, and event normalization library |
 | `scripts/cursor_usage_api_probe.py` | Manual Cursor diagnostic export CLI |
 | `scripts/oneapi_usage.py` | One API browser collection, model ownership filter, second-key pricing, and aggregation |
@@ -205,7 +205,7 @@ Do not use `--force-reseed` for this migration.
 ## Data sources
 
 - Codex: `~/.codex` rollout JSONL (sum of each request's real token increment)
-- Claude Code: One API gateway's Claude model family (the One API window; older dates keep prior values)
+- Claude Code: One API gateway's Claude model family (the One API window refreshes its days; older gateway days keep their stored series)
 - Cursor: authenticated Dashboard API via local Cursor session
 - Historical Comate: `~/.comate-engine/store/chat_session_*` (positive
   `contextUsed` deltas; cost always 0), migrated under One API only on dates
@@ -234,17 +234,24 @@ Do not use `--force-reseed` for this migration.
   was derived once by matching local calls against this account's own log records
   (a call with no key-1 record used key 2). Override the paths with
   `OPENCODE_DB_PATH` and `ONEAPI_KEY_LEDGER_DIR`.
-- Costs: the checked-in, versioned model-price ledger for reproducible
-  Codex estimates; unresolved historical models retain any collector
-  estimate, or remain unpriced, with explicit `legacy`/`unpriced` provenance
-  rather than being presented as part of the pinned ledger.
-  Cursor uses its account API; One API quota (including the Claude Code series
-  and the gateway-routed Codex series)
-  is converted at 250,000 units/CNY and estimated at the pinned 0.14 USD/CNY rate.
+- Costs: Codex and Claude Code are compared at official API list prices. The
+  checked-in, versioned ledger `scripts/model_prices.v1.json` holds the OpenAI and
+  Anthropic standard rates (short-context rates for GPT; GPT-5.6 Sol at its regular
+  rate, not its temporary promotion). Each publish prices every Codex and Claude
+  model that has persisted input, output, and cache tokens, on every stored day,
+  from every Mac and the gateway. The gateway reports no Claude cache hits, so all
+  Claude input is priced as uncached, which overstates what the same traffic costs
+  with prompt caching. Models without a list price, and days stored without
+  per-model tokens, keep their recorded collector estimate or gateway charge with
+  explicit `legacy`/`unpriced` provenance.
+  Cursor uses its account API. One API shows the gateway's actual charge for its
+  other models: quota converted at 250,000 units/CNY and estimated at the pinned
+  0.14 USD/CNY rate. The `oneapi` payload keeps the gateway charge for the Claude
+  and Codex families too, and the cost note states the latest window's total.
   Second-key quota is an estimate: tokens times this account's quota per token for
   the same model in the same window (OpenCode's own key-1 calls, which carry no
-  source header, else the model's calls from any source); model rows that include
-  it carry `pricing_provenance: oneapi-estimated`.
+  source header, else the model's calls from any source); gateway model rows that
+  include it carry `pricing_provenance: oneapi-estimated`.
 
 Save or refresh the One API browser state after logging in manually:
 
@@ -264,6 +271,17 @@ rename, preventing an older pre-pull or half-written cache from replacing newer
 remote data. Set `CHROME_USE_BIN`
 when the executable is outside the LaunchAgent `PATH`; otherwise the collector
 also checks `~/.local/bin/chrome-use`.
+
+The statistics endpoint accepts at most 90 days per request; longer windows are
+fetched as consecutive requests. To rebuild older gateway days once, collect a
+longer window and merge it; later 31-day publishes keep those days:
+
+```bash
+python3 scripts/oneapi_usage.py --days 100 > /tmp/oneapi-100.json
+python3 scripts/usage_pipeline.py --json-out public/usage.json \
+  --machines-dir public/machines --machine-id "$AI_USAGE_MACHINE_ID" \
+  --merge-only --oneapi-days 100 --oneapi-cache-path /tmp/oneapi-100.json
+```
 
 Each published daily row carries model breakdowns. The yearbook aggregates the
 selected calendar window; tool and model selection updates the chart, precise totals,

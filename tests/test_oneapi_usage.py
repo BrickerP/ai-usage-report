@@ -639,6 +639,59 @@ class OneApiBrowserCollectionTests(unittest.TestCase):
         self.assertEqual(result["claude"]["totals"]["requests"], 4)
         self.assertEqual(len(result["rows"]), 3)
 
+    def test_window_longer_than_90_days_is_fetched_as_consecutive_requests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "state.json"
+            state_path.write_text(
+                json.dumps(saved_browser_state()), encoding="utf-8"
+            )
+            completed = [
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+                auth_completed(authenticated=True),
+                browser_completed(
+                    {
+                        "_complete": True,
+                        "_rows": [stats_row("claude-opus-5-5", date="2026-08-13", prompt=10)],
+                    }
+                ),
+                browser_completed(
+                    {
+                        "_complete": True,
+                        "_rows": [stats_row("claude-opus-5-5", date="2026-11-20", prompt=20)],
+                    }
+                ),
+                subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+            ]
+            with (
+                mock.patch.object(
+                    oneapi_usage.subprocess,
+                    "run",
+                    side_effect=completed,
+                ) as run,
+                mock.patch.object(
+                    oneapi_usage,
+                    "chrome_use_path",
+                    return_value="/usr/bin/true",
+                ),
+                mock.patch.object(
+                    oneapi_usage,
+                    "save_session_state_atomic",
+                    return_value={"state_refreshed": True, "warning": ""},
+                ),
+            ):
+                result = oneapi_usage.collect_oneapi(
+                    timezone="Asia/Shanghai",
+                    state_path=str(state_path),
+                    since="2026-08-13",
+                    until="2026-11-20",
+                )
+
+        requests = [call.kwargs["input"] for call in run.call_args_list[2:4]]
+        self.assertIn("start_time=2026-08-13&end_time=2026-11-10", requests[0])
+        self.assertIn("start_time=2026-11-11&end_time=2026-11-20", requests[1])
+        self.assertEqual(result["window"]["calendar_days"], 100)
+        self.assertEqual(result["claude"]["totals"]["total_tokens"], 30)
+
     def test_statistics_row_outside_the_window_is_rejected(self):
         with self.assertRaisesRegex(oneapi_usage.OneApiRefreshFailed, "outside"):
             self.run_collection(
@@ -1339,6 +1392,54 @@ class OneApiReconciliationTests(unittest.TestCase):
         codex_days = [p["date"] for p in result["codex"]["daily_timeline"]]
         self.assertEqual(codex_days, ["2026-07-27", "2026-07-29"])
 
+    def test_claude_payload_merge_keeps_prior_days_outside_fresh_window(self):
+        def point(date_key: str, tokens: int) -> dict:
+            return {
+                "date": date_key,
+                "tokens": tokens,
+                "input": tokens,
+                "model_breakdowns": [
+                    {
+                        "model": "claude-opus-5-5",
+                        "input_tokens": tokens,
+                        "total_tokens": tokens,
+                    }
+                ],
+            }
+
+        prior = {
+            "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+            "daily_timeline": [],
+            "claude": {"daily_timeline": [point("2026-07-20", 5), point("2026-07-28", 9)]},
+        }
+        fetched = {
+            "available": True,
+            "complete": True,
+            "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
+            "window": {"start": "2026-07-28", "end": "2026-07-29"},
+            "daily_timeline": [],
+            "claude": {
+                "history": {"first": "2026-07-29", "last": "2026-07-29"},
+                "daily_timeline": [point("2026-07-29", 7)],
+            },
+        }
+
+        result = usage_report.reconcile_oneapi_payload(
+            prior, fetched, {"daily_timeline": [], "total_tokens": 0}
+        )
+
+        claude = result["claude"]
+        # The fresh window replaces its own days, including one with no usage left.
+        self.assertEqual(
+            [p["date"] for p in claude["daily_timeline"]],
+            ["2026-07-20", "2026-07-29"],
+        )
+        self.assertEqual(claude["history"], {"first": "2026-07-20", "last": "2026-07-29"})
+        self.assertEqual(
+            claude["daily_timeline"][0]["model_breakdowns"][0]["model"],
+            "claude-opus-5-5",
+        )
+
     def test_payload_keeps_prior_models_and_adds_non_overlapping_comate_history(self):
         prior = {
             "accounting_version": oneapi_usage.ACCOUNTING_VERSION,
@@ -1430,6 +1531,191 @@ class OneApiReconciliationTests(unittest.TestCase):
         legacy = next(model for model in models if model["model"] == "Legacy unknown")
         self.assertEqual(legacy["tokens"], 10)
         self.assertAlmostEqual(legacy["cost"], 1.0)
+
+
+class ListPriceTests(unittest.TestCase):
+    def test_gateway_and_local_model_names_resolve_to_list_prices(self):
+        for name, canonical in (
+            ("claude-opus-5-5", "claude-opus-5-5"),
+            ("claude-sonnet-5.5", "claude-sonnet-5-5"),
+            ("claude-haiku-5.5", "claude-haiku-5-5"),
+            ("claude-opus-4-8", "claude-opus-5"),
+            ("gpt-6.1-sol", "gpt-6.1-sol"),
+            ("gpt-6-astra", "gpt-6-astra"),
+            ("gpt-5.6-sol", "gpt-5.6-sol"),
+            ("codex-auto-review", "gpt-5.5"),
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    usage_report.PINNED_PRICE_INDEX[name]["canonical_model"],
+                    canonical,
+                )
+
+    def test_codex_and_claude_days_are_priced_from_model_tokens(self):
+        row = usage_report.empty_daily_row("2026-11-18")
+        row.update(
+            {
+                "codex_tokens": 1_200_000,
+                "codex_cost": 0.5,
+                "codex_input": 100_000,
+                "codex_cache_read": 1_000_000,
+                "codex_output": 100_000,
+                "codex_models": [
+                    # A Mac's rollout row and the gateway row of the same model.
+                    {
+                        "model": "gpt-6.1-sol",
+                        "tokens": 1_100_000,
+                        "cost": 0.0,
+                        "components_complete": True,
+                        "input": 100_000,
+                        "output": 0,
+                        "cache_read": 1_000_000,
+                        "cache_create": 0,
+                    },
+                    {
+                        "model": "gpt-6.1-sol",
+                        "total_tokens": 100_000,
+                        "cost_usd": 0.5,
+                        "input_tokens": 0,
+                        "output_tokens": 100_000,
+                        "cache_read_tokens": 0,
+                        "cache_write_tokens": 0,
+                    },
+                ],
+                "claude_tokens": 1_010_000,
+                "claude_cost": 0.4,
+                "claude_input": 1_000_000,
+                "claude_output": 10_000,
+                "claude_models": [
+                    {
+                        "model": "claude-opus-5-5",
+                        "total_tokens": 1_010_000,
+                        "cost_usd": 0.4,
+                        "input_tokens": 1_000_000,
+                        "output_tokens": 10_000,
+                        "cache_read_tokens": 0,
+                        "cache_write_tokens": 0,
+                    }
+                ],
+                "oneapi_tokens": 10,
+                "oneapi_input": 10,
+                "oneapi_cost": 0.01,
+            }
+        )
+
+        usage_report.apply_list_prices([row])
+
+        # gpt-6.1-sol per 1M tokens: $2 input, $0.10 cache read, $10 output.
+        self.assertAlmostEqual(row["codex_cost"], 0.2 + 0.1 + 1.0)
+        # claude-opus-5-5 per 1M tokens: $4 input, $20 output.
+        self.assertAlmostEqual(row["claude_cost"], 4.0 + 0.2)
+        # One API keeps the gateway's actual charge.
+        self.assertAlmostEqual(row["oneapi_cost"], 0.01)
+        self.assertAlmostEqual(row["total_cost"], 1.3 + 4.2 + 0.01)
+        [codex_model] = row["codex_models"]
+        self.assertEqual(codex_model["tokens"], 1_200_000)
+        self.assertEqual(codex_model["pricing_provenance"], "pinned-ledger")
+        self.assertEqual(row["codex_pricing_provenance"], "pinned-ledger")
+        self.assertTrue(row["claude_pricing_complete"])
+        self.assertEqual(row["claude_pricing_version"], usage_report.PRICING_VERSION)
+
+    def test_legacy_residual_is_dropped_only_when_every_model_is_priced(self):
+        def codex_row(models: list[dict], cost: float) -> dict:
+            row = usage_report.empty_daily_row("2026-07-01")
+            tokens = sum(model["tokens"] for model in models)
+            row.update(
+                {
+                    "codex_tokens": tokens,
+                    "codex_input": tokens,
+                    "codex_cost": cost,
+                    "codex_models": models,
+                }
+            )
+            return row
+
+        def model(name: str, tokens: int, cost: float) -> dict:
+            return {
+                "model": name,
+                "tokens": tokens,
+                "cost": cost,
+                "components_complete": True,
+                "input": tokens,
+                "output": 0,
+                "cache_read": 0,
+                "cache_create": 0,
+            }
+
+        residual = {"model": "Legacy collector residual", "tokens": 0, "cost": 5.0}
+        priced = codex_row([model("gpt-5.6-sol", 1_000_000, 1.0), dict(residual)], 6.0)
+        mixed = codex_row(
+            [
+                model("gpt-5.6-sol", 1_000_000, 1.0),
+                model("gpt-5.3-codex-spark", 1_000, 0.0),
+                dict(residual),
+            ],
+            6.0,
+        )
+
+        usage_report.apply_list_prices([priced, mixed])
+
+        # gpt-5.6-sol is priced at its regular $5 per 1M input tokens.
+        self.assertAlmostEqual(priced["codex_cost"], 5.0)
+        self.assertNotIn(
+            "Legacy collector residual", {item["model"] for item in priced["codex_models"]}
+        )
+        self.assertTrue(priced["codex_pricing_complete"])
+        self.assertAlmostEqual(mixed["codex_cost"], 5.0 + 5.0)
+        self.assertIn(
+            "Legacy collector residual", {item["model"] for item in mixed["codex_models"]}
+        )
+        self.assertFalse(mixed["codex_pricing_complete"])
+        self.assertEqual(mixed["codex_pricing_provenance"], "mixed-legacy")
+
+    def test_cost_note_states_the_gateways_actual_charge_for_the_window(self):
+        note = usage_report.gateway_charge_note(
+            {
+                "window": {"start": "2026-11-01", "end": "2026-11-02"},
+                "daily_timeline": [
+                    {"date": "2026-11-02", "quota": 250_000},
+                    {"date": "2026-10-31", "quota": 9_999_999},
+                ],
+                "claude": {"daily_timeline": [{"date": "2026-11-01", "quota": 2_500_000}]},
+                "codex": {"daily_timeline": [{"date": "2026-11-02", "quota": 500_000}]},
+            }
+        )
+
+        self.assertIn("¥13 for 2026-11-01 to 2026-11-02", note)
+        self.assertIn("Claude ¥10, Codex ¥2, other models ¥1", note)
+
+    def test_days_without_model_tokens_keep_their_recorded_cost(self):
+        legacy = usage_report.empty_daily_row("2026-09-01")
+        legacy.update({"claude_tokens": 1_000, "claude_input": 1_000, "claude_cost": 2.5})
+        partial = usage_report.empty_daily_row("2026-09-02")
+        partial.update(
+            {
+                "claude_tokens": 2_000,
+                "claude_input": 2_000,
+                "claude_cost": 3.0,
+                "claude_models": [
+                    {
+                        "model": "claude-opus-5-5",
+                        "tokens": 1_000,
+                        "cost": 1.0,
+                        "input": 1_000,
+                        "output": 0,
+                    }
+                ],
+            }
+        )
+
+        usage_report.apply_list_prices([legacy, partial])
+
+        self.assertAlmostEqual(legacy["claude_cost"], 2.5)
+        self.assertNotIn("claude_pricing_version", legacy)
+        # The unattributed 1,000 tokens keep their $2.00; the priced model is repriced.
+        self.assertAlmostEqual(partial["claude_cost"], 1_000 * 4e-6 + 2.0)
+        self.assertFalse(partial["claude_pricing_complete"])
+        self.assertEqual(partial["claude_pricing_provenance"], "mixed-legacy")
 
 
 class SourceStatusTests(unittest.TestCase):

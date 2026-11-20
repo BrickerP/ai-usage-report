@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Collect LLM usage data from One API gateway.
 
-One request to /api/mine/usage_statistics returns the account's day x model x
-source totals (requests, tokens, quota) for a calendar window, so a single run
-re-reads the whole window and recovers any days a failed run missed.
+/api/mine/usage_statistics returns the account's day x model x source totals
+(requests, tokens, quota) for a calendar window of up to 90 days, so a single
+run re-reads the whole window and recovers any days a failed run missed.
+Longer windows are fetched as consecutive 90-day requests.
 """
 from __future__ import annotations
 
@@ -159,6 +160,21 @@ def window_calendar_days(start: str, end: str) -> int:
     except (TypeError, ValueError):
         return 0
     return max(0, (last - first).days + 1)
+
+
+# /api/mine/usage_statistics rejects ranges longer than 90 calendar days.
+STATS_MAX_DAYS = 90
+
+
+def stats_windows(start: dt.date, end: dt.date) -> list[tuple[dt.date, dt.date]]:
+    """Split a calendar window into consecutive requests the gateway accepts."""
+    windows: list[tuple[dt.date, dt.date]] = []
+    chunk_start = start
+    while chunk_start <= end:
+        chunk_end = min(end, chunk_start + dt.timedelta(days=STATS_MAX_DAYS - 1))
+        windows.append((chunk_start, chunk_end))
+        chunk_start = chunk_end + dt.timedelta(days=1)
+    return windows
 
 
 STATS_FIELDS = (
@@ -1111,34 +1127,38 @@ def collect_oneapi(
         )
         session_health["silent_sso_attempted"] = silent_sso_attempted
 
-        browser_result = _evaluate_browser_object(
-            cu,
-            session_name,
-            FETCH_STATS_JS
-            % {
-                "base": ONEAPI_BASE,
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat(),
-            },
-            phase="usage statistics fetch",
-            timeout_ms=120_000,
-            process_timeout=150,
-        )
-        error_code = str(browser_result.get("_error_code") or "")
-        if error_code:
-            _raise_browser_error(
-                error_code,
-                "One API usage statistics fetch failed",
+        rows: list[dict[str, Any]] = []
+        for chunk_start, chunk_end in stats_windows(start_date, end_date):
+            browser_result = _evaluate_browser_object(
+                cu,
+                session_name,
+                FETCH_STATS_JS
+                % {
+                    "base": ONEAPI_BASE,
+                    "start": chunk_start.isoformat(),
+                    "end": chunk_end.isoformat(),
+                },
+                phase="usage statistics fetch",
+                timeout_ms=120_000,
+                process_timeout=150,
             )
-        if browser_result.get("_complete") is not True:
-            raise OneApiRefreshFailed(
-                "One API usage statistics response is incomplete"
+            error_code = str(browser_result.get("_error_code") or "")
+            if error_code:
+                _raise_browser_error(
+                    error_code,
+                    "One API usage statistics fetch failed",
+                )
+            if browser_result.get("_complete") is not True:
+                raise OneApiRefreshFailed(
+                    "One API usage statistics response is incomplete"
+                )
+            rows.extend(
+                normalize_stats_rows(
+                    browser_result.get("_rows"),
+                    window_start=chunk_start.isoformat(),
+                    window_end=chunk_end.isoformat(),
+                )
             )
-        rows = normalize_stats_rows(
-            browser_result.get("_rows"),
-            window_start=start_date.isoformat(),
-            window_end=end_date.isoformat(),
-        )
     except OneApiCollectorError as exc:
         exc.metadata.setdefault("silent_sso_attempted", silent_sso_attempted)
         if session_health:

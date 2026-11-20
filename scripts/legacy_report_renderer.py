@@ -1034,9 +1034,10 @@ input[type="date"] {{
 <p class="methodology">
   <strong>Token breakdown:</strong> cards and tooltips show input, cache, and output tokens per tool.
   Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read.
-  <strong>Cost estimate:</strong> Codex uses the checked-in <code>{esc(pricing_version)}</code> price ledger;
+  <strong>Cost estimate:</strong> Codex and Claude Code use the checked-in <code>{esc(pricing_version)}</code> list-price ledger;
   unresolved models retain an explicit legacy collector value. Codex totals include local ~/.codex rollout
-  jsonl plus the One API gateway's Codex model family. Claude Code and One API come from the One API gateway quota.
+  jsonl plus the One API gateway's Codex model family. Claude Code comes from the One API gateway, which reports
+  no Claude cache hits, so its input is priced as uncached. One API shows the gateway's actual charge.
   Cursor costs come from the authenticated Dashboard API.
 </p>
 <section class="cards">{cards_html}</section>

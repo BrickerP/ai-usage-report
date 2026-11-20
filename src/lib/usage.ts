@@ -133,7 +133,7 @@ export const TOOLS: Array<{
     costKey: 'codex_cost',
     modelKey: 'codex_models',
     coverage:
-      'Covers Codex Desktop session logs plus the One API gateway Codex family, including OpenCode calls made with the second One API key. Runs started with codex exec --ephemeral persist no session file and are absent.',
+      'Covers Codex Desktop session logs plus the One API gateway Codex family, including OpenCode calls made with the second One API key. Cost is an estimate at OpenAI list prices. Runs started with codex exec --ephemeral persist no session file and are absent.',
     breakdown: [
       { key: 'codex_input', label: 'Input' },
       { key: 'codex_cache_read', label: 'Cache read' },
@@ -159,7 +159,7 @@ export const TOOLS: Array<{
     costKey: 'claude_cost',
     modelKey: 'claude_models',
     coverage:
-      'Covers the One API gateway Claude model family, including OpenCode calls made with the second One API key (metered on each Mac; cost estimated).',
+      'Covers the One API gateway Claude model family, including OpenCode calls made with the second One API key (metered on each Mac). Cost is an estimate at Anthropic list prices; the gateway reports no cache hits, so all input is priced as uncached.',
     breakdown: [
       { key: 'claude_input', label: 'Input' },
       { key: 'claude_cache_create', label: 'Cache create' },
@@ -194,7 +194,7 @@ export const TOOLS: Array<{
     costKey: 'oneapi_cost',
     modelKey: 'oneapi_models',
     coverage:
-      'Covers the One API gateway excluding its Codex and Claude families, which are reported under those tools. OpenCode calls made with the second One API key are metered on each Mac and their cost is estimated.',
+      'Covers the One API gateway excluding its Codex and Claude families, which are reported under those tools. Cost is the actual gateway charge; for OpenCode calls made with the second One API key, which are metered on each Mac, it is estimated.',
     breakdown: [
       { key: 'oneapi_input', label: 'Input' },
       { key: 'oneapi_cache_read', label: 'Cache read' },
