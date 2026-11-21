@@ -3,9 +3,9 @@
   "pricing_version": "2026-11-20.v1",
   "machine_id": "mac-m3-local",
   "hostname": "wpdeMacBook-Pro.local",
-  "collected_at": "2026-11-21T00:37:01+08:00",
-  "captured_at": "2026-11-21T00:37:01+08:00",
-  "snapshot_id": "mac-m3-local@2026-11-21T00:37:01+08:00",
+  "collected_at": "2026-11-21T15:34:15+08:00",
+  "captured_at": "2026-11-21T15:34:15+08:00",
+  "snapshot_id": "mac-m3-local@2026-11-21T15:34:15+08:00",
   "seeded_at": "2026-10-16T00:09:24+08:00",
   "seeded": true,
   "append_mode": true,
@@ -42,72 +42,7 @@
       "2026-11-10:codex": "token_regression",
       "2026-11-11:codex": "token_regression"
     },
-    "pricing_changes": [
-      {
-        "date": "2026-11-12",
-        "tool": "codex",
-        "from": 116.5035155,
-        "to": 294.4181124,
-        "pricing_version": "2026-11-20.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-11-13",
-        "tool": "codex",
-        "from": 55.487324,
-        "to": 338.63133619999996,
-        "pricing_version": "2026-11-20.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-11-15",
-        "tool": "codex",
-        "from": 0.0,
-        "to": 56.6618804,
-        "pricing_version": "2026-11-20.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-11-16",
-        "tool": "codex",
-        "from": 51.1360205,
-        "to": 98.297528,
-        "pricing_version": "2026-11-20.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-11-17",
-        "tool": "codex",
-        "from": 32.8024925,
-        "to": 292.266714,
-        "pricing_version": "2026-11-20.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-11-18",
-        "tool": "codex",
-        "from": 0.0,
-        "to": 281.4833628,
-        "pricing_version": "2026-11-20.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-11-19",
-        "tool": "codex",
-        "from": 0.0,
-        "to": 12.4226912,
-        "pricing_version": "2026-11-20.v1",
-        "pricing_complete": true
-      },
-      {
-        "date": "2026-11-20",
-        "tool": "codex",
-        "from": 0.0,
-        "to": 326.9811312,
-        "pricing_version": "2026-11-20.v1",
-        "pricing_complete": true
-      }
-    ],
+    "pricing_changes": [],
     "pricing_regression_dates": []
   },
   "timezone": "Asia/Shanghai",
@@ -1705,16 +1640,16 @@
   ],
   "oneapi_key2": {
     "version": 1,
-    "collected_at": "2026-11-21T00:37:10+08:00",
+    "collected_at": "2026-11-21T15:34:20+08:00",
     "recomputed_from": "2026-10-13",
     "stats": {
-      "calls": 39458,
-      "key1_calls": 3,
-      "key2_calls": 605,
+      "calls": 39476,
+      "key1_calls": 4,
+      "key2_calls": 622,
       "unattributed_calls": 38850,
       "unattributed_after_ledger": 0,
       "fork_copies": 218,
-      "ledger_lines": 172,
+      "ledger_lines": 190,
       "backfill_lines": 436,
       "ledger_since": "2026-11-20T14:47:42+08:00",
       "unmapped_models": [],
@@ -1830,6 +1765,25 @@
             "cache_read": 0,
             "cache_write": 0,
             "tokens": 591295
+          }
+        ]
+      },
+      {
+        "date": "2026-11-21",
+        "requests": 17,
+        "tokens": 13614276,
+        "models": [
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 17,
+            "input": 808787,
+            "output": 7025,
+            "cache_read": 12798464,
+            "cache_write": 0,
+            "tokens": 13614276
           }
         ]
       }
