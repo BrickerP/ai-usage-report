@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-11-20.v1",
-  "captured_at": "2026-11-22T15:37:00+08:00",
+  "captured_at": "2026-11-22T16:06:03+08:00",
   "snapshot_id": "sha256:7053896c0b635320081b1b4da59f01ede03b4d3ccebacba97bf328b5922af843",
-  "generated_at": "2026-11-22T15:37:00+08:00",
+  "generated_at": "2026-11-22T16:06:03+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -57,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m3-local",
+  "machine_id": "mac-m1-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1416,15 +1416,15 @@
   "source_status": {
     "codex": {
       "status": "fresh",
-      "attempted_at": "2026-11-22T01:05:05+08:00",
-      "last_success_at": "2026-11-22T01:05:05+08:00",
+      "attempted_at": "2026-11-22T15:03:07+08:00",
+      "last_success_at": "2026-11-22T15:03:07+08:00",
       "window_end": "2026-11-22",
       "lag_days": 0,
       "error": ""
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-22T15:35:00+08:00",
+      "attempted_at": "2026-11-22T16:04:03+08:00",
       "last_success_at": "2026-11-22T15:03:31+08:00",
       "window_end": "2026-11-22",
       "lag_days": 0,
@@ -1432,7 +1432,7 @@
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-22T15:35:00+08:00",
+      "attempted_at": "2026-11-22T16:04:03+08:00",
       "last_success_at": "2026-11-22T15:03:31+08:00",
       "window_end": "2026-11-10",
       "lag_days": 12,
@@ -1440,7 +1440,7 @@
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-22T15:35:00+08:00",
+      "attempted_at": "2026-11-22T16:04:03+08:00",
       "last_success_at": "2026-11-22T15:03:31+08:00",
       "window_end": "2026-11-22",
       "lag_days": 0,
@@ -21145,10 +21145,10 @@
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "",
-        "last": ""
+        "first": "2026-07-13",
+        "last": "2026-07-15"
       },
-      "total_tokens": 0,
+      "total_tokens": 2756710,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
