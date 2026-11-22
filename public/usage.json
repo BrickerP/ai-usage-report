@@ -1,28 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-11-20.v1",
-  "captured_at": "2026-11-23T00:14:49+08:00",
-  "snapshot_id": "sha256:618e5dcc229352e6ec1627a33d69cca0c39a6b3b27deb73010de7c9206776a7e",
-  "generated_at": "2026-11-23T00:14:49+08:00",
+  "captured_at": "2026-11-23T00:39:02+08:00",
+  "snapshot_id": "sha256:77bf26990f46c8c88b149f1855200af9e148829b6b4b56be717ae65aec88c9a3",
+  "generated_at": "2026-11-23T00:39:02+08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-17",
-      "2026-10-18"
-    ],
-    "regression_kept": 5,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-17": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [
       "2026-05-22",
       "2026-05-25",
@@ -69,7 +57,7 @@
     ],
     "model_backfilled": 42
   },
-  "machine_id": "mac-m4-local",
+  "machine_id": "mac-m3-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -1428,40 +1416,40 @@
   "source_status": {
     "codex": {
       "status": "stale",
-      "attempted_at": "2026-11-22T15:34:14+08:00",
-      "last_success_at": "2026-11-22T15:34:14+08:00",
+      "attempted_at": "2026-11-22T16:03:03+08:00",
+      "last_success_at": "2026-11-22T16:03:03+08:00",
       "window_end": "2026-11-22",
       "lag_days": 1,
       "error": "local_fragments_stale"
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-11-23T00:05:29+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-23T00:37:02+08:00",
       "last_success_at": "2026-11-23T00:05:29+08:00",
       "window_end": "2026-11-23",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_browser_unavailable"
     },
     "cursor": {
       "status": "stale",
-      "attempted_at": "2026-11-23T00:05:29+08:00",
+      "attempted_at": "2026-11-23T00:37:02+08:00",
       "last_success_at": "2026-11-23T00:05:29+08:00",
       "window_end": "2026-11-10",
       "lag_days": 13,
-      "error": "cursor_data_lagging"
+      "error": "cursor_unavailable"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-11-23T00:05:29+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-23T00:37:02+08:00",
       "last_success_at": "2026-11-23T00:05:29+08:00",
       "window_end": "2026-11-23",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_browser_unavailable"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-11-23T00:05:28.883990+08:00",
     "snapshot_id": "sha256:1c13912632e71ef9175983c8334ae0d339fe78b4689bf1d132abca6503932d24",
@@ -21048,7 +21036,7 @@
         }
       ]
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "key2": {
       "source": "opencode-key-ledger",
@@ -21071,10 +21059,10 @@
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "2026-07-13",
-        "last": "2026-11-20"
+        "first": "",
+        "last": ""
       },
-      "total_tokens": 2869161,
+      "total_tokens": 0,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
@@ -57008,6 +56996,6 @@
   "notes": {
     "token_breakdown": "Cards and tooltips show input, cache, and output tokens per tool. Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read. Claude Code is collected from the One API gateway's Claude model family. Codex totals are the local ~/.codex rollout jsonl summed across public/machines/*.json plus the One API gateway's Codex model family (gateway-routed Codex traffic). Codex runs started with `codex exec --ephemeral` persist no session file and therefore cannot be recorded. One API includes only non-GPT/Codex and non-Claude model families from the gateway, such as Grok and DeepSeek. OpenCode calls made with the second One API key are logged under another account, so each Mac meters them from OpenCode's local database and the key-split ledger and adds them to the same model families. Historical local Comate context deltas are retained under One API only on dates without gateway coverage.",
     "cost": "Codex and Claude Code costs are estimates at official API list prices, from the checked-in price ledger 2026-11-20.v1 (OpenAI and Anthropic pricing pages): every model's persisted input, output, and cache tokens are priced at standard rates, short-context for GPT, with GPT-5.6 Sol at its regular rate rather than its temporary promotion. The One API gateway reports no Claude cache hits, so all Claude input is priced as uncached, which overstates what the same traffic costs with prompt caching. Models without a list price, and days stored without per-model tokens, keep their recorded cost. Cursor costs come from the authenticated Dashboard API. One API shows the gateway's actual charge for its other models: quota at 250,000 units/CNY and ~0.14 USD/CNY; the second key's charge is estimated from this account's own quota per token for the same model in the same window. The gateway actually charged ¥50,381 for 2026-10-24 to 2026-11-23: Claude ¥46,878, Codex ¥2,503, other models ¥1,001 (the second key's share is estimated). Codex daily totals are SUMMED across public/machines/*.json plus the One API gateway's Codex model family; Claude Code and One API are account-level; each publish refreshes the latest 31-day One API window and keeps older days; Cursor is account-level and replaced from the API on each publish (if API unavailable, prior usage.json Cursor series is kept); One API keeps its prior series when authentication fails or the usage statistics are incomplete.",
-    "merge": "Merged machine fragments: mac-m1-local, mac-m3-local, mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected."
+    "merge": "Merged machine fragments: mac-m1-local, mac-m3-local, mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected. Cursor API unavailable; kept prior usage.json Cursor series."
   }
 }
