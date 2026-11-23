@@ -25,20 +25,26 @@ usage_report = load_module(
 )
 
 
-def token_event(ts: str, *, input_tokens: int, cached_input: int, output: int, reasoning: int = 0) -> dict:
+def token_event(
+    ts: str, *, input_tokens: int, cached_input: int, output: int,
+    reasoning: int = 0, cumulative: int | None = None,
+) -> dict:
+    info = {
+        "last_token_usage": {
+            "input_tokens": input_tokens,
+            "cached_input_tokens": cached_input,
+            "output_tokens": output,
+            "reasoning_output_tokens": reasoning,
+        },
+    }
+    if cumulative is not None:
+        info["total_token_usage"] = {"total_tokens": cumulative}
     return {
         "type": "event_msg",
         "timestamp": ts,
         "payload": {
             "type": "token_count",
-            "info": {
-                "last_token_usage": {
-                    "input_tokens": input_tokens,
-                    "cached_input_tokens": cached_input,
-                    "output_tokens": output,
-                    "reasoning_output_tokens": reasoning,
-                }
-            },
+            "info": info,
         },
     }
 
@@ -130,7 +136,7 @@ class CodexDailyFromJsonlTests(unittest.TestCase):
             self.assertEqual(models["gpt-5.6-sol"]["totalTokens"], 110)
             self.assertNotIn("gpt-5.6-luna", models)
 
-    def test_same_session_keeps_identical_token_events(self):
+    def test_same_session_keeps_identical_events_without_cumulative_usage(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
             sessions = home / ".codex" / "sessions" / "2026" / "08" / "03"
@@ -150,6 +156,86 @@ class CodexDailyFromJsonlTests(unittest.TestCase):
             payload = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
 
             self.assertEqual(payload["daily"][0]["totalTokens"], 220)
+
+    def test_repeated_cumulative_snapshot_does_not_double_bill_the_same_session(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions"
+            sessions.mkdir(parents=True)
+            usage = {"input_tokens": 648_000, "cached_input": 640_000, "output": 225}
+            write_session(sessions, "s.jsonl", [
+                session_meta(),
+                token_event("2026-11-23T01:00:00Z", **usage, cumulative=1_000_000),
+                token_event("2026-11-23T01:00:30Z", **usage, cumulative=1_000_000),
+            ])
+            day = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")["daily"][0]
+            self.assertEqual(day["totalTokens"], 648_225)
+            self.assertEqual(day["cacheReadTokens"], 640_000)
+            self.assertEqual(day["models"]["unknown"]["totalTokens"], 648_225)
+
+    def test_equal_sized_requests_count_when_cumulative_usage_advances_or_resets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions"
+            sessions.mkdir(parents=True)
+            write_session(sessions, "s.jsonl", [
+                session_meta(),
+                *[
+                    token_event(f"2026-11-23T01:00:0{i}Z", input_tokens=100,
+                                cached_input=80, output=10, cumulative=counter)
+                    for i, counter in enumerate((110, 220, 110, 110))
+                ],
+            ])
+            report = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
+            self.assertEqual(report["totals"]["totalTokens"], 330)
+
+    def test_replay_after_midnight_uses_pre_window_snapshot_across_rollout_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions"
+            sessions.mkdir(parents=True)
+            usage = {"input_tokens": 100, "cached_input": 80, "output": 10}
+            write_session(sessions, "resumed.jsonl", [
+                session_meta(),
+                token_event("2026-11-22T16:00:05Z", **usage, cumulative=110),
+                token_event("2026-11-22T16:00:20Z", **usage, cumulative=220),
+            ])
+            write_session(sessions, "original.jsonl", [
+                session_meta(),
+                token_event("2026-11-22T15:59:55Z", **usage, cumulative=110),
+            ])
+            report = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai", since="2026-11-23")
+            self.assertEqual([(r["date"], r["totalTokens"]) for r in report["daily"]],
+                             [("2026-11-23", 110)])
+
+    def test_child_copy_of_parent_replay_is_not_billed_again(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions"
+            sessions.mkdir(parents=True)
+            usage = {"input_tokens": 100, "cached_input": 80, "output": 10, "cumulative": 110}
+            replay = token_event("2026-11-23T01:00:30Z", **usage)
+            write_session(sessions, "root.jsonl", [
+                session_meta("root"), token_event("2026-11-23T01:00:00Z", **usage), replay,
+            ])
+            write_session(sessions, "child.jsonl", [session_meta("child", parent_id="root"), replay])
+            report = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
+            self.assertEqual(report["totals"]["totalTokens"], 110)
+
+    def test_different_last_usage_with_the_same_cumulative_total_is_preserved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions"
+            sessions.mkdir(parents=True)
+            write_session(sessions, "s.jsonl", [
+                session_meta(),
+                token_event("2026-11-23T01:00:02Z", input_tokens=100, cached_input=80,
+                            output=10, cumulative=500),
+                token_event("2026-11-23T01:00:07Z", input_tokens=100, cached_input=50,
+                            output=10, cumulative=500),
+            ])
+            report = usage_report.codex_daily_from_jsonl(home, "Asia/Shanghai")
+            self.assertEqual(report["totals"]["totalTokens"], 220)
 
     def test_uses_the_most_recent_turn_context_model(self):
         with tempfile.TemporaryDirectory() as tmp:

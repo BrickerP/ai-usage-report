@@ -2,7 +2,7 @@
   import { scaleLinear } from 'd3-scale'
   import { line } from 'd3-shape'
   import { fmtCompact, fmtExactTokens, fmtExactUsd, fmtUsd } from '../lib/format'
-  import type { ReportDay, ReportSeries } from '../lib/report'
+  import { dayStateLabel, type ReportDay, type ReportSeries } from '../lib/report'
 
   interface Props {
     daily: ReportDay[]
@@ -200,12 +200,12 @@
         <div class="chart-tooltip" role="tooltip" style:left={`${tooltipLeft}px`}>
           <strong>{hoveredDay.date}</strong>
           {#if hoveredDay.tokens === null}
-            <span>No published record</span>
+            <span>{dayStateLabel(hoveredDay)}</span>
           {:else}
             {#each hoveredDay.breakdown as item (item.id)}
               <span class="tooltip-row"><span>{item.label}</span><b>{fmtExactTokens(item.tokens)}</b></span>
             {/each}
-            <span class="tooltip-total">{fmtExactTokens(hoveredDay.tokens)} tokens · {fmtExactUsd(hoveredDay.cost)}</span>
+            <span class="tooltip-total">{hoveredDay.cursorUnavailable ? 'Subtotal · ' : ''}{fmtExactTokens(hoveredDay.tokens)} tokens · {fmtExactUsd(hoveredDay.cost)}</span>
           {/if}
         </div>
       {/if}

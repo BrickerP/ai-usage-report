@@ -84,7 +84,7 @@ What happens:
    rebuilds the Claude Code series), and retain only residual non-GPT/Codex and
    non-Claude models in the One API series; preserve the complete prior model
    timeline outside that window
-4. Fetch Cursor Dashboard API (account-level; it has its own `cursor_mutable_from` boundary)
+4. Fetch the Cursor Dashboard API. A complete response establishes coverage through the requested interval, including days with zero events. The last activity date is tracked separately.
 5. SUM local tools across all fragments and reconcile each account-level source by
    its latest complete snapshot → write `public/usage.json`
 6. Build + commit + push
@@ -204,7 +204,7 @@ Do not use `--force-reseed` for this migration.
 
 ## Data sources
 
-- Codex: `~/.codex` rollout JSONL (sum of each request's real token increment)
+- Codex: `~/.codex` rollout JSONL. Repeated reports of the same last request with unchanged cumulative usage count once. Equal-sized requests whose cumulative usage advances each count separately. Existing frozen days and protected higher ledger values require separate historical reconciliation.
 - Claude Code: One API gateway's Claude model family (the One API window refreshes its days; older gateway days keep their stored series)
 - Cursor: authenticated Dashboard API via local Cursor session. Cursor 3.29+
   stores that token encrypted (`cursor-safe-storage:v1`); the collector reads the
