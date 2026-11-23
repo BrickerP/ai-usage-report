@@ -77,7 +77,6 @@ def load_module(name: str, path: Path):
     return module
 
 
-local_records = load_module("local_ai_usage_records", SCRIPTS_DIR / "local_ai_usage_records.py")
 cursor_api = load_module("cursor_usage_api", SCRIPTS_DIR / "cursor_usage_api.py")
 comate_usage = load_module("comate_usage", SCRIPTS_DIR / "comate_usage.py")
 machine_fragments = load_module("machine_fragments", SCRIPTS_DIR / "machine_fragments.py")
@@ -1161,26 +1160,6 @@ def merge_daily_timeline(
     return rows
 
 
-def local_record_summary(home: Path, tmp_dir: Path) -> dict[str, Any]:
-    codex_rows, codex = local_records.parse_codex(home, False)
-    cursor_rows, cursor = local_records.parse_cursor(home, False)
-    cursor_ai_tracking = local_records.inspect_cursor_ai_tracking(home, tmp_dir)
-    cursor_vscdb = local_records.inspect_cursor_vscdb(home, tmp_dir)
-    return {
-        "codex": codex,
-        "cursor": {
-            **cursor,
-            "vscdb_matching_keys": cursor_vscdb.get("matching_keys", 0),
-            "ai_tracking_rows": cursor_ai_tracking.get("rows", 0),
-            "ai_tracking_requests": cursor_ai_tracking.get("requests", 0),
-        },
-        "row_counts": {
-            "codex": len(codex_rows),
-            "cursor": len(cursor_rows),
-        },
-    }
-
-
 def call_cursor(client: Any, method: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     try:
         status, _headers, raw = client.dashboard(method, body or {})
@@ -1643,45 +1622,6 @@ def render_today_text(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def load_previous_cursor_points(usage_json: Path) -> list[dict[str, Any]]:
-    if not usage_json.is_file():
-        return []
-    try:
-        payload = json.loads(usage_json.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return []
-    points: list[dict[str, Any]] = []
-    for row in payload.get("daily") or []:
-        if not isinstance(row, dict):
-            continue
-        date_key = str(row.get("date") or "")
-        tokens = safe_int(row.get("cursor_tokens"))
-        cost = safe_float(row.get("cursor_cost"))
-        if not date_key or not (tokens or cost):
-            continue
-        points.append(
-            {
-                "date": date_key,
-                "tokens": tokens,
-                "cost": cost,
-                "input": safe_int(row.get("cursor_input")),
-                "cache_write": safe_int(row.get("cursor_cache_write")),
-                "cache_read": safe_int(row.get("cursor_cache_read")),
-                "output": safe_int(row.get("cursor_output")),
-                "models": normalize_models(row.get("cursor_models")),
-                "snapshot_complete": bool(row.get("cursor_snapshot_complete", True)),
-                "pricing_version": str(
-                    row.get("cursor_pricing_version") or "cursor-billed"
-                ),
-                "pricing_complete": bool(row.get("cursor_pricing_complete", True)),
-                "pricing_provenance": str(
-                    row.get("cursor_pricing_provenance") or "billed-dashboard"
-                ),
-            }
-        )
-    return points
-
-
 def overlay_prior_cursor_row(target: dict[str, Any], prior: dict[str, Any]) -> None:
     """Copy the durable account snapshot, including its model attribution."""
     for key in (
@@ -1712,28 +1652,6 @@ def overlay_prior_cursor_row(target: dict[str, Any], prior: dict[str, Any]) -> N
     ):
         if key not in target:
             target[key] = prior.get(key, default)
-
-
-def resolve_cursor_points(
-    cursor_usage: dict[str, Any],
-    usage_json: Path | None = None,
-) -> list[dict[str, Any]]:
-    api_points: list[dict[str, Any]] = []
-    if cursor_usage.get("available"):
-        api_points = [p for p in (cursor_usage.get("daily_timeline") or []) if isinstance(p, dict) and p.get("date")]
-
-    prev_points = load_previous_cursor_points(usage_json) if usage_json is not None else []
-    if not api_points:
-        return prev_points
-    if not prev_points:
-        return api_points
-
-    # API wins on overlapping dates; keep prior days the API did not return
-    # (partial Dashboard responses must not wipe months of Cursor history).
-    by_date = {str(p["date"]): p for p in prev_points}
-    for point in api_points:
-        by_date[str(point["date"])] = point
-    return [by_date[key] for key in sorted(by_date)]
 
 
 def build_local_machine_daily(
@@ -2913,7 +2831,6 @@ def persist_local_model_metadata(
 def collect_local_machine(
     home: Path,
     timezone: str,
-    tmp_dir: Path,
     *,
     machine_id: str,
     machines_path: Path,
@@ -2960,7 +2877,6 @@ def collect_local_machine(
                 file=sys.stderr,
             )
 
-    local_summary = local_record_summary(home, tmp_dir)
     comate = comate_usage.parse_comate(home, timezone)
     codex_rows = usage_daily_rows(codex_usage)
     codex_first, codex_last = daily_range(codex_rows, codex=True)
@@ -3021,18 +2937,10 @@ def collect_local_machine(
             since=key2_since,
             collected_at=dt.datetime.now().astimezone().isoformat(timespec="seconds"),
         )
-        local_summary["oneapi_key2"] = key2["stats"]
     machine_fragments.write_json_atomic(fragment_file, fragment_payload)
-    local_summary["machine_fragment"] = str(fragment_file)
-    local_summary["fragment_mode"] = fragment_meta.get("mode")
-    local_summary["fragment_stats"] = fragment_meta.get("stats")
-    local_summary["fragment_first_seed"] = fragment_meta.get("first_seed")
-    local_summary["collect_since"] = since or "(full seed)"
-    local_summary["collect_until"] = until
     return {
         "today": today,
         "comate": comate,
-        "local_summary": local_summary,
         "fragment_meta": fragment_meta,
         "codex_summary": codex_summary,
     }
@@ -3148,7 +3056,6 @@ def backfill_codex_cache_report(
 def collect_usage(
     home: Path,
     timezone: str,
-    tmp_dir: Path,
     cursor_page_size: int,
     *,
     machine_id: str | None = None,
@@ -3158,6 +3065,7 @@ def collect_usage(
     usage_json_path: Path | None = None,
     force_reseed: bool = False,
     oneapi_days: int = oneapi_usage.DEFAULT_DAYS,
+    cursor_full_history: bool = False,
     oneapi_cache_path: Path | None = None,
     skip_oneapi_live: bool = False,
 ) -> dict[str, Any]:
@@ -3168,218 +3076,105 @@ def collect_usage(
     cursor_fallback_note = ""
     today = local_today(timezone)
     attempted_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
-    prior_cursor_mutable_from = cursor_mutable_from(prior_payload, today)
-    next_cursor_mutable_from = prior_cursor_mutable_from
     prior_cursor_pricing_version = str(
         prior_payload.get("cursor_pricing_version") or ""
     )
     next_cursor_pricing_version = prior_cursor_pricing_version
     cursor_reconciliation_stats: dict[str, Any] = {}
     fragment_meta: dict[str, Any] = {}
-    cursor_refresh_error = ""
     cursor_status_error = ""
-    status_fragments: list[dict[str, Any]] = []
 
-    if merge_only:
-        cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
-        cursor_api_complete = bool(
-            cursor_usage.get("available") and cursor_usage.get("complete")
-        )
-        cursor_refresh_error = str(cursor_usage.get("error") or "")
-        if not cursor_api_complete and not cursor_refresh_error:
-            cursor_refresh_error = "Cursor API response was incomplete"
-        if not cursor_api_complete:
-            if cursor_refresh_error:
-                print(f"WARN: Cursor refresh failed: {cursor_refresh_error}", file=sys.stderr)
-            cursor_status_error = (
-                "cursor_unavailable"
-                if not cursor_usage.get("available")
-                else "cursor_incomplete"
-            )
-        cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
-        if not cursor_usage.get("available") and cursor_pts:
-            cursor_fallback_note = "Cursor API unavailable; kept prior usage.json Cursor series."
-            cursor_usage = {
-                **cursor_usage,
-                "available": True,
-                "history": {
-                    "first": cursor_pts[0]["date"],
-                    "last": cursor_pts[-1]["date"],
-                    "cost": sum(safe_float(p.get("cost")) for p in cursor_pts),
-                    "total_tokens": sum(safe_int(p.get("tokens")) for p in cursor_pts),
-                },
-                "daily_timeline": cursor_pts,
-                "error": cursor_fallback_note,
-            }
-        fragments = machine_fragments.load_machine_fragments_strict(machines_path)
-        status_fragments = fragments
-        validate_fragment_timezones(fragments, timezone)
-        local_merged, machine_ids = machine_fragments.merge_local_fragments(
-            fragments,
-            empty_daily_row,
-            TOOL_TOKEN_FIELDS,
-            safe_int,
-            safe_float,
-        )
-        # Load prior usage rows so cursor history freeze can see existing cursor_* values
-        prior_rows = [
-            row for row in (prior_payload.get("daily") or []) if isinstance(row, dict)
-        ]
-        # Overlay prior cursor onto local_merged dates before applying API points
-        prior_by = {str(r["date"]): r for r in prior_rows if r.get("date")}
-        for row in local_merged:
-            prev = prior_by.get(str(row.get("date")))
-            if not prev:
-                continue
-            overlay_prior_cursor_row(row, prev)
-        for date_key, prev in prior_by.items():
-            if date_key in {str(r.get("date")) for r in local_merged}:
-                continue
-            if safe_int(prev.get("cursor_tokens")) or safe_float(prev.get("cursor_cost")):
-                row = empty_daily_row(date_key)
-                overlay_prior_cursor_row(row, prev)
-                local_merged.append(row)
-        local_merged.sort(key=lambda r: str(r.get("date") or ""))
-
-        daily_rows = machine_fragments.apply_cursor_points(
-            local_merged,
-            cursor_pts,
-            empty_daily_row,
-            apply_tool_point,
-            safe_int,
-            safe_float,
-            today=today,
-            cursor_mutable_from=prior_cursor_mutable_from,
-            freeze_cursor_history=True,
-            reconciliation_stats=cursor_reconciliation_stats,
-        )
-        next_cursor_mutable_from = advance_cursor_mutable_from(
-            prior_cursor_mutable_from,
-            today,
-            cursor_api_complete,
-            cursor_reconciliation_stats,
-        )
-        current_fragment = next(
-            (
-                fragment
-                for fragment in fragments
-                if machine_fragments.sanitize_machine_id(
-                    str(fragment.get("machine_id") or "")
-                )
-                == mid
-            ),
-            {},
-        )
-        comate = (
-            current_fragment.get("legacy_comate")
-            if isinstance(current_fragment.get("legacy_comate"), dict)
-            else {}
-        )
-        local_summary = {"merge_only": True}
-        codex_summary = {"tool": "Codex", "history": "from fragments", "cost": 0, "total_tokens": 0}
-        claude_summary = {"tool": "Claude Code", "history": "from fragments", "cost": 0, "total_tokens": 0}
-    else:
+    if not merge_only:
         local = collect_local_machine(
             home,
             timezone,
-            tmp_dir,
             machine_id=mid,
             machines_path=machines_path,
             force_reseed=force_reseed,
         )
         today = str(local["today"])
-        local_summary = local["local_summary"]
         fragment_meta = local["fragment_meta"]
-        codex_summary = local["codex_summary"]
-        claude_summary = {"tool": "Claude Code", "history": "from oneapi", "cost": 0, "total_tokens": 0}
+
+    if merge or merge_only:
+        status_fragments = machine_fragments.load_machine_fragments_strict(machines_path)
+        validate_fragment_timezones(status_fragments, timezone)
+        local_merged, machine_ids = machine_fragments.merge_local_fragments(
+            status_fragments, empty_daily_row, TOOL_TOKEN_FIELDS, safe_int, safe_float,
+        )
+    else:
+        machine_ids = [mid]
+        seeded = machine_fragments.load_machine_fragment(machines_path, mid) or {}
+        status_fragments = [seeded] if seeded else []
+        local_merged = [r for r in (seeded.get("daily") or []) if isinstance(r, dict)]
+
+    if merge_only:
+        current_fragment = next(
+            (
+                fragment for fragment in status_fragments
+                if machine_fragments.sanitize_machine_id(str(fragment.get("machine_id") or "")) == mid
+            ),
+            {},
+        )
+        comate = (
+            current_fragment["legacy_comate"]
+            if isinstance(current_fragment.get("legacy_comate"), dict) else {}
+        )
+        codex_summary = {"tool": "Codex", "history": "from fragments", "cost": 0, "total_tokens": 0}
+    else:
         comate = local["comate"]
-        cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone)
-        cursor_api_complete = bool(
-            cursor_usage.get("available") and cursor_usage.get("complete")
-        )
-        cursor_refresh_error = str(cursor_usage.get("error") or "")
-        if not cursor_api_complete and not cursor_refresh_error:
-            cursor_refresh_error = "Cursor API response was incomplete"
-        if not cursor_api_complete:
-            if cursor_refresh_error:
-                print(f"WARN: Cursor refresh failed: {cursor_refresh_error}", file=sys.stderr)
-            cursor_status_error = (
-                "cursor_unavailable"
-                if not cursor_usage.get("available")
-                else "cursor_incomplete"
-            )
-        cursor_pts = resolve_cursor_points(cursor_usage, prior_usage)
-        if not cursor_usage.get("available") and cursor_pts:
-            cursor_fallback_note = "Cursor API unavailable; kept prior usage.json Cursor series."
-            cursor_usage = {
-                **cursor_usage,
-                "available": True,
-                "history": {
-                    "first": cursor_pts[0]["date"],
-                    "last": cursor_pts[-1]["date"],
-                    "cost": sum(safe_float(p.get("cost")) for p in cursor_pts),
-                    "total_tokens": sum(safe_int(p.get("tokens")) for p in cursor_pts),
-                },
-                "daily_timeline": cursor_pts,
-                "error": cursor_fallback_note,
-            }
+        codex_summary = local["codex_summary"]
+    claude_summary = {"tool": "Claude Code", "history": "from oneapi", "cost": 0, "total_tokens": 0}
 
-        # Base rows for cursor freeze: merged fragments + prior cursor columns
-        if merge:
-            fragments = machine_fragments.load_machine_fragments_strict(machines_path)
-            status_fragments = fragments
-            validate_fragment_timezones(fragments, timezone)
-            local_merged, machine_ids = machine_fragments.merge_local_fragments(
-                fragments,
-                empty_daily_row,
-                TOOL_TOKEN_FIELDS,
-                safe_int,
-                safe_float,
-            )
-        else:
-            machine_ids = [mid]
-            seeded = machine_fragments.load_machine_fragment(machines_path, mid) or {}
-            status_fragments = [seeded] if seeded else []
-            local_merged = [r for r in (seeded.get("daily") or []) if isinstance(r, dict)]
-
-        prior_by: dict[str, dict[str, Any]] = {
-            str(row["date"]): row
-            for row in (prior_payload.get("daily") or [])
-            if isinstance(row, dict) and row.get("date")
-        }
-        merged_dates = {str(r.get("date")) for r in local_merged}
-        for row in local_merged:
-            prev = prior_by.get(str(row.get("date")))
-            if not prev:
+    # Seed the account series exactly once from the same snapshot as its coverage.
+    # Apply only newly fetched points; out-of-window and failed queries retain history.
+    rows_by_date = {row["date"]: row for row in local_merged}
+    prior_cursor_activity = ""
+    for row in prior_payload.get("daily") or []:
+        if not isinstance(row, dict) or not row.get("date"):
+            continue
+        date_key = str(row["date"])
+        has_usage = safe_int(row.get("cursor_tokens")) or safe_float(row.get("cursor_cost"))
+        if has_usage:
+            prior_cursor_activity = max(prior_cursor_activity, date_key)
+        if date_key not in rows_by_date:
+            if not has_usage:
                 continue
-            overlay_prior_cursor_row(row, prev)
-        for date_key, prev in prior_by.items():
-            if date_key in merged_dates:
-                continue
-            if safe_int(prev.get("cursor_tokens")) or safe_float(prev.get("cursor_cost")):
-                row = empty_daily_row(date_key)
-                overlay_prior_cursor_row(row, prev)
-                local_merged.append(row)
-        local_merged.sort(key=lambda r: str(r.get("date") or ""))
+            rows_by_date[date_key] = empty_daily_row(date_key)
+        overlay_prior_cursor_row(rows_by_date[date_key], row)
 
-        daily_rows = machine_fragments.apply_cursor_points(
-            local_merged,
-            cursor_pts,
-            empty_daily_row,
-            apply_tool_point,
-            safe_int,
-            safe_float,
-            today=today,
-            cursor_mutable_from=prior_cursor_mutable_from,
-            freeze_cursor_history=True,
-            reconciliation_stats=cursor_reconciliation_stats,
-        )
-        next_cursor_mutable_from = advance_cursor_mutable_from(
-            prior_cursor_mutable_from,
-            today,
-            cursor_api_complete,
-            cursor_reconciliation_stats,
-        )
+    mutable_from = cursor_mutable_from(prior_payload, today)
+    prior_status_map = prior_payload.get("source_status")
+    if not isinstance(prior_status_map, dict):
+        prior_status_map = {}
+    prior_cursor_status = prior_status_map.get("cursor")
+    if not isinstance(prior_cursor_status, dict):
+        prior_cursor_status = {}
+    verified_through = public_iso_date(prior_cursor_status.get("window_end"))
+    start_ms = None
+    if mutable_from and verified_through:
+        # Reopen a coverage gap even if an older publisher already froze it.
+        mutable_from = min(mutable_from, verified_through, machine_fragments.previous_day(today))
+        if not cursor_full_history:
+            _, midnight_ms, _ = local_day_window(timezone, dt.date.fromisoformat(mutable_from))
+            start_ms = max(midnight_ms, int(CURSOR_START.timestamp() * 1000))
+    cursor_usage = fetch_cursor_usage(home, cursor_page_size, timezone, start_ms=start_ms)
+    cursor_api_complete = bool(cursor_usage.get("available") and cursor_usage.get("complete"))
+    cursor_pts = (cursor_usage.get("daily_timeline") or []) if cursor_api_complete else []
+    if not cursor_api_complete:
+        cursor_refresh_error = cursor_usage.get("error") or "Cursor API response was incomplete"
+        print(f"WARN: Cursor refresh failed: {cursor_refresh_error}", file=sys.stderr)
+        cursor_status_error = "cursor_incomplete" if cursor_usage.get("available") else "cursor_unavailable"
+        if prior_cursor_activity:
+            cursor_fallback_note = "Cursor refresh failed; kept prior usage.json Cursor series."
+
+    daily_rows = machine_fragments.apply_cursor_points(
+        list(rows_by_date.values()), cursor_pts, empty_daily_row, apply_tool_point, safe_int, safe_float,
+        today=today, cursor_mutable_from=mutable_from, freeze_cursor_history=True,
+        reconciliation_stats=cursor_reconciliation_stats,
+    )
+    next_cursor_mutable_from = advance_cursor_mutable_from(
+        mutable_from, today, cursor_api_complete, cursor_reconciliation_stats,
+    )
 
     cursor_aggregate_audit = (
         cursor_usage.get("aggregate_audit")
@@ -3554,11 +3349,6 @@ def collect_usage(
         }
     oneapi_data = reconcile_oneapi_payload(prior_oneapi, oneapi_data, comate)
 
-    prior_status_map = (
-        prior_payload.get("source_status")
-        if isinstance(prior_payload.get("source_status"), dict)
-        else {}
-    )
     prior_oneapi_status = (
         prior_status_map.get("oneapi")
         if isinstance(prior_status_map.get("oneapi"), dict)
@@ -3583,6 +3373,12 @@ def collect_usage(
         attempted=not merge_only,
     )
     cursor_history = cursor_usage.get("history") or {}
+    last_event_day = str(cursor_history.get("last_event_day") or "")
+    if start_ms is not None:
+        last_event_day = max(
+            last_event_day, prior_cursor_activity,
+            public_iso_date(prior_cursor_status.get("last_event_day")),
+        )
     source_status = reconcile_source_status(
         prior_payload,
         {
@@ -3607,9 +3403,9 @@ def collect_usage(
             "cursor": {
                 "attempted": True,
                 "fresh": cursor_api_complete,
-                "has_data": bool(cursor_pts),
+                "has_data": bool(cursor_pts or prior_cursor_activity),
                 "window_end": cursor_history.get("window_end", "") if cursor_api_complete else "",
-                "last_event_day": cursor_history.get("last_event_day", ""),
+                "last_event_day": last_event_day,
                 "error": cursor_status_error,
             },
             "oneapi": {
@@ -3692,22 +3488,9 @@ def collect_usage(
             summary["history"] = hist
 
     tokens_c, cost_c, hist_c = sum_prefix("cursor")
-    if cursor_usage.get("available") and tokens_c:
-        cursor_history = cursor_usage["history"] if isinstance(cursor_usage.get("history"), dict) else {}
-        api_hist = fmt_range(str(cursor_history.get("first", ""))[:10], str(cursor_history.get("last", ""))[:10])
-        cursor_summary = {
-            "tool": "Cursor",
-            "history": hist_c or api_hist,
-            "cost": cost_c,
-            "total_tokens": tokens_c,
-        }
-    else:
-        cursor_summary = {
-            "tool": "Cursor",
-            "history": hist_c,
-            "cost": cost_c,
-            "total_tokens": tokens_c,
-        }
+    cursor_summary = {
+        "tool": "Cursor", "history": hist_c, "cost": cost_c, "total_tokens": tokens_c,
+    }
 
     tokens_o, cost_o, hist_o = sum_prefix("oneapi")
     oneapi_summary = {
@@ -3755,7 +3538,6 @@ def collect_usage(
         "machines": machine_ids,
         "machines_dir": str(machines_path),
         "tools": [codex_summary, claude_summary, cursor_summary, oneapi_summary],
-        "local_summary": local_summary,
         "fragment_meta": fragment_meta,
         "cursor": cursor_usage,
         "oneapi": oneapi_data,
@@ -3865,6 +3647,10 @@ def main() -> int:
         action="store_true",
         help="Validate and print Codex cache backfill stats without writing files.",
     )
+    parser.add_argument(
+        "--cursor-full-history", action="store_true",
+        help="Query all Cursor history; keep frozen numeric totals and backfill matching model detail.",
+    )
     parser.add_argument("--cursor-page-size", type=int, default=500)
     parser.add_argument("--oneapi-days", type=int, default=oneapi_usage.DEFAULT_DAYS,
                         help=f"One API lookback days from today (default {oneapi_usage.DEFAULT_DAYS}).")
@@ -3882,6 +3668,10 @@ def main() -> int:
     parser.add_argument("--height", type=int, default=1000)
     args = parser.parse_args()
 
+    if args.cursor_full_history and (
+        args.today or args.collect_local_only or args.backfill_codex_cache or args.recover_codex_cache_transaction
+    ):
+        parser.error("--cursor-full-history requires a report collection")
     if args.dry_run and not args.backfill_codex_cache:
         parser.error("--dry-run is only supported with --backfill-codex-cache")
     if args.backfill_codex_cache and args.recover_codex_cache_transaction:
@@ -3922,20 +3712,13 @@ def main() -> int:
         return 0
 
     if args.collect_local_only:
-        tmp_dir = Path(tempfile.mkdtemp(prefix="ai-usage-local-"))
-        try:
-            result = collect_local_machine(
-                home,
-                args.timezone,
-                tmp_dir,
-                machine_id=machine_fragments.resolve_machine_id(
-                    args.machine_id or None
-                ),
-                machines_path=Path(args.machines_dir).expanduser(),
-                force_reseed=bool(args.force_reseed),
-            )
-        finally:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+        result = collect_local_machine(
+            home,
+            args.timezone,
+            machine_id=machine_fragments.resolve_machine_id(args.machine_id or None),
+            machines_path=Path(args.machines_dir).expanduser(),
+            force_reseed=bool(args.force_reseed),
+        )
         meta = result.get("fragment_meta") or {}
         print(meta.get("path"))
         print(
@@ -3979,7 +3762,6 @@ def main() -> int:
         data = collect_usage(
             home,
             args.timezone,
-            tmp_dir,
             max(1, args.cursor_page_size),
             machine_id=args.machine_id or None,
             machines_dir=Path(args.machines_dir).expanduser(),
@@ -3990,6 +3772,7 @@ def main() -> int:
             ),
             force_reseed=bool(args.force_reseed),
             oneapi_days=max(1, args.oneapi_days),
+            cursor_full_history=args.cursor_full_history,
             oneapi_cache_path=(
                 Path(args.oneapi_cache_path).expanduser()
                 if args.oneapi_cache_path
@@ -4057,8 +3840,8 @@ def main() -> int:
                         "plus the One API gateway's Codex model family; "
                         "Claude Code and One API are account-level; each publish refreshes "
                         "the latest 31-day One API window and keeps older days; "
-                        "Cursor is account-level and replaced from the API on each publish "
-                        "(if API unavailable, prior usage.json Cursor series is kept); "
+                        "Cursor refreshes the open account window and keeps its history "
+                        "when the Dashboard API is unavailable or returns incomplete pages; "
                         "One API keeps its prior series when authentication fails or the "
                         "usage statistics are incomplete."
                     ),

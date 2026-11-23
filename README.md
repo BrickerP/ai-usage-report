@@ -84,7 +84,7 @@ What happens:
    rebuilds the Claude Code series), and retain only residual non-GPT/Codex and
    non-Claude models in the One API series; preserve the complete prior model
    timeline outside that window
-4. Fetch the Cursor Dashboard API. A complete response establishes coverage through the requested interval, including days with zero events. The last activity date is tracked separately.
+4. Refresh Cursor from the earliest of its open reconciliation date, last verified coverage date, and yesterday in the report timezone. Initial collection and pricing upgrades fetch full history. Complete queries cover days with zero events. The latest activity date is tracked separately.
 5. SUM local tools across all fragments and reconcile each account-level source by
    its latest complete snapshot → write `public/usage.json`
 6. Build + commit + push
@@ -137,7 +137,8 @@ Collector (`npm run collect` / Python):
 - `--machines-dir` (default `public/machines`)
 - `--no-merge` — write this Mac’s fragment only
 - `--merge-only` — re-merge existing fragments + Cursor API (used after push conflict)
-- `--collect-local-only` — atomically capture this Mac before any GitHub/build work
+- `--collect-local-only` — atomically capture this Mac before any GitHub/build work. Detailed local session indexes are available separately through `scripts/local_ai_usage_records.py`.
+- `--cursor-full-history` — query the full Cursor event history for reconciliation, retaining the usual protections for frozen days
 - `--today` — print today’s table
 - `--backfill-codex-cache` — derive frozen cache read as `total - input - output`
 - `--dry-run` — validate that migration without writing files

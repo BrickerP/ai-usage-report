@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import datetime as dt
+from contextlib import redirect_stdout
 import importlib.util
+import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,6 +81,45 @@ def write_session(dirpath: Path, name: str, lines: list[dict]) -> Path:
 
 
 class CodexDailyFromJsonlTests(unittest.TestCase):
+    def test_local_publish_reads_rollouts_once_and_diagnostic_export_still_indexes_them(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            sessions = home / ".codex" / "sessions"
+            sessions.mkdir(parents=True)
+            write_session(sessions, "session.jsonl", [
+                session_meta(), turn_context("gpt-5.6-sol"),
+                token_event("2026-08-03T01:00:00Z", input_tokens=100, cached_input=80, output=10),
+            ])
+            cursor_projects = home / ".cursor" / "projects"
+            cursor_projects.mkdir(parents=True)
+            machines = home / "machines"
+            args = [
+                "usage_pipeline.py", "--collect-local-only", "--machine-id", "test-mac",
+                "--home", str(home), "--machines-dir", str(machines),
+            ]
+            with (
+                mock.patch.object(Path, "rglob", autospec=True, side_effect=Path.rglob) as scans,
+                mock.patch.object(sys, "argv", args),
+                mock.patch.dict(os.environ, {"OPENCODE_DB_PATH": str(home / "missing.db")}),
+                redirect_stdout(io.StringIO()),
+            ):
+                self.assertEqual(usage_report.main(), 0)
+            roots = [call.args[0] for call in scans.call_args_list]
+            self.assertEqual(roots.count(sessions), 1)
+            self.assertNotIn(cursor_projects, roots)
+            fragment = json.loads((machines / "test-mac.json").read_text())
+            self.assertEqual(fragment["daily"][0]["codex_tokens"], 110)
+            self.assertTrue(fragment["scan_complete"])
+
+            diagnostics = home / "diagnostics"
+            subprocess.run([
+                sys.executable, str(ROOT / "scripts" / "local_ai_usage_records.py"),
+                "--home", str(home), "--out", str(diagnostics),
+            ], check=True, capture_output=True)
+            summary = json.loads((diagnostics / "summary.json").read_text())
+            self.assertEqual(summary["codex"]["token_count_events"], 1)
+            self.assertTrue((diagnostics / "codex-record-index.csv").is_file())
+
     def test_sums_last_token_usage_and_attributes_to_shanghai_day(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
