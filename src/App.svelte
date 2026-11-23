@@ -4,6 +4,7 @@
   import {
     buildReport,
     buildReportSearch,
+    dayStateLabel,
     parseReportView,
     shiftReportView,
     type ModelReportEntry,
@@ -66,11 +67,9 @@
   })
   let sliderValueText = $derived.by(() => {
     if (!selectedDay) return 'No date selected'
-    if (!selectedDay.published || selectedDay.tokens === null) {
-      return `${selectedDay.date}, unavailable, no published record`
-    }
-    const stateLabel = selectedDay.tokens === 0 ? 'published zero' : 'recorded'
-    return `${selectedDay.date}, ${stateLabel}, ${exact(selectedDay.tokens)} tokens, ${usd(selectedDay.cost, true)}`
+    const label = dayStateLabel(selectedDay)
+    if (selectedDay.tokens === null) return `${selectedDay.date}, ${label}`
+    return `${selectedDay.date}, ${label}, ${exact(selectedDay.tokens)} tokens, ${usd(selectedDay.cost, true)}`
   })
   let liveStatus = $derived(
     report && selectedDay
@@ -363,6 +362,9 @@
         <p class="exact-total" data-testid="scope-total" data-value={report.scope.tokens ?? ''}>
           {report.scope.tokens === null ? 'No recorded data' : `${exact(report.scope.tokens)} recorded tokens`}
         </p>
+        {#if report.scope.cursorUnavailableDays}
+          <p class="exact-total">Cursor unavailable on {report.scope.cursorUnavailableDays} {report.scope.cursorUnavailableDays === 1 ? 'date' : 'dates'} in this window.</p>
+        {/if}
         <div class="paired-stats">
           <div>
             <strong data-testid="hero-cost" data-value={report.scope.cost ?? ''}>{usd(report.scope.cost)}</strong>
@@ -588,12 +590,8 @@
         <p class="section-label">Selected date · exact record</p>
         <div class="selected-date" data-testid="selected-date" data-value={selectedDay?.date ?? ''}>{selectedDay?.date ?? '—'}</div>
         <p>
-          {#if !selectedDay?.published}
-            Unavailable · no published row
-          {:else if selectedDay.tokens === 0}
-            Published zero · 0 tokens · $0.00
-          {:else}
-            Recorded · {exact(selectedDay?.tokens ?? null)} tokens · {usd(selectedDay?.cost ?? null, true)}
+          {#if selectedDay}
+            {dayStateLabel(selectedDay)}{#if selectedDay.tokens !== null} · {exact(selectedDay.tokens)} tokens · {usd(selectedDay.cost, true)}{/if}
           {/if}
         </p>
       </div>
@@ -641,7 +639,7 @@
                   data-cost={day.cost ?? ''}
                 >
                   <td>{day.date}</td>
-                  <td>{!day.published ? 'Unavailable' : day.tokens === 0 ? 'Published zero' : 'Recorded'}</td>
+                  <td>{dayStateLabel(day)}</td>
                   <td>{exact(day.tokens)}</td>
                   <td>{usd(day.cost, true)}</td>
                 </tr>
@@ -668,7 +666,7 @@
               {#each report.sources.all as source}
                 <li>
                   <strong>{source.label}</strong> · {source.status} · through {source.windowEnd ?? '—'} ·
-                  lag {source.lagDays ?? '—'}d · last success {source.lastSuccessAt ?? '—'} · attempted
+                  {#if source.lastEventDay}last activity {source.lastEventDay} · {/if}lag {source.lagDays ?? '—'}d · last success {source.lastSuccessAt ?? '—'} · attempted
                   {source.attemptedAt ?? '—'}{source.error ? ` · ${source.error}` : ''}
                 </li>
               {/each}

@@ -1520,9 +1520,11 @@ def fetch_cursor_usage(
             "uses_dashboard_user_id": bool(user_id),
         },
         "history": {
-            "first": first_event or cursor_api.ms_to_iso(start_ms),
-            "last": last_event or cursor_api.ms_to_iso(end_ms),
-            "data_through": last_event_day,
+            "first": first_event,
+            "last": last_event,
+            "last_event_day": last_event_day,
+            # Cursor query windows are half-open, including an empty result.
+            "window_end": ms_to_calendar_date(end_ms - 1, timezone) if collection_complete else "",
             "events": expected_event_count or 0,
             "input": total_input,
             "output": total_output,
@@ -2087,9 +2089,9 @@ def codex_daily_from_jsonl(
     context that subagent (spawned) threads copy from their parent. This method
     instead reads every ``token_count.last_token_usage`` event directly, which
     reflects the full context actually sent per API request (including the
-    context a spawned thread inherits), deduplicates the same request that
-    appears in both a parent and child rollout, and attributes each request to
-    the report timezone's calendar day of its event timestamp.
+    context a spawned thread inherits), skips repeated cumulative snapshots
+    within a session and requests copied between parent and child rollouts,
+    and attributes requests to the calendar day in the report timezone.
 
     Returns a payload structurally identical to ``ccusage ... daily --json``
     (``{"daily": [...], "totals": {...}}``) so existing downstream helpers
@@ -2113,7 +2115,11 @@ def codex_daily_from_jsonl(
         "invalid_json_lines": 0,
         "invalid_timestamps": 0,
     }
-    sessions: list[dict[str, Any]] = []
+    sessions_by_id: dict[str, dict[str, Any]] = {}
+    prior_snapshots: dict[str, tuple[dt.datetime, Any]] = {}
+    usage_fields = (
+        "input_tokens", "cached_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens",
+    )
 
     # Rollout filenames carry a UTC creation timestamp (YYYY-MM-DDTHH-MM-SS).
     # A session created after the end of the requested window cannot contain
@@ -2136,10 +2142,11 @@ def codex_daily_from_jsonl(
         session_id = f"file:{path}"
         parent_thread_id = ""
         events: list[dict[str, Any]] = []
+        before_window = None
         file_scan_errors = defaultdict(int)
         try:
             with open(path, encoding="utf-8", errors="replace") as handle:
-                for event_order, line in enumerate(handle):
+                for line in handle:
                     line = line.strip()
                     if not line:
                         continue
@@ -2184,13 +2191,7 @@ def codex_daily_from_jsonl(
                         if event_dt.tzinfo is None:
                             event_dt = event_dt.replace(tzinfo=dt.timezone.utc)
                         event_dt = event_dt.astimezone(dt.timezone.utc)
-                        normalized_timestamp = event_dt.isoformat(
-                            timespec="microseconds"
-                        ).replace("+00:00", "Z")
-                        local = event_dt.astimezone(tz)
-                        if since_dt and local < since_dt:
-                            continue
-                        if until_dt and local >= until_dt:
+                        if until_dt and event_dt >= until_dt:
                             continue
                         info = payload.get("info")
                         if not isinstance(info, dict):
@@ -2198,21 +2199,23 @@ def codex_daily_from_jsonl(
                         last = info.get("last_token_usage")
                         if not isinstance(last, dict):
                             continue
-                        input_tokens = safe_int(last.get("input_tokens"))
-                        cached_input = safe_int(last.get("cached_input_tokens"))
-                        output_tokens = safe_int(last.get("output_tokens"))
-                        reasoning = safe_int(last.get("reasoning_output_tokens"))
-                        if not (input_tokens or cached_input or output_tokens or reasoning):
+                        last_counts = tuple(safe_int(last.get(key)) for key in usage_fields)
+                        cumulative = info.get("total_token_usage")
+                        snapshot = None
+                        if isinstance(cumulative, dict):
+                            counters = tuple(safe_int(cumulative.get(key)) for key in usage_fields)
+                            if any(counters):
+                                snapshot = (counters, last_counts)
+                        if since_dt and event_dt < since_dt:
+                            # Midnight may separate a real request from its replay.
+                            if before_window is None or event_dt >= before_window[0]:
+                                before_window = (event_dt, snapshot)
                             continue
                         events.append(
                             {
-                                "timestamp": normalized_timestamp,
                                 "event_dt": event_dt,
-                                "order": event_order,
-                                "input": input_tokens,
-                                "cache_read": cached_input,
-                                "output": output_tokens,
-                                "reasoning": reasoning,
+                                "snapshot": snapshot,
+                                "last_counts": last_counts,
                                 "model": file_model,
                             }
                         )
@@ -2229,21 +2232,24 @@ def codex_daily_from_jsonl(
                     event["model_inferred"] = True
         for error_name, count in file_scan_errors.items():
             scan_errors[error_name] += count
-        sessions.append(
-            {
-                "path": str(path),
+        if before_window is not None and (
+            session_id not in prior_snapshots
+            or before_window[0] >= prior_snapshots[session_id][0]
+        ):
+            prior_snapshots[session_id] = before_window
+        if session_id in sessions_by_id:
+            session = sessions_by_id[session_id]
+            session["events"].extend(events)
+            session["events"].sort(key=lambda event: event["event_dt"])
+            if parent_thread_id:
+                session["parent_thread_id"] = parent_thread_id
+        else:
+            sessions_by_id[session_id] = {
                 "session_id": session_id,
                 "parent_thread_id": parent_thread_id,
                 "events": events,
-                "order": len(sessions),
+                "order": len(sessions_by_id),
             }
-        )
-
-    sessions_by_id = {
-        session["session_id"]: session
-        for session in sessions
-        if session["session_id"]
-    }
 
     def root_and_depth(session: dict[str, Any]) -> tuple[str, int]:
         current_id = session["session_id"]
@@ -2263,19 +2269,22 @@ def codex_daily_from_jsonl(
 
     ordered_sessions = [
         (root_and_depth(session)[0], root_and_depth(session)[1], session)
-        for session in sessions
+        for session in sessions_by_id.values()
     ]
     ordered_sessions.sort(key=lambda item: (item[0], item[1], item[2]["order"]))
     seen_candidates: dict[str, dict[tuple[Any, ...], set[str]]] = defaultdict(dict)
     for root_id, _depth, session in ordered_sessions:
         session_key = session["session_id"]
+        previous_snapshot = prior_snapshots.get(session_key, (None, None))[1]
         for event in session["events"]:
-            input_tokens = event["input"]
-            cached_input = event["cache_read"]
-            output_tokens = event["output"]
-            reasoning = event["reasoning"]
+            snapshot = event["snapshot"]
+            replay = snapshot is not None and snapshot == previous_snapshot
+            previous_snapshot = snapshot
+            input_tokens, cached_input, output_tokens, reasoning, _ = event["last_counts"]
+            if not (input_tokens or cached_input or output_tokens or reasoning):
+                continue
             candidate_key = (
-                event["timestamp"],
+                event["event_dt"],
                 input_tokens,
                 cached_input,
                 output_tokens,
@@ -2287,6 +2296,9 @@ def codex_daily_from_jsonl(
             if candidate_sessions and session_key not in candidate_sessions:
                 continue
             candidate_sessions.add(session_key)
+            # A child may copy the timestamp of this replay rather than the original.
+            if replay:
+                continue
 
             local = event["event_dt"].astimezone(tz)
             day = local.strftime("%Y-%m-%d")
@@ -2506,6 +2518,8 @@ def public_source_status(value: Any) -> dict[str, dict[str, Any]]:
             "lag_days": lag_days,
             "error": public_source_error(source, raw.get("error")),
         }
+        if source == "cursor" and "last_event_day" in raw:
+            result[source]["last_event_day"] = public_iso_date(raw["last_event_day"])
     return result
 
 
@@ -2720,6 +2734,11 @@ def reconcile_source_status(
             "lag_days": source_lag_days(today, window_end),
             "error": error,
         }
+        if source == "cursor":
+            # Failed refreshes may carry rows from the last successful snapshot.
+            history = attempt if fresh else prior
+            if "last_event_day" in history:
+                result[source]["last_event_day"] = public_iso_date(history["last_event_day"])
     return result
 
 
@@ -3563,6 +3582,7 @@ def collect_usage(
         today,
         attempted=not merge_only,
     )
+    cursor_history = cursor_usage.get("history") or {}
     source_status = reconcile_source_status(
         prior_payload,
         {
@@ -3588,16 +3608,8 @@ def collect_usage(
                 "attempted": True,
                 "fresh": cursor_api_complete,
                 "has_data": bool(cursor_pts),
-                "window_end": str(
-                    (
-                        cursor_usage.get("history")
-                        if isinstance(cursor_usage.get("history"), dict)
-                        else {}
-                    ).get("data_through")
-                    or ""
-                )
-                if cursor_api_complete
-                else "",
+                "window_end": cursor_history.get("window_end", "") if cursor_api_complete else "",
+                "last_event_day": cursor_history.get("last_event_day", ""),
                 "error": cursor_status_error,
             },
             "oneapi": {

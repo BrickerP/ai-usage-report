@@ -5,6 +5,7 @@ import {
   DEFAULT_REPORT_VIEW,
   buildReport,
   buildReportSearch,
+  dayStateLabel,
   parseReportView,
   shiftReportView,
 } from '../src/lib/report.ts'
@@ -93,6 +94,7 @@ test('a 90-day calendar keeps an unpublished day null and reports 89 recorded ro
     {
       date: missingDate,
       published: false,
+      cursorUnavailable: false,
       tokens: null,
       cost: null,
       values: [null, null, null, null],
@@ -379,4 +381,54 @@ test('URL state round-trips model day while Earlier shifts to a custom window', 
   assert.equal(parsed.tool, 'oneapi')
   assert.equal(parsed.model, 'focus')
   assert.equal(parsed.day, null)
+})
+
+test('Cursor coverage separates verified zero, missing readings and known totals', () => {
+  const rows = [
+    dailyRow(dayAt(0), { cursor_tokens: 12, cursor_cost: 1, cursor_models: [{ model: 'focus', tokens: 12, cost: 1 }] }),
+    dailyRow(dayAt(1)),
+    dailyRow(dayAt(2), { codex_tokens: 5, codex_cost: 2 }),
+  ]
+  const payload = usagePayload(rows)
+  payload.source_status.cursor = { status: 'stale', window_end: dayAt(1), last_event_day: dayAt(0) }
+  const cursor = buildReport(payload, { ...DEFAULT_REPORT_VIEW, tool: 'cursor' })
+  assert.deepEqual(cursor.daily.map((day) => day.tokens), [12, 0, null])
+  assert.equal(dayStateLabel(cursor.daily[1]), 'Published zero')
+  assert.equal(dayStateLabel(cursor.selectedDay), 'Cursor unavailable')
+  assert.equal(cursor.scope.availableDays, 2)
+  assert.equal(cursor.range.recordedDays, 2)
+  assert.equal(cursor.parts.date, null)
+  assert.equal(cursor.sources.all.find((s) => s.id === 'cursor').lastEventDay, dayAt(0))
+
+  const window = { ...DEFAULT_REPORT_VIEW, preset: 'custom', from: dayAt(2), to: dayAt(2) }
+  const model = buildReport(payload, { ...window, tool: 'cursor', model: 'focus' })
+  assert.equal(model.scope.tokens, null)
+  assert.equal(model.scope.cost, null)
+  assert.equal(model.scope.cacheShare, null)
+  assert.equal(model.models.full[0].tokens, null)
+  assert.deepEqual(model.selectedDay.values, [null])
+  assert.equal(model.selectedDay.modelCoverage, 'unavailable')
+
+  const all = buildReport(payload, window)
+  assert.equal(all.scope.tokens, 5)
+  assert.equal(all.scope.cost, 2)
+  assert.equal(all.scope.cursorUnavailableDays, 1)
+  assert.equal(dayStateLabel(all.selectedDay), 'Partial · Cursor unavailable')
+  assert.equal(all.tools.find((t) => t.id === 'cursor').tokens, null)
+  assert.deepEqual(all.selectedDay.values, [5, 0, null, 0])
+  assert.deepEqual(all.selectedDay.breakdown[2], { id: 'tool:cursor', label: 'Cursor', tokens: null, cost: null })
+})
+
+test('Cursor retains observed usage without a coverage boundary and supports legacy ledgers', () => {
+  const payload = usagePayload([
+    dailyRow(dayAt(0), { cursor_tokens: 15 }),
+    dailyRow(dayAt(1)),
+  ])
+  const view = { ...DEFAULT_REPORT_VIEW, tool: 'cursor' }
+  payload.source_status.cursor = { status: 'failed', window_end: '' }
+  assert.deepEqual(buildReport(payload, view).daily.map((day) => day.tokens), [15, null])
+  payload.source_status.cursor = { status: 'fresh', window_end: dayAt(1) }
+  assert.deepEqual(buildReport(payload, view).daily.map((day) => day.tokens), [15, 0])
+  delete payload.source_status
+  assert.deepEqual(buildReport(payload, view).daily.map((day) => day.tokens), [15, 0])
 })

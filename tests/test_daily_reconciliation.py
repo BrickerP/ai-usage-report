@@ -362,6 +362,7 @@ class CursorReconciliationTests(unittest.TestCase):
 
         self.assertFalse(result["complete"])
         self.assertEqual(result["history"]["events"], 5)
+        self.assertEqual(result["history"]["window_end"], "")
 
     def test_cursor_first_page_without_count_is_incomplete(self):
         event = {
@@ -494,8 +495,9 @@ class CursorReconciliationTests(unittest.TestCase):
         for patcher in patches:
             patcher.start()
         try:
+            # The exclusive end is 2026-08-01 00:00 in Shanghai.
             result = usage_report.fetch_cursor_usage(
-                Path("/tmp"), 10, "Asia/Shanghai"
+                Path("/tmp"), 10, "Asia/Shanghai", end_ms=1_785_513_600_000
             )
         finally:
             for patcher in reversed(patches):
@@ -507,10 +509,41 @@ class CursorReconciliationTests(unittest.TestCase):
         self.assertEqual(result["history"]["total_tokens"], 20)
         self.assertEqual(result["history"]["cost"], 2.5)
         self.assertEqual(result["history"]["estimated_raw_cost"], 9.0)
-        self.assertEqual(result["history"]["data_through"], "2026-07-29")
+        self.assertEqual(result["history"]["last_event_day"], "2026-07-29")
+        self.assertEqual(result["history"]["window_end"], "2026-07-31")
         self.assertEqual(result["daily_timeline"][0]["cost"], 2.5)
         self.assertEqual(result["daily_timeline"][0]["models"][0]["cost"], 2.5)
         self.assertFalse(result["aggregate_audit"]["available"])
+
+    def test_empty_cursor_query_advances_coverage_and_failure_preserves_it(self):
+        with (
+            mock.patch.object(usage_report.cursor_api, "read_cursor_state", return_value={"access_token": "token"}),
+            mock.patch.object(usage_report.cursor_api, "cursor_product_version", return_value="test"),
+            mock.patch.object(usage_report.cursor_api, "CursorClient"),
+            mock.patch.object(usage_report, "fetch_cursor_aggregate_audit", return_value={}),
+            mock.patch.object(usage_report, "call_cursor", return_value={"totalUsageEventsCount": 0}),
+        ):
+            result = usage_report.fetch_cursor_usage(
+                Path("/tmp"), 10, "Asia/Shanghai", end_ms=1_785_513_600_000
+            )
+        self.assertTrue(result["complete"])
+        history = result["history"]
+        self.assertEqual(history["window_end"], "2026-07-31")
+        self.assertEqual(history["last_event_day"], "")
+        success = usage_report.reconcile_source_status({}, {"cursor": {
+            "attempted": True, "fresh": True, **history,
+        }}, attempted_at="2026-07-31T23:59:59+08:00", today="2026-07-31")
+        self.assertEqual(success["cursor"]["status"], "fresh")
+        failure = {"cursor": {"attempted": True, "fresh": False, "error": "cursor_incomplete"}}
+        actual = usage_report.reconcile_source_status(
+            {"source_status": success}, failure,
+            attempted_at="2026-08-01T12:00:00+08:00", today="2026-08-01",
+        )
+        cursor = usage_report.public_source_status(actual)["cursor"]
+        self.assertEqual(cursor["status"], "stale")
+        self.assertEqual(cursor["window_end"], "2026-07-31")
+        self.assertEqual(cursor["last_event_day"], "")
+        self.assertEqual(cursor["error"], "cursor_incomplete")
 
     def test_cursor_missing_charged_cost_keeps_snapshot_incomplete(self):
         event = {

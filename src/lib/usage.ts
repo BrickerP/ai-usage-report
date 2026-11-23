@@ -8,6 +8,7 @@ export type SourceStatus = {
   status: 'fresh' | 'stale' | 'failed'
   last_success_at?: string | null
   attempted_at?: string | null
+  last_event_day?: string | null
   window_end?: string | null
   lag_days?: number | null
   error?: string | null

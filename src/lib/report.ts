@@ -77,11 +77,18 @@ export type ReportBreakdown = {
 export type ReportDay = {
   date: string
   published: boolean
+  cursorUnavailable?: boolean
   tokens: number | null
   cost: number | null
   values: Array<number | null>
   breakdown: ReportBreakdown[]
   modelCoverage: 'not-applicable' | 'complete' | 'unavailable'
+}
+
+export function dayStateLabel(day: ReportDay): string {
+  if (day.cursorUnavailable) return day.tokens === null ? 'Cursor unavailable' : 'Partial · Cursor unavailable'
+  if (day.tokens === null) return 'Unavailable'
+  return day.tokens === 0 ? 'Published zero' : 'Recorded'
 }
 
 export type ReportRange = {
@@ -104,6 +111,7 @@ export type ReportScope = {
   cache: number | null
   cacheShare: number | null
   availableDays: number
+  cursorUnavailableDays: number
   activeDays: number
 }
 
@@ -123,10 +131,10 @@ export type ToolReport = {
 
 export type ModelReportEntry = {
   name: string
-  tokens: number
-  cost: number
+  tokens: number | null
+  cost: number | null
   /** Ratio from 0 to 1 of the selected tool's range tokens. */
-  share: number
+  share: number | null
   kind: 'model' | 'legacy'
   selectable: boolean
   selected: boolean
@@ -179,6 +187,7 @@ export type ReportSource = {
   message: string
   lastSuccessAt: string | null
   attemptedAt: string | null
+  lastEventDay: string | null
   windowEnd: string | null
   lagDays: number | null
   error: string | null
@@ -547,6 +556,7 @@ function reportSources(payload: UsagePayload): ReportSources {
       message: notice?.message ?? `${sourceLabel(id)} is fresh.`,
       lastSuccessAt: source.last_success_at ?? null,
       attemptedAt: source.attempted_at ?? null,
+      lastEventDay: source.last_event_day || null,
       windowEnd: source.window_end ?? null,
       lagDays: Number.isFinite(lag) ? lag : null,
       error: source.error ?? null,
@@ -621,15 +631,15 @@ function modelReport(
       const legacy = model.model === 'Legacy unknown'
       return {
         name: model.model,
-        tokens,
-        cost,
-        share: toolTotal > 0 ? tokens / toolTotal : 0,
+        tokens: rows.length ? tokens : null,
+        cost: rows.length ? cost : null,
+        share: rows.length ? (toolTotal > 0 ? tokens / toolTotal : 0) : null,
         kind: legacy ? ('legacy' as const) : ('model' as const),
         selectable: !legacy,
         selected: !legacy && model.model === selectedModel,
       }
     })
-    .sort((left, right) => right.tokens - left.tokens || left.name.localeCompare(right.name))
+    .sort((left, right) => (right.tokens ?? 0) - (left.tokens ?? 0) || left.name.localeCompare(right.name))
   const identified = full.filter((model) => model.kind === 'model')
   const byName = new Map(identified.map((model) => [model.name, model]))
   const top = rangeSelection.series
@@ -716,22 +726,32 @@ function reportSeries(
   return result
 }
 
+function cursorDayUnavailable(row: DailyRow, source: SourceStatus | undefined): boolean {
+  // Historical reports may predate source status. Retained events also provide
+  // evidence of usage even if a later refresh couldn't cover their date.
+  if (!source || num(row, 'cursor_tokens') > 0 || num(row, 'cursor_cost') !== 0) return false
+  return !source.window_end || dateOrdinal(source.window_end) === null || row.date > source.window_end
+}
+
 function denseDaily(
   period: ResolvedPeriod,
   toolId: ToolId | null,
   selectedModel: string | null,
   models: ModelReport | null,
   series: ReportSeries[],
+  cursorUnavailableDates: ReadonlySet<string>,
 ): ReportDay[] {
   const rowsByDate = new Map(period.rows.map((row) => [row.date, row]))
   const tool = toolId ? TOOLS.find((candidate) => candidate.id === toolId) : undefined
   const groups = models?.groups ?? []
   return datesBetween(period.range.start, period.range.end).map((date) => {
     const row = rowsByDate.get(date)
-    if (!row) {
+    const cursorUnavailable = cursorUnavailableDates.has(date)
+    if (!row || (toolId === 'cursor' && cursorUnavailable)) {
       return {
         date,
-        published: false,
+        published: Boolean(row),
+        cursorUnavailable,
         tokens: null,
         cost: null,
         values: series.map(() => null),
@@ -746,18 +766,23 @@ function denseDaily(
     }
 
     if (!toolId || !tool) {
+      const breakdown = TOOLS.map((item) => {
+        const unavailable = item.id === 'cursor' && cursorUnavailable
+        return {
+          id: `tool:${item.id}`,
+          label: item.label,
+          tokens: unavailable ? null : num(row, item.tokenKey),
+          cost: unavailable ? null : num(row, item.costKey),
+        }
+      })
       return {
         date,
         published: true,
-        tokens: TOOLS.reduce((sum, item) => sum + num(row, item.tokenKey), 0),
-        cost: TOOLS.reduce((sum, item) => sum + num(row, item.costKey), 0),
-        values: TOOLS.map((item) => num(row, item.tokenKey)),
-        breakdown: TOOLS.map((item) => ({
-          id: `tool:${item.id}`,
-          label: item.label,
-          tokens: num(row, item.tokenKey),
-          cost: num(row, item.costKey),
-        })),
+        cursorUnavailable,
+        tokens: breakdown.reduce((sum, entry) => sum + (entry.tokens ?? 0), 0),
+        cost: breakdown.reduce((sum, entry) => sum + (entry.cost ?? 0), 0),
+        values: breakdown.map((entry) => entry.tokens),
+        breakdown,
         modelCoverage: 'not-applicable',
       }
     }
@@ -855,22 +880,24 @@ function denseDaily(
   })
 }
 
-function reportTools(rows: DailyRow[]): ToolReport[] {
+function reportTools(rows: DailyRow[], cursorRows: DailyRow[]): ToolReport[] {
   const summary = summarizeRange(rows)
-  const availableDays = rows.length
-  return summary.byTool.map((tool, index) => ({
-    id: tool.id,
-    label: tool.label,
-    color: SERIES_COLORS[index],
-    coverage: tool.coverage,
-    tokens: availableDays ? tool.tokens : null,
-    cost: availableDays ? tool.cost : null,
-    share:
-      !availableDays ? null : summary.tokens > 0 ? tool.tokens / summary.tokens : 0,
-    availableDays,
-    parts: tokenParts(rows, tool.id),
-    modelCount: selectModelSeries(rows, tool.id).modelCount,
-  }))
+  return summary.byTool.map((tool, index) => {
+    const toolRows = tool.id === 'cursor' ? cursorRows : rows
+    const availableDays = toolRows.length
+    return {
+      id: tool.id,
+      label: tool.label,
+      color: SERIES_COLORS[index],
+      coverage: tool.coverage,
+      tokens: availableDays ? tool.tokens : null,
+      cost: availableDays ? tool.cost : null,
+      share: !availableDays ? null : summary.tokens > 0 ? tool.tokens / summary.tokens : 0,
+      availableDays,
+      parts: tokenParts(toolRows, tool.id),
+      modelCount: selectModelSeries(toolRows, tool.id).modelCount,
+    }
+  })
 }
 
 function selectedModelName(
@@ -917,10 +944,16 @@ export function buildReport(payload: UsagePayload, requested: ReportView): Repor
   const toolId = TOOLS.some((tool) => tool.id === period.view.tool)
     ? period.view.tool
     : null
+  const cursorUnavailableDates = new Set(
+    period.rows.filter((row) => cursorDayUnavailable(row, payload.source_status?.cursor))
+      .map((row) => row.date),
+  )
+  const cursorRows = period.rows.filter((row) => !cursorUnavailableDates.has(row.date))
+  const scopeRows = toolId === 'cursor' ? cursorRows : period.rows
   const model = selectedModelName(allRows, toolId, period.view.model)
-  const models = toolId ? modelReport(allRows, period.rows, toolId, model) : null
-  const series = reportSeries(period.rows, toolId, model, models)
-  const daily = denseDaily(period, toolId, model, models, series)
+  const models = toolId ? modelReport(allRows, scopeRows, toolId, model) : null
+  const series = reportSeries(scopeRows, toolId, model, models)
+  const daily = denseDaily(period, toolId, model, models, series, cursorUnavailableDates)
   const summary = summarizeRange(period.rows)
   const selectedTool = toolId
     ? summary.byTool.find((tool) => tool.id === toolId)
@@ -937,7 +970,7 @@ export function buildReport(payload: UsagePayload, requested: ReportView): Repor
   const activeDays = daily.filter(
     (day) => day.tokens !== null && day.tokens > 0,
   ).length
-  const knownCache = scopeCache(period.rows, toolId)
+  const knownCache = scopeCache(scopeRows, toolId)
   const cache = availableDays > 0 ? knownCache : null
   const cacheDenominator = toolId ? selectedTool?.tokens ?? 0 : summary.tokens
   const scope: ReportScope = {
@@ -964,6 +997,7 @@ export function buildReport(payload: UsagePayload, requested: ReportView): Repor
     cacheShare:
       cache !== null && cacheDenominator > 0 ? cache / cacheDenominator : null,
     availableDays,
+    cursorUnavailableDays: !toolId || toolId === 'cursor' ? cursorUnavailableDates.size : 0,
     activeDays,
   }
   const pattern = daily.length
@@ -981,12 +1015,12 @@ export function buildReport(payload: UsagePayload, requested: ReportView): Repor
   const canonicalDay = requestedDay?.date ?? null
   const partTool = toolId
   const dateRow = selectedDay?.published
-    ? period.rows.find((row) => row.date === selectedDay.date) ?? null
+    ? scopeRows.find((row) => row.date === selectedDay.date) ?? null
     : null
   const parts: TokenPartReport = {
     scope: partTool ? 'tool' : 'all',
     tool: partTool,
-    range: tokenParts(period.rows, partTool),
+    range: tokenParts(scopeRows, partTool),
     date: dateRow ? tokenParts([dateRow], partTool) : null,
     note: model
       ? 'Token categories are published at tool level; the selected model publishes tokens and cost only.'
@@ -1023,11 +1057,11 @@ export function buildReport(payload: UsagePayload, requested: ReportView): Repor
       pricingVersion: payload.pricing_version ?? null,
     },
     view: canonicalView,
-    range: period.range,
+    range: { ...period.range, recordedDays: availableDays },
     scope,
     daily,
     series,
-    tools: reportTools(period.rows),
+    tools: reportTools(period.rows, cursorRows),
     models,
     parts,
     pattern,
