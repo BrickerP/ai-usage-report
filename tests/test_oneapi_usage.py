@@ -1797,7 +1797,6 @@ class SourceStatusTests(unittest.TestCase):
                 result = usage_report.collect_usage(
                     root,
                     "Asia/Shanghai",
-                    root / "scratch",
                     500,
                     machine_id="mac-test",
                     machines_dir=machines,
@@ -1996,7 +1995,6 @@ class SourceStatusTests(unittest.TestCase):
                 result = usage_report.collect_usage(
                     root,
                     "Asia/Shanghai",
-                    root / "scratch",
                     500,
                     machine_id="mac-test",
                     machines_dir=machines,
@@ -2088,7 +2086,6 @@ class SourceStatusTests(unittest.TestCase):
                 result = usage_report.collect_usage(
                     root,
                     "Asia/Shanghai",
-                    root / "scratch",
                     500,
                     machine_id="mac-test",
                     machines_dir=machines,
@@ -2168,7 +2165,6 @@ class SourceStatusTests(unittest.TestCase):
                 result = usage_report.collect_usage(
                     root,
                     "Asia/Shanghai",
-                    root / "scratch",
                     500,
                     machine_id="mac-test",
                     machines_dir=machines,
@@ -2248,7 +2244,6 @@ class SourceStatusTests(unittest.TestCase):
                 result = usage_report.collect_usage(
                     root,
                     "Asia/Shanghai",
-                    root / "scratch",
                     500,
                     machine_id="mac-test",
                     machines_dir=machines,

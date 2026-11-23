@@ -289,7 +289,6 @@ class LocalReconciliationTests(unittest.TestCase):
                 mock.patch.object(
                     usage_report, "codex_daily_from_jsonl", side_effect=fake_codex_from_jsonl
                 ),
-                mock.patch.object(usage_report, "local_record_summary", return_value={}),
                 mock.patch.object(
                     usage_report.comate_usage,
                     "parse_comate",
@@ -302,7 +301,6 @@ class LocalReconciliationTests(unittest.TestCase):
                 usage_report.collect_local_machine(
                     root,
                     "Asia/Shanghai",
-                    root / "scratch",
                     machine_id="mac-test",
                     machines_path=machines,
                 )
@@ -630,6 +628,106 @@ class CursorReconciliationTests(unittest.TestCase):
             usage_report.cursor_mutable_from(upgraded, "2026-07-31"),
             "2026-07-30",
         )
+
+    def collect_cursor_window(
+        self, *, merge_only=True, mutable_from="2026-11-22", coverage="2026-11-10",
+        price_version=usage_report.CURSOR_PRICING_VERSION, full=False,
+        events=(), complete=True, last_event_day="", previous_overlap=False,
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            machines = root / "machines"
+            machines.mkdir()
+            timezone = "Asia/Shanghai"
+            codex_only = local_row("2026-10-10", codex_tokens=10)
+            (machines / "mac-test.json").write_text(json.dumps({
+                "machine_id": "mac-test", "hostname": "test", "timezone": timezone, "daily": [codex_only],
+            }))
+            codex_only["cursor_snapshot_complete"] = False
+            codex_only["cursor_pricing_version"] = "old-test"
+
+            old = usage_report.empty_daily_row("2026-10-09")
+            old.update(cursor_tokens=100, cursor_input=100, cursor_cost=2.0)
+            prior = {
+                "daily": [old, codex_only], "timezone": timezone, "cursor_mutable_from": mutable_from,
+                "cursor_pricing_version": price_version,
+                "source_status": {"cursor": {
+                    "window_end": coverage, "status": "stale", "last_event_day": "2026-10-10",
+                    "last_success_at": "2026-11-11T01:00:00+08:00",
+                }},
+            }
+            if previous_overlap:
+                old_window_row = usage_report.empty_daily_row("2026-11-16")
+                old_window_row.update(cursor_tokens=5, cursor_input=5, cursor_cost=0.1)
+                prior["daily"].append(old_window_row)
+            ledger = root / "usage.json"
+            ledger.write_text(json.dumps(prior))
+            response = {
+                "available": True, "complete": complete, "daily_timeline": list(events),
+                "history": {"window_end": "2026-11-23", "last_event_day": last_event_day},
+            }
+            with (
+                mock.patch.object(usage_report, "local_today", return_value="2026-11-23"),
+                mock.patch.object(usage_report, "fetch_cursor_usage", return_value=response) as fetch,
+                mock.patch.object(usage_report, "collect_local_machine", return_value={
+                    "today": "2026-11-23", "fragment_meta": {}, "codex_summary": {"tool": "Codex"}, "comate": {},
+                }),
+                mock.patch.dict(os.environ, {"ONEAPI_STATE_PATH": str(root / "absent")}),
+                mock.patch.object(usage_report.sys, "stderr"),
+            ):
+                result = usage_report.collect_usage(
+                    root, timezone, 500, machine_id="mac-test", machines_dir=machines,
+                    merge_only=merge_only, usage_json_path=ledger, cursor_full_history=full,
+                )
+            return result, fetch.call_args.kwargs["start_ms"]
+
+    def test_cursor_incremental_publish_fills_gap_without_replacing_history(self):
+        for merge_only in (True, False):
+            with self.subTest(merge_only=merge_only):
+                result, start_ms = self.collect_cursor_window(
+                    merge_only=merge_only, previous_overlap=True, last_event_day="2026-11-16", events=[{
+                        "date": "2026-11-16", "tokens": 20, "input": 20, "cost": 0.5,
+                    }],
+                )
+                self.assertEqual(start_ms, 1_794_240_000_000)  # 2026-11-10 00:00 +08:00
+                cursor = next(t for t in result["tools"] if t["tool"] == "Cursor")
+                self.assertEqual((cursor["total_tokens"], cursor["cost"]), (120, 2.5))
+                kept = next(r for r in result["daily_timeline_rows"] if r["date"] == "2026-10-10")
+                self.assertFalse(kept["cursor_snapshot_complete"])
+                self.assertEqual(kept["cursor_pricing_version"], "old-test")
+                self.assertEqual(result["cursor_mutable_from"], "2026-11-22")
+                state = result["source_status"]["cursor"]
+                self.assertEqual((state["window_end"], state["last_event_day"]), ("2026-11-23", "2026-11-16"))
+
+    def test_cursor_window_tracks_retries_midnight_and_empty_activity(self):
+        for mutable, coverage, expected in (
+            ("2026-10-09", "2026-11-23", "2026-10-09"),
+            ("2026-11-23", "2026-11-23", "2026-11-22"),
+        ):
+            result, start_ms = self.collect_cursor_window(mutable_from=mutable, coverage=coverage)
+            self.assertEqual(usage_report.ms_to_calendar_date(start_ms, "Asia/Shanghai"), expected)
+            state = result["source_status"]["cursor"]
+            self.assertEqual((state["status"], state["last_event_day"]), ("fresh", "2026-10-10"))
+        result, _ = self.collect_cursor_window(complete=False, events=[{
+            "date": "2026-11-15", "tokens": 2000,
+        }])
+        state = result["source_status"]["cursor"]
+        self.assertEqual((state["window_end"], state["last_event_day"]), ("2026-11-10", "2026-10-10"))
+        self.assertEqual(result["cursor_mutable_from"], "2026-11-10")
+        self.assertEqual(next(t["total_tokens"] for t in result["tools"] if t["tool"] == "Cursor"), 100)
+
+    def test_full_cursor_queries_respect_frozen_totals_and_reprice_old_ledgers(self):
+        corrected = [{"date": "2026-10-09", "tokens": 100, "cost": 1.5, "input": 100}]
+        for options, expected_cost in (
+            ({"full": True}, 2),
+            ({"coverage": ""}, 2),
+            ({"mutable_from": ""}, 1.5),
+            ({"price_version": "older"}, 1.5),
+        ):
+            with self.subTest(options=options):
+                result, start_ms = self.collect_cursor_window(events=corrected, **options)
+                self.assertIsNone(start_ms)
+                self.assertEqual(next(t["cost"] for t in result["tools"] if t["tool"] == "Cursor"), expected_cost)
 
     def test_cursor_http_error_is_redacted_and_bounded(self):
         token = "secret-access-token"
