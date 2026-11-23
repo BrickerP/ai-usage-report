@@ -3,9 +3,9 @@
   "pricing_version": "2026-11-20.v1",
   "machine_id": "mac-m3-local",
   "hostname": "wpdeMacBook-Pro.local",
-  "collected_at": "2026-11-23T00:36:14+08:00",
-  "captured_at": "2026-11-23T00:36:14+08:00",
-  "snapshot_id": "mac-m3-local@2026-11-23T00:36:14+08:00",
+  "collected_at": "2026-11-23T15:35:28+08:00",
+  "captured_at": "2026-11-23T15:35:28+08:00",
+  "snapshot_id": "mac-m3-local@2026-11-23T15:35:28+08:00",
   "seeded_at": "2026-10-16T00:09:24+08:00",
   "seeded": true,
   "append_mode": true,
@@ -13,7 +13,7 @@
   "last_mode": "append",
   "last_append_stats": {
     "frozen_kept": 9,
-    "appended": 0,
+    "appended": 1,
     "refreshed": 13,
     "today_updated": 0,
     "skipped": 0,
@@ -1636,20 +1636,49 @@
       "codex_pricing_version": "2026-11-20.v1",
       "codex_pricing_complete": true,
       "codex_pricing_provenance": "pinned-ledger"
+    },
+    {
+      "date": "2026-11-23",
+      "codex_tokens": 277604422,
+      "codex_cost": 153.58341439999998,
+      "codex_input": 4498513,
+      "codex_cache_read": 272894976,
+      "codex_output": 210933,
+      "codex_reasoning": 42584,
+      "codex_models": [
+        {
+          "model": "gpt-6.2-astra",
+          "tokens": 277604422,
+          "cost": 153.58341439999998,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 4498513,
+          "output": 210933,
+          "cache_read": 272894976,
+          "cache_create": 0,
+          "reasoning": 42584,
+          "canonical_model": "gpt-6.2-astra",
+          "pricing_version": "2026-11-20.v1"
+        }
+      ],
+      "codex_snapshot_complete": true,
+      "codex_pricing_version": "2026-11-20.v1",
+      "codex_pricing_complete": true,
+      "codex_pricing_provenance": "pinned-ledger"
     }
   ],
   "oneapi_key2": {
     "version": 1,
-    "collected_at": "2026-11-23T00:36:19+08:00",
+    "collected_at": "2026-11-23T15:35:34+08:00",
     "recomputed_from": "2026-10-15",
     "stats": {
-      "calls": 38926,
-      "key1_calls": 4,
-      "key2_calls": 622,
+      "calls": 39060,
+      "key1_calls": 7,
+      "key2_calls": 753,
       "unattributed_calls": 38300,
       "unattributed_after_ledger": 0,
-      "fork_copies": 218,
-      "ledger_lines": 190,
+      "fork_copies": 599,
+      "ledger_lines": 331,
       "backfill_lines": 436,
       "ledger_since": "2026-11-20T14:47:42+08:00",
       "unmapped_models": [],
@@ -1784,6 +1813,49 @@
             "cache_read": 12798464,
             "cache_write": 0,
             "tokens": 13614276
+          }
+        ]
+      },
+      {
+        "date": "2026-11-23",
+        "requests": 131,
+        "tokens": 41543700,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 62,
+            "input": 24169694,
+            "output": 83232,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 24252926
+          },
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 63,
+            "input": 1504146,
+            "output": 63665,
+            "cache_read": 15263488,
+            "cache_write": 0,
+            "tokens": 16831299
+          },
+          {
+            "model": "claude-sonnet-5.5",
+            "raw_models": [
+              "Claude Sonnet 5.5"
+            ],
+            "requests": 6,
+            "input": 450807,
+            "output": 8668,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 459475
           }
         ]
       }
