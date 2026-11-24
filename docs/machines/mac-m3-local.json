@@ -3,9 +3,9 @@
   "pricing_version": "2026-11-20.v1",
   "machine_id": "mac-m3-local",
   "hostname": "wpdeMacBook-Pro.local",
-  "collected_at": "2026-11-24T00:35:27+08:00",
-  "captured_at": "2026-11-24T00:35:27+08:00",
-  "snapshot_id": "mac-m3-local@2026-11-24T00:35:27+08:00",
+  "collected_at": "2026-11-24T15:33:31+08:00",
+  "captured_at": "2026-11-24T15:33:31+08:00",
+  "snapshot_id": "mac-m3-local@2026-11-24T15:33:31+08:00",
   "seeded_at": "2026-10-16T00:09:24+08:00",
   "seeded": true,
   "append_mode": true,
@@ -13,9 +13,9 @@
   "last_mode": "append",
   "last_append_stats": {
     "frozen_kept": 9,
-    "appended": 1,
+    "appended": 0,
     "refreshed": 13,
-    "today_updated": 0,
+    "today_updated": 1,
     "skipped": 0,
     "regression_kept": 23,
     "regression_dates": [
@@ -59,10 +59,10 @@
     },
     "pricing_changes": [
       {
-        "date": "2026-11-23",
+        "date": "2026-11-24",
         "tool": "codex",
-        "from": 153.58341439999998,
-        "to": 800.9987712,
+        "from": 13.754150399999999,
+        "to": 626.8502624,
         "pricing_version": "2026-11-20.v1",
         "pricing_complete": true
       }
@@ -1692,24 +1692,24 @@
     },
     {
       "date": "2026-11-24",
-      "codex_tokens": 31114336,
-      "codex_cost": 13.754150399999999,
-      "codex_input": 48410,
-      "codex_cache_read": 31042176,
-      "codex_output": 23750,
-      "codex_reasoning": 5862,
+      "codex_tokens": 1347194198,
+      "codex_cost": 626.8502624,
+      "codex_input": 6992880,
+      "codex_cache_read": 1339321856,
+      "codex_output": 879462,
+      "codex_reasoning": 257461,
       "codex_models": [
         {
           "model": "gpt-6.2-astra",
-          "tokens": 31114336,
-          "cost": 13.754150399999999,
+          "tokens": 1347194198,
+          "cost": 626.8502624,
           "components_complete": true,
           "pricing_provenance": "pinned-ledger",
-          "input": 48410,
-          "output": 23750,
-          "cache_read": 31042176,
+          "input": 6992880,
+          "output": 879462,
+          "cache_read": 1339321856,
           "cache_create": 0,
-          "reasoning": 5862,
+          "reasoning": 257461,
           "canonical_model": "gpt-6.2-astra",
           "pricing_version": "2026-11-20.v1"
         }
@@ -1722,16 +1722,16 @@
   ],
   "oneapi_key2": {
     "version": 1,
-    "collected_at": "2026-11-24T00:35:33+08:00",
+    "collected_at": "2026-11-24T15:33:39+08:00",
     "recomputed_from": "2026-10-16",
     "stats": {
-      "calls": 37836,
+      "calls": 38015,
       "key1_calls": 19,
-      "key2_calls": 1243,
+      "key2_calls": 1422,
       "unattributed_calls": 36574,
       "unattributed_after_ledger": 0,
       "fork_copies": 381,
-      "ledger_lines": 835,
+      "ledger_lines": 1018,
       "backfill_lines": 436,
       "ledger_since": "2026-11-20T14:47:42+08:00",
       "unmapped_models": [],
@@ -1914,32 +1914,44 @@
       },
       {
         "date": "2026-11-24",
-        "requests": 116,
-        "tokens": 22019532,
+        "requests": 295,
+        "tokens": 90346981,
         "models": [
           {
             "model": "claude-opus-5-5",
             "raw_models": [
               "Opus 5.5"
             ],
-            "requests": 55,
-            "input": 19285652,
-            "output": 82049,
+            "requests": 172,
+            "input": 56915939,
+            "output": 169859,
             "cache_read": 0,
             "cache_write": 0,
-            "tokens": 19367701
+            "tokens": 57085798
           },
           {
             "model": "deepseek-v4.1-flash-1017",
             "raw_models": [
               "DeepSeek-V4.1-Flash"
             ],
-            "requests": 61,
-            "input": 345332,
-            "output": 109763,
-            "cache_read": 2196736,
+            "requests": 89,
+            "input": 1661282,
+            "output": 132651,
+            "cache_read": 20392960,
             "cache_write": 0,
-            "tokens": 2651831
+            "tokens": 22186893
+          },
+          {
+            "model": "gpt-6.2-astra",
+            "raw_models": [
+              "gpt-6.2-astra"
+            ],
+            "requests": 34,
+            "input": 1210413,
+            "output": 33733,
+            "cache_read": 9830144,
+            "cache_write": 0,
+            "tokens": 11074290
           }
         ]
       }
