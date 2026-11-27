@@ -1,28 +1,16 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-11-20.v1",
-  "captured_at": "2026-11-26T17:16:01-08:00",
-  "snapshot_id": "sha256:9ed4fa45602345204c0eac68416306e49d146dce4ee8d06792cb96c8a9e29341",
-  "generated_at": "2026-11-26T17:16:01-08:00",
+  "captured_at": "2026-11-26T23:34:48-08:00",
+  "snapshot_id": "sha256:b5f5d9a9f6746c12d8a7cb027e65144d4f649659edd5a7e4120a3c0ab850f649",
+  "generated_at": "2026-11-26T23:34:48-08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
   "cursor_reconciliation": {
-    "regression_dates": [
-      "2026-07-18",
-      "2026-07-22",
-      "2026-07-23",
-      "2026-10-17",
-      "2026-10-18"
-    ],
-    "regression_kept": 5,
-    "regression_reasons": {
-      "2026-07-18": "token_regression",
-      "2026-07-22": "token_regression",
-      "2026-07-23": "token_regression",
-      "2026-10-17": "token_regression",
-      "2026-10-18": "token_regression"
-    },
+    "regression_dates": [],
+    "regression_kept": 0,
+    "regression_reasons": {},
     "model_backfilled_dates": [],
     "model_backfilled": 0
   },
@@ -36,9 +24,9 @@
   "tools": [
     {
       "tool": "Codex",
-      "history": "2026-01-08 to 2026-11-26",
-      "cost": 173223.03722873,
-      "total_tokens": 279670758994,
+      "history": "2026-01-08 to 2026-11-27",
+      "cost": 173331.78472473,
+      "total_tokens": 279849205003,
       "models": [
         {
           "model": "gpt-5.6-sol",
@@ -118,19 +106,19 @@
         },
         {
           "model": "gpt-6.2-astra",
-          "tokens": 7991645101,
-          "cost": 4003.0800004,
+          "tokens": 8170091110,
+          "cost": 4111.8274964,
           "components_complete": true,
           "raw_models": [
             "gpt-6.2-astra"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 70325082,
-          "output": 6867458,
-          "cache_read": 7914452561,
+          "input": 74545978,
+          "output": 7001051,
+          "cache_read": 8088544081,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 1632562,
+          "reasoning": 1665803,
           "canonical_model": "gpt-6.2-astra",
           "pricing_version": "2026-11-20.v1",
           "ownership_rule_version": "3"
@@ -1487,24 +1475,24 @@
     },
     "claude": {
       "status": "stale",
-      "attempted_at": "2026-11-26T17:09:26-08:00",
+      "attempted_at": "2026-11-26T23:33:36-08:00",
       "last_success_at": "2026-11-27T08:18:09+08:00",
       "window_end": "2026-11-27",
       "lag_days": 0,
       "error": "oneapi_network_unavailable"
     },
     "cursor": {
-      "status": "fresh",
-      "attempted_at": "2026-11-26T17:09:26-08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-26T23:33:36-08:00",
       "last_success_at": "2026-11-26T17:09:26-08:00",
       "window_end": "2026-11-27",
       "lag_days": 0,
-      "error": "",
+      "error": "cursor_incomplete",
       "last_event_day": "2026-11-10"
     },
     "oneapi": {
       "status": "stale",
-      "attempted_at": "2026-11-26T17:09:26-08:00",
+      "attempted_at": "2026-11-26T23:33:36-08:00",
       "last_success_at": "2026-11-27T08:18:09+08:00",
       "window_end": "2026-11-27",
       "lag_days": 0,
@@ -60609,12 +60597,12 @@
     },
     {
       "date": "2026-11-27",
-      "codex_tokens": 0,
-      "codex_cost": 0.0,
-      "codex_input": 0,
-      "codex_cache_read": 0,
-      "codex_output": 0,
-      "codex_reasoning": 0,
+      "codex_tokens": 178446009,
+      "codex_cost": 108.74749599999998,
+      "codex_input": 4220896,
+      "codex_cache_read": 174091520,
+      "codex_output": 133593,
+      "codex_reasoning": 33241,
       "claude_tokens": 0,
       "claude_cost": 0.0,
       "claude_input": 0,
@@ -60634,7 +60622,23 @@
       "oneapi_cache_write": 0,
       "oneapi_output": 3017,
       "oneapi_requests": 4,
-      "codex_models": [],
+      "codex_models": [
+        {
+          "model": "gpt-6.2-astra",
+          "tokens": 178446009,
+          "cost": 108.74749599999998,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 4220896,
+          "output": 133593,
+          "cache_read": 174091520,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 33241,
+          "canonical_model": "gpt-6.2-astra",
+          "pricing_version": "2026-11-20.v1"
+        }
+      ],
       "claude_models": [],
       "cursor_models": [],
       "oneapi_models": [
@@ -60670,13 +60674,21 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 1113284,
-      "total_cost": 0.00027160000000000004
+      "total_tokens": 179559293,
+      "total_cost": 108.74776759999999,
+      "codex_snapshot_complete": true,
+      "codex_pricing_complete": true,
+      "codex_pricing_version": "2026-11-20.v1",
+      "codex_pricing_provenance": "pinned-ledger",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard"
     }
   ],
   "notes": {
     "token_breakdown": "Cards and tooltips show input, cache, and output tokens per tool. Codex cache = cache read; Claude cache = create + read; Cursor cache = write + read. Claude Code is collected from the One API gateway's Claude model family. Codex totals are the local ~/.codex rollout jsonl summed across public/machines/*.json plus the One API gateway's Codex model family (gateway-routed Codex traffic). Codex runs started with `codex exec --ephemeral` persist no session file and therefore cannot be recorded. One API includes only non-GPT/Codex and non-Claude model families from the gateway, such as Grok and DeepSeek. OpenCode calls made with the second One API key are logged under another account, so each Mac meters them from OpenCode's local database and the key-split ledger and adds them to the same model families. Historical local Comate context deltas are retained under One API only on dates without gateway coverage.",
     "cost": "Codex and Claude Code costs are estimates at official API list prices, from the checked-in price ledger 2026-11-20.v1 (OpenAI and Anthropic pricing pages): every model's persisted input, output, and cache tokens are priced at standard rates, short-context for GPT, with GPT-5.6 Sol at its regular rate rather than its temporary promotion. The One API gateway reports no Claude cache hits, so all Claude input is priced as uncached, which overstates what the same traffic costs with prompt caching. Models without a list price, and days stored without per-model tokens, keep their recorded cost. Cursor costs come from the authenticated Dashboard API. One API shows the gateway's actual charge for its other models: quota at 250,000 units/CNY and ~0.14 USD/CNY; the second key's charge is estimated from this account's own quota per token for the same model in the same window. The gateway actually charged ¥51,874 for 2026-10-28 to 2026-11-27: Claude ¥47,984, Codex ¥2,658, other models ¥1,232 (the second key's share is estimated). Codex daily totals are SUMMED across public/machines/*.json plus the One API gateway's Codex model family; Claude Code and One API are account-level; each publish refreshes the latest 31-day One API window and keeps older days; Cursor refreshes the open account window and keeps its history when the Dashboard API is unavailable or returns incomplete pages; One API keeps its prior series when authentication fails or the usage statistics are incomplete.",
-    "merge": "Merged machine fragments: mac-m1-local, mac-m3-local, mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected."
+    "merge": "Merged machine fragments: mac-m1-local, mac-m3-local, mac-m4-local, mac-wpd. Each Mac atomically updates machines/<id>.json. The first run seeds history; later runs re-collect mutable_from through today, while older dates and higher prior snapshots remain protected. Cursor refresh failed; kept prior usage.json Cursor series."
   }
 }
