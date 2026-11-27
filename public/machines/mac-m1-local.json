@@ -3,13 +3,13 @@
   "pricing_version": "2026-11-20.v1",
   "machine_id": "mac-m1-local",
   "hostname": "yupengs-MacBook-Pro.local",
-  "collected_at": "2026-11-27T00:03:01-08:00",
-  "captured_at": "2026-11-27T00:03:01-08:00",
-  "snapshot_id": "mac-m1-local@2026-11-27T00:03:01-08:00",
+  "collected_at": "2026-11-27T09:05:04-08:00",
+  "captured_at": "2026-11-27T09:05:04-08:00",
+  "snapshot_id": "mac-m1-local@2026-11-27T09:05:04-08:00",
   "seeded_at": "2026-11-19T01:05:01+08:00",
   "seeded": true,
   "append_mode": true,
-  "mutable_from": "2026-11-26",
+  "mutable_from": "2026-11-27",
   "last_mode": "append",
   "last_append_stats": {
     "frozen_kept": 1,
@@ -61,16 +61,16 @@
   ],
   "oneapi_key2": {
     "version": 1,
-    "collected_at": "2026-11-27T00:03:13-08:00",
-    "recomputed_from": "2026-10-19",
+    "collected_at": "2026-11-27T09:05:13-08:00",
+    "recomputed_from": "2026-10-20",
     "stats": {
-      "calls": 40990,
-      "key1_calls": 259,
-      "key2_calls": 2361,
-      "unattributed_calls": 38370,
+      "calls": 38749,
+      "key1_calls": 292,
+      "key2_calls": 2412,
+      "unattributed_calls": 36045,
       "unattributed_after_ledger": 6460,
       "fork_copies": 17323,
-      "ledger_lines": 1031,
+      "ledger_lines": 1114,
       "backfill_lines": 1597,
       "ledger_since": "2026-11-20T15:48:00+08:00",
       "unmapped_models": [
@@ -473,20 +473,20 @@
       },
       {
         "date": "2026-11-27",
-        "requests": 48,
-        "tokens": 11614842,
+        "requests": 83,
+        "tokens": 28152468,
         "models": [
           {
             "model": "claude-opus-5-5",
             "raw_models": [
               "Opus 5.5"
             ],
-            "requests": 46,
-            "input": 10484613,
-            "output": 20306,
+            "requests": 80,
+            "input": 26118485,
+            "output": 56439,
             "cache_read": 0,
             "cache_write": 0,
-            "tokens": 10504919
+            "tokens": 26174924
           },
           {
             "model": "Gemini 4 Neon",
@@ -499,6 +499,37 @@
             "cache_read": 0,
             "cache_write": 0,
             "tokens": 1109923
+          },
+          {
+            "model": "claude-sonnet-5.5",
+            "raw_models": [
+              "Claude Sonnet 5.5"
+            ],
+            "requests": 1,
+            "input": 859348,
+            "output": 8273,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 867621
+          }
+        ]
+      },
+      {
+        "date": "2026-11-28",
+        "requests": 16,
+        "tokens": 2273246,
+        "models": [
+          {
+            "model": "deepseek-v4.1-flash-1017",
+            "raw_models": [
+              "DeepSeek-V4.1-Flash"
+            ],
+            "requests": 16,
+            "input": 142045,
+            "output": 6401,
+            "cache_read": 2124800,
+            "cache_write": 0,
+            "tokens": 2273246
           }
         ]
       }
