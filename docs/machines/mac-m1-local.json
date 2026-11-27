@@ -3,9 +3,9 @@
   "pricing_version": "2026-11-20.v1",
   "machine_id": "mac-m1-local",
   "hostname": "yupengs-MacBook-Pro.local",
-  "collected_at": "2026-11-27T07:40:06+08:00",
-  "captured_at": "2026-11-27T07:40:06+08:00",
-  "snapshot_id": "mac-m1-local@2026-11-27T07:40:06+08:00",
+  "collected_at": "2026-11-27T00:03:01-08:00",
+  "captured_at": "2026-11-27T00:03:01-08:00",
+  "snapshot_id": "mac-m1-local@2026-11-27T00:03:01-08:00",
   "seeded_at": "2026-11-19T01:05:01+08:00",
   "seeded": true,
   "append_mode": true,
@@ -61,16 +61,16 @@
   ],
   "oneapi_key2": {
     "version": 1,
-    "collected_at": "2026-11-27T07:40:15+08:00",
+    "collected_at": "2026-11-27T00:03:13-08:00",
     "recomputed_from": "2026-10-19",
     "stats": {
-      "calls": 40904,
-      "key1_calls": 219,
-      "key2_calls": 2315,
+      "calls": 40990,
+      "key1_calls": 259,
+      "key2_calls": 2361,
       "unattributed_calls": 38370,
       "unattributed_after_ledger": 6460,
       "fork_copies": 17323,
-      "ledger_lines": 943,
+      "ledger_lines": 1031,
       "backfill_lines": 1597,
       "ledger_since": "2026-11-20T15:48:00+08:00",
       "unmapped_models": [
@@ -473,9 +473,21 @@
       },
       {
         "date": "2026-11-27",
-        "requests": 2,
-        "tokens": 1109923,
+        "requests": 48,
+        "tokens": 11614842,
         "models": [
+          {
+            "model": "claude-opus-5-5",
+            "raw_models": [
+              "Opus 5.5"
+            ],
+            "requests": 46,
+            "input": 10484613,
+            "output": 20306,
+            "cache_read": 0,
+            "cache_write": 0,
+            "tokens": 10504919
+          },
           {
             "model": "Gemini 4 Neon",
             "raw_models": [
