@@ -1,9 +1,9 @@
 {
   "schema_version": 4,
   "pricing_version": "2026-11-20.v1",
-  "captured_at": "2026-11-27T08:29:42+08:00",
-  "snapshot_id": "sha256:fcdc322047beee221cb793cd046451418b4c68537a52cadba79e92546ace4ace",
-  "generated_at": "2026-11-27T08:29:42+08:00",
+  "captured_at": "2026-11-26T17:16:01-08:00",
+  "snapshot_id": "sha256:9ed4fa45602345204c0eac68416306e49d146dce4ee8d06792cb96c8a9e29341",
+  "generated_at": "2026-11-26T17:16:01-08:00",
   "timezone": "Asia/Shanghai",
   "cursor_mutable_from": "2026-07-18",
   "cursor_pricing_version": "cursor-charged-cents-v1",
@@ -26,7 +26,7 @@
     "model_backfilled_dates": [],
     "model_backfilled": 0
   },
-  "machine_id": "mac-m1-local",
+  "machine_id": "mac-m3-local",
   "machines": [
     "mac-m1-local",
     "mac-m3-local",
@@ -37,8 +37,8 @@
     {
       "tool": "Codex",
       "history": "2026-01-08 to 2026-11-26",
-      "cost": 172573.12181753,
-      "total_tokens": 278230350630,
+      "cost": 173223.03722873,
+      "total_tokens": 279670758994,
       "models": [
         {
           "model": "gpt-5.6-sol",
@@ -117,6 +117,25 @@
           "ownership_rule_version": "3"
         },
         {
+          "model": "gpt-6.2-astra",
+          "tokens": 7991645101,
+          "cost": 4003.0800004,
+          "components_complete": true,
+          "raw_models": [
+            "gpt-6.2-astra"
+          ],
+          "pricing_provenance": "pinned-ledger",
+          "input": 70325082,
+          "output": 6867458,
+          "cache_read": 7914452561,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 1632562,
+          "canonical_model": "gpt-6.2-astra",
+          "pricing_version": "2026-11-20.v1",
+          "ownership_rule_version": "3"
+        },
+        {
           "model": "gpt-5.4",
           "tokens": 7064720593,
           "cost": 3218.185395000001,
@@ -130,25 +149,6 @@
           "reasoning": 9774913,
           "canonical_model": "gpt-5.4",
           "pricing_version": "2026-11-20.v1"
-        },
-        {
-          "model": "gpt-6.2-astra",
-          "tokens": 6551236737,
-          "cost": 3353.1645891999997,
-          "components_complete": true,
-          "raw_models": [
-            "gpt-6.2-astra"
-          ],
-          "pricing_provenance": "pinned-ledger",
-          "input": 65810026,
-          "output": 5871558,
-          "cache_read": 6479555153,
-          "cache_write": 0,
-          "cache_create": 0,
-          "reasoning": 1332369,
-          "canonical_model": "gpt-6.2-astra",
-          "pricing_version": "2026-11-20.v1",
-          "ownership_rule_version": "3"
         },
         {
           "model": "gpt-6-astra",
@@ -1486,34 +1486,34 @@
       "error": "local_fragments_stale"
     },
     "claude": {
-      "status": "fresh",
-      "attempted_at": "2026-11-27T08:18:09+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-26T17:09:26-08:00",
       "last_success_at": "2026-11-27T08:18:09+08:00",
       "window_end": "2026-11-27",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_network_unavailable"
     },
     "cursor": {
       "status": "fresh",
-      "attempted_at": "2026-11-27T08:18:09+08:00",
-      "last_success_at": "2026-11-27T08:18:09+08:00",
+      "attempted_at": "2026-11-26T17:09:26-08:00",
+      "last_success_at": "2026-11-26T17:09:26-08:00",
       "window_end": "2026-11-27",
       "lag_days": 0,
       "error": "",
       "last_event_day": "2026-11-10"
     },
     "oneapi": {
-      "status": "fresh",
-      "attempted_at": "2026-11-27T08:18:09+08:00",
+      "status": "stale",
+      "attempted_at": "2026-11-26T17:09:26-08:00",
       "last_success_at": "2026-11-27T08:18:09+08:00",
       "window_end": "2026-11-27",
       "lag_days": 0,
-      "error": ""
+      "error": "oneapi_network_unavailable"
     }
   },
   "oneapi": {
-    "available": true,
-    "complete": true,
+    "available": false,
+    "complete": false,
     "accounting_version": 2,
     "captured_at": "2026-11-27T08:18:08.725004+08:00",
     "snapshot_id": "sha256:783cfdad85fc792806f796ff4bde650bbdb72e8e99cb23a02e9ab9a048774103",
@@ -22977,7 +22977,7 @@
         }
       ]
     },
-    "stale": false,
+    "stale": true,
     "legacy_history_discarded": false,
     "key2": {
       "source": "opencode-key-ledger",
@@ -23005,10 +23005,10 @@
     "legacy_comate": {
       "included": true,
       "history": {
-        "first": "2026-07-13",
-        "last": "2026-07-15"
+        "first": "",
+        "last": ""
       },
-      "total_tokens": 2756710,
+      "total_tokens": 0,
       "note": "Local Comate context deltas are retained only for dates without One API gateway coverage."
     }
   },
@@ -59774,12 +59774,12 @@
     },
     {
       "date": "2026-11-25",
-      "codex_tokens": 159960660,
-      "codex_cost": 120.50629232,
-      "codex_input": 10827620,
-      "codex_cache_read": 148763740,
-      "codex_output": 369300,
-      "codex_reasoning": 18505,
+      "codex_tokens": 1599101830,
+      "codex_cost": 765.0669483199999,
+      "codex_input": 14708674,
+      "codex_cache_read": 1583028700,
+      "codex_output": 1364456,
+      "codex_reasoning": 318592,
       "claude_tokens": 1425467077,
       "claude_cost": 5662.788307,
       "claude_input": 1422592091,
@@ -59802,19 +59802,19 @@
       "codex_models": [
         {
           "model": "gpt-6.2-astra",
-          "tokens": 122469879,
-          "cost": 105.9293768,
+          "tokens": 1561611049,
+          "cost": 750.4900328,
           "components_complete": true,
           "raw_models": [
             "gpt-6.2-astra"
           ],
           "pricing_provenance": "pinned-ledger",
-          "input": 6654164,
-          "output": 160853,
-          "cache_read": 115654862,
+          "input": 10535218,
+          "output": 1156009,
+          "cache_read": 1549919822,
           "cache_write": 0,
           "cache_create": 0,
-          "reasoning": 18505,
+          "reasoning": 318592,
           "canonical_model": "gpt-6.2-astra",
           "pricing_version": "2026-11-20.v1",
           "ownership_rule_version": "3"
@@ -60256,8 +60256,8 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 1745667693,
-      "total_cost": 5818.59293876,
+      "total_tokens": 3184808863,
+      "total_cost": 6463.15359476,
       "codex_snapshot_complete": true,
       "codex_pricing_complete": false,
       "codex_pricing_version": "2026-11-20.v1",
@@ -60273,12 +60273,12 @@
     },
     {
       "date": "2026-11-26",
-      "codex_tokens": 5803436,
-      "codex_cost": 3.7405862999999995,
-      "codex_input": 1190240,
-      "codex_cache_read": 4584327,
-      "codex_output": 28869,
-      "codex_reasoning": 0,
+      "codex_tokens": 7070630,
+      "codex_cost": 9.0953415,
+      "codex_input": 1824242,
+      "codex_cache_read": 5216775,
+      "codex_output": 29613,
+      "codex_reasoning": 106,
       "claude_tokens": 89810998,
       "claude_cost": 362.176716,
       "claude_input": 89618646,
@@ -60332,6 +60332,21 @@
           "canonical_model": "gpt-5.6-terra",
           "pricing_version": "2026-11-20.v1",
           "ownership_rule_version": "3"
+        },
+        {
+          "model": "gpt-6.2-astra",
+          "tokens": 1267194,
+          "cost": 5.3547552,
+          "components_complete": true,
+          "pricing_provenance": "pinned-ledger",
+          "input": 634002,
+          "output": 744,
+          "cache_read": 632448,
+          "cache_write": 0,
+          "cache_create": 0,
+          "reasoning": 106,
+          "canonical_model": "gpt-6.2-astra",
+          "pricing_version": "2026-11-20.v1"
         },
         {
           "model": "gpt-5.6-sol",
@@ -60577,16 +60592,20 @@
           "ownership_rule_version": "3"
         }
       ],
-      "total_tokens": 149380854,
-      "total_cost": 376.94307902,
+      "total_tokens": 150648048,
+      "total_cost": 382.29783422,
+      "codex_snapshot_complete": true,
+      "codex_pricing_complete": true,
+      "codex_pricing_version": "2026-11-20.v1",
+      "codex_pricing_provenance": "pinned-ledger",
+      "cursor_snapshot_complete": true,
+      "cursor_pricing_complete": true,
+      "cursor_pricing_version": "cursor-billed",
+      "cursor_pricing_provenance": "billed-dashboard",
       "claude_snapshot_complete": true,
       "claude_pricing_version": "2026-11-20.v1",
       "claude_pricing_complete": true,
-      "claude_pricing_provenance": "pinned-ledger",
-      "codex_snapshot_complete": true,
-      "codex_pricing_version": "2026-11-20.v1",
-      "codex_pricing_complete": true,
-      "codex_pricing_provenance": "pinned-ledger"
+      "claude_pricing_provenance": "pinned-ledger"
     },
     {
       "date": "2026-11-27",
